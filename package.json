@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "scripts": {
+    "dev": "nuxt dev"
+  },
+  "dependencies": {
+    "@css-render/vue3-ssr": "^0.15.10",
+    "@vicons/ionicons5": "^0.13.0",
+    "@vicons/utils": "^0.1.4",
+    "naive-ui": "^2.30.6",
+    "nuxt": "3.6.5",
+    "nuxt-windicss": "^2.2.0",
+    "windicss": "^3.5.1"
+  }
+}
