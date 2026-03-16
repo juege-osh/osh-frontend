@@ -1,20 +1,20 @@
 <template>
-    <n-card class="course-card" footer-style="padding:0;">
+    <n-card class="course-card" footer-style="padding:0;" @click="open">
         <template #cover>
-            <UiImage :src="item.cover" class="course-cover"/>
+            <UiImage :src="item.cover" class="card-cover"/>
         </template>
-        <div class="course-content">
-            <span class="course-title">{{ item.title }}</span>
+        <div class="card-title">
+            <span class="title-text">{{ item.title }}</span>
         </div>
-        <div class="course-price-container">
+        <div class="card-price">
             <Price :value="item.price"/>
-            <Price :value="item.t_price" through class="original-price"/>
+            <Price :value="item.t_price" through class="price-through"/>
         </div>
         <template #footer v-if="item.group_id || item.flashsale_id">
             <ClientOnly>
-                <div class="promotion-banner">
+                <div class="activity-tag">
                     {{ item.group_id ? '拼团中' : '秒杀中' }}
-                    <div class="countdown-container">
+                    <div class="countdown-wrapper">
                         倒计时
                         <CountDown :time="item.end_time"/>
                     </div>
@@ -27,59 +27,83 @@
 import {
     NCard
 } from "naive-ui"
-defineProps({
+const props = defineProps({
     item:Object
 })
-</script>
 
+const open = ()=>{
+    let path = ""
+    // 课程详情
+    if(["course","media","audio","video"].includes(props.item.type)){
+        path = `/detail/course/${props.item.id}`
+    }
+    // 专栏详情
+    else if(props.item.type == "column"){
+        path = `/detail/column/${props.item.id}`
+    }
+    // 直播详情
+    else if(props.item.type == "live"){
+        path = `/detail/live/${props.item.id}`
+    }
+
+    // 秒杀和拼团
+    if(props.item.group_id){
+        path = `${path}?group_id=${props.item.group_id}`
+    }
+    if(props.item.flashsale_id){
+        path = `${path}?flashsale_id=${props.item.flashsale_id}`
+    }
+
+    navigateTo(path)
+}
+</script>
 <style scoped>
 .course-card {
     cursor: pointer;
     margin-bottom: 1.25rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    border: none;
+    border: none !important;
 }
 
-.course-cover {
+.card-cover {
     width: 100%;
     height: 150px;
 }
 
-.course-content {
+.card-title {
     padding-top: 0.5rem;
 }
 
-.course-title {
-    font-weight: bold;
+.title-text {
+    font-weight: 700;
     width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-weight: 600;
 }
 
-.course-price-container {
-    margin-top: 0.5rem;
+.card-price {
     display: flex;
     align-items: flex-end;
+    margin-top: 0.5rem;
 }
 
-.original-price {
+.price-through {
     margin-left: 0.5rem;
 }
 
-.promotion-banner {
+.activity-tag {
     background-color: #f59e0b;
     color: white;
     padding: 0.75rem;
     font-size: 0.75rem;
     display: flex;
     align-items: center;
-    border-bottom-left-radius: 0.25rem;
     border-bottom-right-radius: 0.25rem;
+    border-bottom-left-radius: 0.25rem;
 }
 
-.countdown-container {
+.countdown-wrapper {
     margin-left: auto;
     display: flex;
     align-items: center;
