@@ -1,44 +1,23 @@
-# Nuxt 3 Minimal Starter
+1.clone项目
 
-Look at the [nuxt 3 documentation](https://v3.nuxtjs.org) to learn more.
+git clone git@github.com-juege:juege-osh/osh-frontend.git
 
-## Setup
 
-Make sure to install the dependencies:
+2.环境准备
 
-```bash
-# yarn
-yarn install
-
-# npm
-npm install
-
-# pnpm
-pnpm install --shamefully-hoist
-```
-
-## Development Server
-
-Start the development server on http://localhost:3000
-
-```bash
-npm run dev
-```
-
-## Production
-
-Build the application for production:
-
-```bash
-npm run build
-```
-
-Locally preview production build:
-
-```bash
-npm run preview
-```
-
-Checkout the [deployment documentation](https://v3.nuxtjs.org/guide/deploy/presets) for more information.
+node安装v18.17.0 版本的 
+可以去node官网 也可以让ai教你弄
 
 npm instal qrcode
+
+3.依赖安装与启动
+
+npm install && npm run dev
+
+
+
+4.访问如下地址 成功即可
+
+http://localhost:3000/
+
+
