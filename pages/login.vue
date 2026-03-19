@@ -127,6 +127,7 @@ useEnterEvent(()=>onSubmit())
 
 definePageMeta({
     layout:"login"
+    
 })
 </script>
 <style scoped>
