@@ -29,4 +29,5 @@
     font-size: 1.25rem;
     color: #6b7280;
 }
+
 </style>
