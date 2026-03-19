@@ -16,7 +16,7 @@
             <n-input v-model:value="form.repassword" placeholder="确认密码" type="password" :disabled="!form.password"/>
         </n-form-item>
         <div class="button-container">
-            <n-button quaternary type="primary" size="tiny" @click="$router.go(-1)">
+            <n-button class="back-login" quaternary type="primary" size="tiny" @click="$router.go(-1)">
                 返回登录
             </n-button>
         </div>
@@ -176,5 +176,15 @@ definePageMeta({
     margin: 0 0.25rem;
     font-size: 0.75rem;
     font-weight: 400;
+}
+
+/* 返回登录按钮样式 */
+.back-login {
+    color: #6281bf;
+    font-size: 15px;
+}
+
+.back-login:hover {
+    color: #6b7280;
 }
 </style>
