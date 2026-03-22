@@ -2,7 +2,8 @@ import {
     createDiscreteApi
 } from "naive-ui"
 export const fetchConfig = {
-    baseURL:"http://demonuxtapi.dishait.cn/pc",
+    // baseURL:"http://demonuxtapi.dishait.cn/pc",
+    baseURL:"http://localhost:8080/pc",
     headers:{
         appid:"bd9d01ecc75dbbaaefce"
     },
@@ -28,10 +29,10 @@ function useGetFetchOptions(options = {}){
 export async function useHttp(key,url,options = {}){
     options = useGetFetchOptions(options)
     options.key = key
-
     if(options.$){
         const data = ref(null)
         const error = ref(null)
+        console.log(options)
         return await $fetch(url,options).then(res=>{
             data.value = res.data
             return {

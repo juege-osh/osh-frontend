@@ -11,7 +11,7 @@
                 </div>
                 <div class="testimonial">
                     <blockquote>
-                        "我们是一家开源教育机构，致力于让开源项目简单化，便于实施和易学。"
+                        "致力于让开源项目简单化，便于实施和易学。"
                     </blockquote>
                     <p>- JuegeTeam</p>
                 </div>

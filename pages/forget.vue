@@ -3,16 +3,16 @@
         <n-form-item path="phone">
             <n-input v-model:value="form.phone" placeholder="手机号"/>
         </n-form-item>
-        <n-form-item path="code">
+        <n-form-item :show-label="false" path="code">
             <n-input-group>
                 <n-input class="code-input" v-model:value="form.code" placeholder="验证码"/>
                 <SendCode :phone="form.phone"/>
             </n-input-group>
         </n-form-item>
-        <n-form-item path="password">
+        <n-form-item :show-label="false" path="password">
             <n-input v-model:value="form.password" placeholder="密码" type="password"/>
         </n-form-item>
-        <n-form-item path="repassword">
+        <n-form-item :show-label="false" path="repassword">
             <n-input v-model:value="form.repassword" placeholder="确认密码" type="password" :disabled="!form.password"/>
         </n-form-item>
         <div class="button-container">

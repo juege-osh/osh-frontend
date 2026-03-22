@@ -1,20 +1,44 @@
+
 <template>
+    
     <n-form class="login-form" ref="formRef" :model="form" :rules="rules" size="large">
-        <n-form-item path="username">
-            <n-input v-model:value="form.username" placeholder="用户名/手机/邮箱"/>
+        
+
+        <n-form-item path="email" v-if="type != 'login'" :show-label="false" >
+            <n-input v-model:value="form.email" placeholder="邮箱"/>
         </n-form-item>
-        <n-form-item path="password">
-            <n-input v-model:value="form.password" placeholder="密码" type="password"/>
+        
+        <n-form-item path="username" :show-label="false"  >
+            <n-input v-model:value="form.username" placeholder='用户名' />
+        </n-form-item> 
+
+        <n-form-item path="password" :show-label="false" >
+                <n-input v-model:value="form.password" placeholder='密码' type="password"/>
         </n-form-item>
+
+        <n-form-item path="repassword" v-if="type != 'login'" :show-label="false"  >
+            <n-input v-model:value="form.repassword" placeholder="确认密码" type="password"/>
+        </n-form-item>
+        
+        <n-form-item path="email" v-if="type != 'login'" :show-label="false" >
+            <n-input  v-model:value="form.appid" placeholder="appid" />
+            <SendCode  v-if="type != 'login'"   :email="form.email" :username="form.username" :password="form.password" :repassword="form.repassword" />
+        </n-form-item>
+
         <div class="button-container">
             <div class="links">
-                <nuxt-link to="/register" class="link">注册</nuxt-link>
+                <n-button class="go-to-button" quaternary type="primary" size="tiny" @click="changeType">
+                    {{ type === 'login' ? '去注册' : '去登录' }}
+                </n-button>
                 <nuxt-link to="/forget" class="link">忘记密码？</nuxt-link>
             </div>
         </div>
         <div>
-            <n-button class="submit-button" type="primary" @click="onSubmit" :loading="loading">
+            <n-button  v-if="type === 'login'"  class="submit-button" type="primary" @click="onSubmit" :loading="loading">
                 登录
+            </n-button>
+            <n-button v-if="type != 'login'" :appid="form.appid"  class="submit-button" type="primary" :disabled=" !form.username || !form.password || !form.email || !form.repassword  || !form.appid " @click="onSubmit" :loading="loading">
+                注册 
             </n-button>
         </div>
         <div class="agreement-container">
@@ -37,26 +61,77 @@ import {
 
 const route = useRoute()
 
+const type = ref("login")
+const title = ref("登录")
+useHead({ title })
+
 const formRef = ref(null)
 const form = reactive({
     username: "",
-    password: ""
+    password: "",
+    repassword: "",
+    email:"",
+    appid:""
 })
 
-const rules = computed(() => ({
-    username: [
-        {
+// 表单验证规则
+const rules = computed(() => {
+    let r = {
+        username: [{
             required: true,
-            message: "请输入用户名/手机号/邮箱"
-        }
-    ],
-    password: [
-        {
+            message: '请输入用户名/邮箱'
+        }],
+        password: [{
             required: true,
             message: "请输入密码"
-        }
-    ]
-}))
+        }],
+        repassword: [{
+            required: true,
+            message: "请输入确认密码"
+        }],
+        email: [{
+            required: true,
+            message: "请输入邮箱"
+        }],
+        appid: [{
+            required: true,
+            message: "请输入appid"
+        }]
+    }
+
+    // 注册时需要验证确认密码
+    if (type.value != "login") {
+        r.repassword = [{
+            required: true,
+            message: "请输入确认密码"
+        }, {
+            validator(rule, value) {
+                return value === form.password
+            },
+            message: "两次密码输入不一致",
+            // 输入和失去焦点时
+            trigger: ["input", "blur"]
+        }]
+    }
+
+    return r
+})
+
+// 切换登录和注册
+const changeType = () => {
+    type.value = type.value === 'login' ? 'reg' : 'login'
+    title.value = type.value == 'login' ? '登录' : '注册'
+    
+    route.meta.title = title.value
+
+    form.username = ""
+    form.password = ""
+    form.repassword = ""
+    form.email = ""
+    form.appid = ""
+    // 还原验证状态
+    formRef.value.restoreValidation()
+}
 
 const loading = ref(false)
 const onSubmit = () => {
@@ -68,30 +143,45 @@ const onSubmit = () => {
         let {
             data,
             error
-        } = await useLoginApi(form)
+        } = type.value === 'login' ? await useLoginApi(form) : await useRegApi(form.appid)
 
         loading.value = false
 
         if (error.value) return
 
+        // nav ui 的创建api
         const { message } = createDiscreteApi(["message"])
-        message.success("登录成功")
+        if(data.value!=null)
+            message.success(type.value === "login"?"登录成功":"注册成功" )
+        else
+            message.error("用户名不存在或者密码不正确")
 
-        // ✅ 将用户登录成功返回的 token 存储在 cookie 当中，用户登录成功的标识
-        const token = useCookie("token")
-        token.value = data.value.token
-        const user = useUser()
-        user.value = data.value
+        if (type.value === "login") {
+            // Nuxt 提供的 cookie 管理工具
+            const token = useCookie("token")
+            token.value = data.value.token
+            // 存储用户信息
+            const user = useUser()
+            user.value = data.value
 
-        // ✅ 跳转
-        navigateTo(route.query.from || "/", { replace: true })
+            // 如果有 from 参数，跳转到该页面
+            // 例：/login?from=/user → 跳转到 /user
+            navigateTo(route.query.from || "/", { replace: true })
+        } else {
+            changeType()
+        }
     })
 }
+
+
+useEnterEvent(()=>onSubmit())
+
 
 definePageMeta({
     layout: "login"
 })
 </script>
+
 
 <style scoped>
 .login-form {
@@ -179,5 +269,15 @@ definePageMeta({
     margin: 0 0.25rem;
     font-size: 0.75rem;
     font-weight: 400;
+}
+
+/* 去登录和注册按钮样式 */
+.go-to-button{
+    color: #007bff;
+    font-size: 0.9rem;
+}
+
+.go-to-button:hover{
+    color: #007bff;
 }
 </style>
