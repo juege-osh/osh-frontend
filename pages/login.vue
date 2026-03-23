@@ -147,6 +147,7 @@ const onSubmit = () => {
 
         loading.value = false
 
+        console.log(error)
         if (error.value) return
 
         // nav ui 的创建api
@@ -154,7 +155,7 @@ const onSubmit = () => {
         if(data.value!=null)
             message.success(type.value === "login"?"登录成功":"注册成功" )
         else
-            message.error("用户名不存在或者密码不正确")
+            message.error(type.value === "reg"? "注册失败":"登录失败")
 
         if (type.value === "login") {
             // Nuxt 提供的 cookie 管理工具

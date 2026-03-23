@@ -3,6 +3,7 @@ import {
 } from "naive-ui"
 export const fetchConfig = {
     // baseURL:"http://demonuxtapi.dishait.cn/pc",
+    // baseURL:"http://43.242.200.25:8090/pc",
     baseURL:"http://localhost:8080/pc",
     headers:{
         appid:"bd9d01ecc75dbbaaefce"
