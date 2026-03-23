@@ -1,33 +1,40 @@
 // 登录
 export function useLoginApi(body){
-    return useHttpPost("login","/login",{
+    return useHttpPost("login","/user/login",{
+        // body: body ES6简化写法
         body
     })
 }
 
-// 注册
-export function useRegApi(body){
-    return useHttpPost("reg","/reg",{
-        body
+// appid注册
+export function useRegApi(uniqueId){
+    return useHttpPost("reg","/user/register/verity",{
+        body:{
+            uniqueId
+        }
     })
 }
 
+// 获取用户信息用来保证user全局生效
 export function useGetinfoApi(){
-    return useHttpGet("getinfo","/getinfo",{
+    return useHttpGet("getinfo","/user/getinfo",{
         $:true
     })
 }
 
 // 退出登录
 export function useLogoutApi(){
-    return useHttpPost("logout","/logout")
+    return useHttpPost("logout","/user/logout")
 }
 
-// 获取手机验证码
-export function useGetCaptchaApi(phone){
-    return useHttpPost("GetCaptcha","/get_captcha",{
+// 获取邮箱apid
+export function useGetCaptchaApi(email,username,password,repassword){
+    return useHttpPost("GetCaptcha","/user/register/submit",{
         body:{
-            phone
+            email,
+            username,
+            password,
+            repassword
         }
     })
 }

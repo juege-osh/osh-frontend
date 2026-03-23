@@ -1,25 +1,44 @@
+
 <template>
+    
     <n-form class="login-form" ref="formRef" :model="form" :rules="rules" size="large">
-        <n-form-item :show-label="false" path="username">
-            <n-input v-model:value="form.username" :placeholder="type === 'login' ? '用户名/手机/邮箱' : '用户名'"/>
+        
+
+        <n-form-item path="email" v-if="type != 'login'" :show-label="false" >
+            <n-input v-model:value="form.email" placeholder="邮箱"/>
         </n-form-item>
-        <n-form-item :show-label="false" path="password">
-            <n-input v-model:value="form.password" placeholder="密码" type="password"/>
+        
+        <n-form-item path="username" :show-label="false"  >
+            <n-input v-model:value="form.username" placeholder='用户名' />
+        </n-form-item> 
+
+        <n-form-item path="password" :show-label="false" >
+                <n-input v-model:value="form.password" placeholder='密码' type="password"/>
         </n-form-item>
-        <n-form-item v-if="type != 'login'" :show-label="false" path="repassword">
+
+        <n-form-item path="repassword" v-if="type != 'login'" :show-label="false"  >
             <n-input v-model:value="form.repassword" placeholder="确认密码" type="password"/>
         </n-form-item>
+        
+        <n-form-item path="email" v-if="type != 'login'" :show-label="false" >
+            <n-input  v-model:value="form.appid" placeholder="appid" />
+            <SendCode  v-if="type != 'login'"   :email="form.email" :username="form.username" :password="form.password" :repassword="form.repassword" />
+        </n-form-item>
+
         <div class="button-container">
-            <n-button quaternary type="primary" size="tiny" @click="changeType">
-                {{ type === 'login' ? '注册' : '登录' }}
-            </n-button>
-            <nuxt-link to="/forget">
-                <n-button quaternary type="primary" size="tiny">忘记密码？</n-button>
-            </nuxt-link>
+            <div class="links">
+                <n-button class="go-to-button" quaternary type="primary" size="tiny" @click="changeType">
+                    {{ type === 'login' ? '去注册' : '去登录' }}
+                </n-button>
+                <nuxt-link to="/forget" class="link">忘记密码？</nuxt-link>
+            </div>
         </div>
         <div>
-            <n-button class="submit-button" type="primary" @click="onSubmit" :loading="loading">
-                {{ type === 'login' ? '登 录' : '注 册' }}
+            <n-button  v-if="type === 'login'"  class="submit-button" type="primary" @click="onSubmit" :loading="loading">
+                登录
+            </n-button>
+            <n-button v-if="type != 'login'" :appid="form.appid"  class="submit-button" type="primary" :disabled=" !form.username || !form.password || !form.email || !form.repassword  || !form.appid " @click="onSubmit" :loading="loading">
+                注册 
             </n-button>
         </div>
         <div class="agreement-container">
@@ -30,6 +49,7 @@
         </div>
     </n-form>
 </template>
+
 <script setup>
 import {
     NForm,
@@ -38,39 +58,58 @@ import {
     NButton,
     createDiscreteApi
 } from "naive-ui"
+
 const route = useRoute()
+
 const type = ref("login")
 const title = ref("登录")
 useHead({ title })
 
 const formRef = ref(null)
 const form = reactive({
-    username:"",
-    password:"",
-    repassword:""
+    username: "",
+    password: "",
+    repassword: "",
+    email:"",
+    appid:""
 })
 
-const rules = computed(()=>{
+// 表单验证规则
+const rules = computed(() => {
     let r = {
-        username:[{
+        username: [{
             required: true,
-            message: type.value === 'login' ? '用户名/手机号/邮箱必填' : '用户名必填'
+            message: '请输入用户名/邮箱'
         }],
-        password:[{
+        password: [{
             required: true,
-            message:"密码必填"
+            message: "请输入密码"
+        }],
+        repassword: [{
+            required: true,
+            message: "请输入确认密码"
+        }],
+        email: [{
+            required: true,
+            message: "请输入邮箱"
+        }],
+        appid: [{
+            required: true,
+            message: "请输入appid"
         }]
     }
 
-    if(type.value != "login"){
+    // 注册时需要验证确认密码
+    if (type.value != "login") {
         r.repassword = [{
             required: true,
-            message:"确认密码必填"
-        },{
+            message: "请输入确认密码"
+        }, {
             validator(rule, value) {
                 return value === form.password
             },
-            message:"两次密码输入不一致",
+            message: "两次密码输入不一致",
+            // 输入和失去焦点时
             trigger: ["input", "blur"]
         }]
     }
@@ -78,71 +117,140 @@ const rules = computed(()=>{
     return r
 })
 
-const changeType = ()=>{
+// 切换登录和注册
+const changeType = () => {
     type.value = type.value === 'login' ? 'reg' : 'login'
     title.value = type.value == 'login' ? '登录' : '注册'
+    
     route.meta.title = title.value
+
     form.username = ""
     form.password = ""
     form.repassword = ""
+    form.email = ""
+    form.appid = ""
+    // 还原验证状态
     formRef.value.restoreValidation()
 }
 
 const loading = ref(false)
-const onSubmit = ()=>{
-    formRef.value.validate(async (errors)=>{
-        if(errors) return
+const onSubmit = () => {
+    formRef.value.validate(async (errors) => {
+        if (errors) return
         
         loading.value = true
 
         let {
             data,
             error
-        } = type.value === 'login' ? await useLoginApi(form) : await useRegApi(form)
+        } = type.value === 'login' ? await useLoginApi(form) : await useRegApi(form.appid)
 
         loading.value = false
 
-        if(error.value) return
+        console.log(error)
+        if (error.value) return
 
+        // nav ui 的创建api
         const { message } = createDiscreteApi(["message"])
-        message.success(type.value === "login" ? "登录成功" : "注册成功")
+        if(data.value!=null)
+            message.success(type.value === "login"?"登录成功":"注册成功" )
+        else
+            message.error(type.value === "reg"? "注册失败":"登录失败")
 
-        if(type.value === "login"){
-            // 将用户登录成功返回的token存储在cookie当中，用户登录成功的标识
+        if (type.value === "login") {
+            // Nuxt 提供的 cookie 管理工具
             const token = useCookie("token")
             token.value = data.value.token
+            // 存储用户信息
             const user = useUser()
             user.value = data.value
 
-            // 跳转
-            navigateTo(route.query.from || "/",{ replace:true })
+            // 如果有 from 参数，跳转到该页面
+            // 例：/login?from=/user → 跳转到 /user
+            navigateTo(route.query.from || "/", { replace: true })
         } else {
-            // 切换回登录页
             changeType()
         }
     })
 }
 
+
 useEnterEvent(()=>onSubmit())
 
+
 definePageMeta({
-    layout:"login"
+    layout: "login"
 })
 </script>
+
+
 <style scoped>
 .login-form {
-    width: 340px;
+    width: 100%;
 }
 
+/* 主按钮样式 */
+.submit-button {
+    width: 100%;
+    background-color: #007bff !important;
+    border-color: #007bff !important;
+    color: white !important;
+    font-weight: 500;
+    border-radius: 4px;
+    padding: 0.75rem 0;
+    margin-top: 1rem;
+    font-size: 1rem;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+}
+
+/* 悬停效果 */
+.submit-button:hover {
+    background-color: #0056b3 !important;
+    border-color: #0056b3 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+}
+
+/* 输入框样式 */
+.n-input {
+    border-radius: 4px;
+    border: 1px solid #d1d5da;
+    transition: border-color 0.2s ease;
+    font-size: 0.95rem;
+}
+
+/* 输入框聚焦状态 */
+.n-input:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+}
+
+/* 链接样式 */
 .button-container {
     display: flex;
     justify-content: space-between;
-    width: 100%;
-    margin-bottom: 0.5rem;
+    margin: 1rem 0;
 }
 
-.submit-button {
+.links {
+    display: flex;
+    justify-content: space-between;
     width: 100%;
+}
+
+.link {
+    color: #007bff;
+    font-size: 0.875rem;
+    text-decoration: none;
+    padding: 0.25rem 0;
+    font-weight: 400;
+    transition: color 0.2s ease;
+}
+
+.link:hover {
+    text-decoration: underline;
+    color: #0056b3;
 }
 
 .agreement-container {
@@ -152,6 +260,25 @@ definePageMeta({
     width: 100%;
     font-size: 0.75rem;
     margin-top: 1.25rem;
-    color: #4b5563;
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+.agreement-container .n-button {
+    color: #007bff;
+    padding: 0;
+    margin: 0 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 400;
+}
+
+/* 去登录和注册按钮样式 */
+.go-to-button{
+    color: #007bff;
+    font-size: 0.9rem;
+}
+
+.go-to-button:hover{
+    color: #007bff;
 }
 </style>
