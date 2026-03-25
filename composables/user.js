@@ -48,7 +48,7 @@ export function useBindPhoneApi(body){
 
 // 忘记密码
 export function useForgetApi(body){
-    return useHttpPost("forget","/forget",{
+    return useHttpPost("forget","/user/forget",{
         body
     })
 }

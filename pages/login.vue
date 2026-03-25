@@ -21,7 +21,7 @@
         </n-form-item>
         
         <n-form-item path="email" v-if="type != 'login'" :show-label="false" >
-            <n-input  v-model:value="form.appid" placeholder="appid" />
+            <n-input  v-model:value="form.uniqueId" placeholder="uniqueId" />
             <SendCode  v-if="type != 'login'"   :email="form.email" :username="form.username" :password="form.password" :repassword="form.repassword" />
         </n-form-item>
 
@@ -37,7 +37,7 @@
             <n-button  v-if="type === 'login'"  class="submit-button" type="primary" @click="onSubmit" :loading="loading">
                 登录
             </n-button>
-            <n-button v-if="type != 'login'" :appid="form.appid"  class="submit-button" type="primary" :disabled=" !form.username || !form.password || !form.email || !form.repassword  || !form.appid " @click="onSubmit" :loading="loading">
+            <n-button v-if="type != 'login'" :uniqueId="form.uniqueId"  class="submit-button" type="primary" :disabled=" !form.username || !form.password || !form.email || !form.repassword  || !form.uniqueId " @click="onSubmit" :loading="loading">
                 注册 
             </n-button>
         </div>
@@ -71,7 +71,7 @@ const form = reactive({
     password: "",
     repassword: "",
     email:"",
-    appid:""
+    uniqueId:""
 })
 
 // 表单验证规则
@@ -93,9 +93,9 @@ const rules = computed(() => {
             required: true,
             message: "请输入邮箱"
         }],
-        appid: [{
+        uniqueId: [{
             required: true,
-            message: "请输入appid"
+            message: "请输入uniqueId"
         }]
     }
 
@@ -128,7 +128,7 @@ const changeType = () => {
     form.password = ""
     form.repassword = ""
     form.email = ""
-    form.appid = ""
+    form.uniqueId = ""
     // 还原验证状态
     formRef.value.restoreValidation()
 }
@@ -143,11 +143,10 @@ const onSubmit = () => {
         let {
             data,
             error
-        } = type.value === 'login' ? await useLoginApi(form) : await useRegApi(form.appid)
+        } = type.value === 'login' ? await useLoginApi(form) : await useRegApi(form.uniqueId)
 
         loading.value = false
-
-        console.log(error)
+        
         if (error.value) return
 
         // nav ui 的创建api

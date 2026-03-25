@@ -1,25 +1,32 @@
 <template>
+    
     <n-form class="forget-form" ref="formRef" :model="form" :rules="rules" size="large">
-        <n-form-item path="phone">
-            <n-input v-model:value="form.phone" placeholder="手机号"/>
+<!--         
+        <n-form-item path="email">
+            <n-input v-model:value="form.email" placeholder="邮箱"/>
         </n-form-item>
-        <n-form-item :show-label="false" path="code">
+         -->
+        <n-form-item :show-label="false" path="uniqueId">
             <n-input-group>
-                <n-input class="code-input" v-model:value="form.code" placeholder="验证码"/>
-                <SendCode :phone="form.phone"/>
+                <n-input class="uniqueId-input" v-model:value="form.uniqueId" placeholder="unique id"/>
+                <!-- <SendCode :email="form.email" :username="1" :password="form.password" :repassword="form.repassword" :uniqueId="form.uniqueId" /> -->
             </n-input-group>
         </n-form-item>
+        
         <n-form-item :show-label="false" path="password">
             <n-input v-model:value="form.password" placeholder="密码" type="password"/>
         </n-form-item>
+        
         <n-form-item :show-label="false" path="repassword">
             <n-input v-model:value="form.repassword" placeholder="确认密码" type="password" :disabled="!form.password"/>
         </n-form-item>
+        
         <div class="button-container">
             <n-button class="back-login" quaternary type="primary" size="tiny" @click="$router.go(-1)">
                 返回登录
             </n-button>
         </div>
+        
         <div>
             <n-button class="submit-button" type="primary" @click="onSubmit" :loading="loading">
                 重置密码
@@ -42,20 +49,21 @@ useHead({ title:"忘记密码" })
 
 const formRef = ref(null)
 const form = reactive({
-    phone:"",
-    code:"",
+    email:"",
+    uniqueId:"",
     password:"",
-    repassword:""
+    repassword:"",
+    username:"zw"
 })
 
 const rules = {
-    phone:[{
+    email:[{
         required: true,
-        message:'手机号必填'
+        message:'邮箱必填'
     }],
-    code:[{
+    uniqueId:[{
         required: true,
-        message:'验证码必填'
+        message:'unique id必填'
     }],
     password:[{
         required: true,
@@ -148,7 +156,7 @@ definePageMeta({
 }
 
 /* 验证码输入框 */
-.code-input {
+.uniqueId-input {
     border-radius: 4px 0 0 4px;
 }
 
