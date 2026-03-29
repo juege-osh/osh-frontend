@@ -1,3 +1,5 @@
+// 视频获取的api
+
 export const useCourses = () => {
   const courseList = ref([])
 

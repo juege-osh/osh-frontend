@@ -16,17 +16,20 @@
                 </ui-menu-item>
             </ui-menu>
 
-            <n-button circle class="search-btn" @click="openSearch">
+            <!-- <n-button circle class="search-btn" @click="openSearch">
                 <template #icon>
                     <n-icon><Search /></n-icon>
                 </template>
-            </n-button>
-            <nuxt-link to="/login" v-if="!user">
+            </n-button> -->
+            <!-- 暂时禁用search 两处处加上class防止样式靠左 -->
+
+            <nuxt-link class="login" to="/login" v-if="!user">
                 <n-button secondary strong>登录</n-button>
             </nuxt-link>
             
             <n-dropdown v-else :options="userOptions" @select="handleSelect">
-                <n-avatar
+                <n-avatar  
+                    class="login" 
                     round
                     size="small"
                     :src=" user.avatar || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'"
@@ -61,6 +64,13 @@ const menus = [{
     path:"/paper/1",
     match:[{
         name:"paper-page"
+    }]
+},
+{
+    name:"热门",
+    path:"/hot/1",
+    match:[{
+        name:"hot-id"
     }]
 },{
     name:"拼团",
@@ -153,7 +163,6 @@ const SearchBarRef = ref(null)
 const openSearch = ()=>SearchBarRef.value.open()
 
 const handleSelect = (k)=>{
-    console.log(k)
     switch (k) {
         case "logout":
             const { dialog } = createDiscreteApi(["dialog"])
@@ -260,4 +269,9 @@ const handleSelect = (k)=>{
 .h-\[60px\] {
     height: 60px;
 }
+
+.login {
+    margin-left: auto;
+}
+
 </style>

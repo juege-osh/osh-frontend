@@ -59,7 +59,8 @@ const send = async ()=>{
         }
     }, 1000);
 
-    const msg = data.value == "ok" ? "发送成功" : `当前是演示模式，你的验证码是:${data.value}`
+
+    const msg = data.value == "ok" ? "发送成功" : `${data.value}`
     const { message } = createDiscreteApi(["message"])
     message.success(msg)
 }

@@ -33,7 +33,6 @@ export async function useHttp(key,url,options = {}){
     if(options.$){
         const data = ref(null)
         const error = ref(null)
-        console.log(options)
         return await $fetch(url,options).then(res=>{
             data.value = res.data
             return {
