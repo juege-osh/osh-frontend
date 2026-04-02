@@ -28,12 +28,12 @@
             </nuxt-link>
             
             <n-dropdown v-else :options="userOptions" @select="handleSelect">
-                <n-avatar  
+                    <n-avatar  
                     class="login" 
                     round
                     size="small"
-                    :src=" user.avatar || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'"
-                />
+                    :src=" user?.avatar || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'"
+                    />
             </n-dropdown>
         </div>
     </div>
@@ -64,13 +64,6 @@ const menus = [{
     path:"/paper/1",
     match:[{
         name:"paper-page"
-    }]
-},
-{
-    name:"热门",
-    path:"/hot/1",
-    match:[{
-        name:"hot-id"
     }]
 },{
     name:"拼团",
@@ -162,10 +155,11 @@ const userOptions = [{
 const SearchBarRef = ref(null)
 const openSearch = ()=>SearchBarRef.value.open()
 
+const { dialog } = createDiscreteApi(["dialog"])
+
 const handleSelect = (k)=>{
     switch (k) {
         case "logout":
-            const { dialog } = createDiscreteApi(["dialog"])
             dialog.warning({
                 content: "是否要退出登录？",
                 positiveText: "退出",

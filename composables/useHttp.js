@@ -57,6 +57,7 @@ export async function useHttp(key,url,options = {}){
         ...options,
         // 相当于响应拦截器
         transform:(res)=>{
+            console.log("响应拦截器",res.data)
             return res.data
         },
     })

@@ -3,7 +3,6 @@
     
     <n-form class="login-form" ref="formRef" :model="form" :rules="rules" size="large">
         
-
         <n-form-item path="email" v-if="type != 'login'" :show-label="false" >
             <n-input v-model:value="form.email" placeholder="邮箱"/>
         </n-form-item>
@@ -20,7 +19,7 @@
             <n-input v-model:value="form.repassword" placeholder="确认密码" type="password"/>
         </n-form-item>
         
-        <n-form-item path="email" v-if="type != 'login'" :show-label="false" >
+        <n-form-item path="uniqueId" v-if="type != 'login'" :show-label="false" >
             <n-input  v-model:value="form.uniqueId" placeholder="uniqueId" />
             <SendCode  v-if="type != 'login'"   :email="form.email" :username="form.username" :password="form.password" :repassword="form.repassword" />
         </n-form-item>
@@ -37,7 +36,7 @@
             <n-button  v-if="type === 'login'"  class="submit-button" type="primary" @click="onSubmit" :loading="loading">
                 登录
             </n-button>
-            <n-button v-if="type != 'login'" :uniqueId="form.uniqueId"  class="submit-button" type="primary" :disabled=" !form.username || !form.password || !form.email || !form.repassword  || !form.uniqueId " @click="onSubmit" :loading="loading">
+            <n-button v-if="type != 'login'" :uniqueId="form.uniqueId"  class="submit-button" type="primary" :disabled="!form.email || !form.username || !form.password || !form.repassword || !form.uniqueId " @click="onSubmit" :loading="loading">
                 注册 
             </n-button>
         </div>
@@ -80,10 +79,25 @@ const rules = computed(() => {
         username: [{
             required: true,
             message: '请输入用户名/邮箱'
+        },{
+            // 添加用户名或邮箱格式校验规则
+            validator: (rule, value) => {
+                // 检查是否为8位字符的用户名或有效邮箱格式
+                const isUsername = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,16}$/.test(value);
+                const isEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)
+                
+                return isUsername || isEmail;
+            },
+            message: "用户名需为8-16位数字并且包含至少一个字母",
+            trigger: ["input", "blur"]
         }],
         password: [{
             required: true,
             message: "请输入密码"
+        },{
+            pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,16}$/,
+            message: "密码必须至少8位，包含大小写字母和数字",
+            trigger: ["input", "blur"]
         }],
         repassword: [{
             required: true,
@@ -92,6 +106,14 @@ const rules = computed(() => {
         email: [{
             required: true,
             message: "请输入邮箱"
+        },{
+            // 邮箱格式校验规则
+            validator: (rule, value) => {
+                const isEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)
+                return isEmail;
+            },
+            message: "请输入有效邮箱格式",
+            trigger: ["input", "blur"]
         }],
         uniqueId: [{
             required: true,

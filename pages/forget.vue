@@ -1,16 +1,13 @@
 <template>
     
     <n-form class="forget-form" ref="formRef" :model="form" :rules="rules" size="large">
-<!--         
-        <n-form-item path="email">
-            <n-input v-model:value="form.email" placeholder="邮箱"/>
+
+        <n-form-item :show-label="false" path="username">
+                <n-input v-model:value="form.username" placeholder="用户名"/>
         </n-form-item>
-         -->
+
         <n-form-item :show-label="false" path="uniqueId">
-            <n-input-group>
                 <n-input class="uniqueId-input" v-model:value="form.uniqueId" placeholder="unique id"/>
-                <!-- <SendCode :email="form.email" :username="1" :password="form.password" :repassword="form.repassword" :uniqueId="form.uniqueId" /> -->
-            </n-input-group>
         </n-form-item>
         
         <n-form-item :show-label="false" path="password">
@@ -49,18 +46,28 @@ useHead({ title:"忘记密码" })
 
 const formRef = ref(null)
 const form = reactive({
-    email:"",
+    username:"",
     uniqueId:"",
     password:"",
-    repassword:"",
-    username:"zw"
+    repassword:""
 })
 
 const rules = {
-    email:[{
+    username:[{
         required: true,
-        message:'邮箱必填'
-    }],
+        message:'用户名必填'
+    },{
+        // 添加用户名或邮箱格式校验规则
+        validator: (rule, value) => {
+            // 检查是否为8位字符的用户名或有效邮箱格式
+            const isUsername = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,16}$/.test(value);
+            const isEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)
+            
+            return isUsername || isEmail;
+        },
+        message: "用户名或邮箱格式不正确",
+        trigger: ["input", "blur"]
+        }],
     uniqueId:[{
         required: true,
         message:'unique id必填'
@@ -68,7 +75,11 @@ const rules = {
     password:[{
         required: true,
         message:"密码必填"
-    }],
+    },{
+            pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,16}$/,
+            message: "密码必须至少8位，包含字母和数字",
+            trigger: ["input", "blur"]
+        }],
     repassword:[{
         required: true,
         message:"确认密码必填"

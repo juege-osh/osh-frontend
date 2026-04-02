@@ -13,8 +13,9 @@ export async function usePage(initListApiCallback){
         limit:limit.value
     })
 
-    const rows = computed(()=>data.value?.rows ?? [])
-    const total = computed(()=>data.value?.count ?? 0)
+    // 兼容后端的接口 records 和 total
+    const rows = computed(()=>data.value?.rows ?? data.value?.records ?? [])
+    const total = computed(()=>data.value?.count ?? data.value?.total ?? 0)
 
     const handlePageChange = (p)=>{
         navigateTo({

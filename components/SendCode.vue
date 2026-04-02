@@ -33,7 +33,7 @@ const text = computed(()=>{
     if(!props.repassword){
         return "请输入确认密码"
     }
-    return "发送邮箱"
+    return "发送uniqueid到邮箱"
 })
 
 // 发送验证码

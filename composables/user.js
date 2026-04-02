@@ -27,7 +27,7 @@ export function useLogoutApi(){
     return useHttpPost("logout","/user/logout")
 }
 
-// 获取邮箱apid
+// 获取邮箱uniqueId
 export function useGetCaptchaApi(email,username,password,repassword){
     return useHttpPost("GetCaptcha","/user/register/submit",{
         body:{
@@ -57,6 +57,7 @@ export function useForgetApi(body){
 export function useUserHistoryApi(query){
     return useHttpGet("userHistory",()=>{
         let q = useQueryToString(query())
+        console.log("user.js 获取学习记录"+q)
         return `/user_history/list${q}`
     },{
         lazy:true
