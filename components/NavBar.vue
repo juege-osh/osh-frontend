@@ -104,17 +104,22 @@ const menus = [
       },
     ],
   },
+  // {
+  //   name: '课程',
+  //   path: '/list/course/1',
+  //   match: [
+  //     {
+  //       name: 'list-type-page',
+  //       params: {
+  //         type: 'column',
+  //       },
+  //     },
+  //   ],
+  // },
   {
     name: '课程',
-    path: '/list/column/1',
-    match: [
-      {
-        name: 'list-type-page',
-        params: {
-          type: 'column',
-        },
-      },
-    ],
+    path: '/course/1', // 对应你图片中的信息差/星号项目
+    match: [{ name: 'course-page' }],
   },
   {
     name: '电子书',
@@ -153,6 +158,10 @@ const menus = [
     path: '/info_gap/1', // 对应你图片中的信息差/星号项目
     match: [{ name: 'info_gap-page' }],
   },
+  {
+    name:"内部网站",
+    path:"/site"
+  }
 ];
 function handleOpen(path) {
   navigateTo(path);
