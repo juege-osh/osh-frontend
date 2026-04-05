@@ -112,7 +112,7 @@
                         maxlength="500" />
                 </n-form-item>
                 <n-form-item label="封面图片" path="cover">
-                    <Uploader v-model:value="formData.cover" />
+                    <Uploader v-model:value="formData.cover" :data="formApiData" @update:model-value="handleCoverUploaded"/>
                 </n-form-item>
                 <n-form-item label="网站描述" path="description">
                     <n-input v-model:value="formData.description" type="textarea" placeholder="请输入网站描述（可选）"
@@ -133,12 +133,6 @@
                             管理标签
                         </n-button>
                     </div>
-                </n-form-item>
-                <n-form-item label="状态" path="status">
-                    <n-radio-group v-model:value="formData.status">
-                        <n-radio :value="1">启用</n-radio>
-                        <n-radio :value="0">禁用</n-radio>
-                    </n-radio-group>
                 </n-form-item>
             </n-form>
             <template #footer>
@@ -195,10 +189,20 @@ useHead({
     title: '内部网站 - 开源助手',
 })
 
+const formApiData = {
+    type: "image"
+}
+
+function handleCoverUploaded(file) {
+    if (file) {
+        formData.cover = file.url
+    }
+}
+
 // 状态选项
 const statusOptions = [
-    { label: '启用', value: 1 },
-    { label: '禁用', value: 0 },
+    { label: '正常', value: 1 },
+    { label: '异常', value: 0 },
 ]
 
 const protocolOptions = [
@@ -349,10 +353,14 @@ function handlePageChange(page) {
     loadList()
 }
 
+// 新增还是修改：新增为 false，修改为 true
+const isUpdate = ref(false)
+
 // 打开新增弹窗
 function openAddModal() {
     isEdit.value = false
     modalTitle.value = '新增网站'
+    isUpdate.value = false
     Object.assign(formData, defaultFormData())
     showModal.value = true
 }
@@ -361,6 +369,8 @@ function openAddModal() {
 function openEditModal(site) {
     isEdit.value = true
     modalTitle.value = '编辑网站'
+    isUpdate.value = true
+
     Object.assign(formData, {
         id: site.id,
         siteName: site.siteName || '',
@@ -380,8 +390,6 @@ async function handleSubmit() {
     } catch {
         return
     }
-
-    console.log('提交的表单数据:', formData.cover)
 
     submitting.value = true
     const { message } = createDiscreteApi(['message'])

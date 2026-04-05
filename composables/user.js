@@ -127,7 +127,8 @@ export function useUploadConfig(){
         action: fetchConfig.baseURL + "/upload",
         headers:{
             appid:fetchConfig.headers.appid,
-            token:token.value
+            token:token.value,
+            "Authorization": token.value
         }
     }
 }
