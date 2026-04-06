@@ -158,6 +158,10 @@ const menus = [
     path: '/info_gap/1', // 对应你图片中的信息差/星号项目
     match: [{ name: 'info_gap-page' }],
   },
+  {
+    name:"内部网站",
+    path:"/site"
+  }
 ];
 function handleOpen(path) {
   navigateTo(path);
