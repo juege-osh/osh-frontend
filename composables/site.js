@@ -13,9 +13,17 @@ export function useSiteInfoDetailApi(id) {
     })
 }
 
-// 获取内部网站详情
+// 使用内部网站
 export function useSiteUrlApi(id) {
     return useHttpPost("SiteInfoDetail", `/site/use/${id}`, {
+        $: true
+    })
+}
+
+
+// 获取内部网站详情
+export function useGetSiteInfoByIdApi(id, needUrl = false) {
+    return useHttpGet("SiteInfoDetail", `/site/${id}?needUrl=${needUrl}`, {
         $: true
     })
 }
@@ -62,7 +70,7 @@ export function useSiteTagsAllApi() {
 
 // 获取所有标签及其使用次数
 export function useSiteTagsListApi() {
-    return useHttpGet("SiteTagsList", "/site/tags/list", {
+    return useHttpGet("SiteTagsList", `/site/tags/list`, {
         $: true
     })
 }

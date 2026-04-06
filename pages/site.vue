@@ -68,7 +68,7 @@
                     <!-- 标签 -->
                     <div v-if="site.tagList && site.tagList.length > 0" class="site-tags">
                         <n-tag v-for="(tag, index) in site.tagList" :key="index" size="tiny" type="info"
-                            style="margin-right: 3px; margin-top: 3px;">{{ tag }}</n-tag>
+                            style="margin-right: 3px; margin-top: 3px;">{{ tag.tagName }}</n-tag>
                     </div>
                 </div>
 
@@ -112,7 +112,7 @@
                         maxlength="500" />
                 </n-form-item>
                 <n-form-item label="封面图片" path="cover">
-                    <Uploader v-model:value="formData.cover" :data="formApiData" @update:model-value="handleCoverUploaded"/>
+                    <uploader v-model:value="formData.cover" :data="formApiData" @update:model-value="handleCoverUploaded"/>
                 </n-form-item>
                 <n-form-item label="网站描述" path="description">
                     <n-input v-model:value="formData.description" type="textarea" placeholder="请输入网站描述（可选）"
@@ -125,8 +125,6 @@
                             placeholder="请选择或输入标签"
                             :options="tagOptions"
                             multiple
-                            filterable
-                            tag
                             style="flex: 1;"
                         />
                         <n-button type="primary" @click="openTagManageModal" style="min-width: 100px;">
@@ -144,7 +142,7 @@
         </n-modal>
 
         <!-- 标签管理弹窗 -->
-        <n-modal v-model:show="showTagManageModal" title="管理标签" preset="card" style="width: 500px;"
+        <n-modal v-model:show="showTagManageModal" title="管理标签" preset="card" style="width: 700px;"
             :mask-closable="false">
             <div style="margin-bottom: 12px;">
                 <n-input 
@@ -157,6 +155,9 @@
                         <n-button type="primary" size="small" @click="handleAddTag" :loading="addingTag">
                             添加
                         </n-button>
+                       <n-button type="primary" size="small" @click="handleRefreshTags" :loading="addingTag">
+                            刷新
+                        </n-button>
                     </template>
                 </n-input>
             </div>
@@ -165,7 +166,7 @@
                 :data="allTags"
                 :bordered="false"
                 :single-line="false"
-                style="max-height: 300px; overflow-y: auto;"
+                style="max-height: 400px; overflow-y: auto;"
             />
             <template #footer>
                 <div style="display: flex; justify-content: flex-end;">
@@ -179,7 +180,7 @@
 <script setup>
 import {
     NInput, NButton, NSelect, NModal, NForm, NFormItem,
-    NRadioGroup, NRadio, NTag, NSpin, NEmpty,
+    NTag, NSpin, NEmpty,
     NIcon, createDiscreteApi, NDataTable
 } from 'naive-ui'
 import { Search, Add, Globe, CreateOutline, TrashOutline } from '@vicons/ionicons5'
@@ -190,12 +191,15 @@ useHead({
 })
 
 const formApiData = {
-    type: "image"
+    type: "image",
+    preview: true,
+    minute: 3,
+    id: "site-cover"
 }
 
 function handleCoverUploaded(file) {
     if (file) {
-        formData.cover = file.url
+        formData.cover = file.userData.url
     }
 }
 
@@ -204,13 +208,6 @@ const statusOptions = [
     { label: '正常', value: 1 },
     { label: '异常', value: 0 },
 ]
-
-const protocolOptions = [
-    { label: 'http://www', value: 1 },
-    { label: 'https://www', value: 2 },
-]
-
-const protocolValue = ref(1)
 
 // 列表数据
 const siteList = ref([])
@@ -238,7 +235,7 @@ const defaultFormData = () => ({
     siteUrl: 'https://www.baidu.com',
     cover: '',
     description: '',
-    tags: '',
+    tags: [],
     status: 1,
 })
 
@@ -251,21 +248,15 @@ const showTagManageModal = ref(false)
 const newTagName = ref('')
 const addingTag = ref(false)
 
-const fileList = ref([])
-
 // 标签表格列定义
 const tagColumns = [
     {
         title: '标签名称',
         key: 'tagName',
-        width: 200,
+        width: 100,
         render: (row) => {
-            return h(NInput, {
-                value: row.tagName,
-                size: 'small',
-                onUpdateValue: (v) => {
-                    row.tagName = v
-                }
+            return h('div', {
+                innerText: row.tagName
             })
         }
     },
@@ -282,15 +273,15 @@ const tagColumns = [
     {
         title: '操作',
         key: 'actions',
-        width: 150,
+        width: 20,
         fixed: 'right',
         render: (row) => {
             return h('div', { style: 'display: flex; gap: 4px;' }, [
-                h(NButton, {
-                    size: 'small',
-                    type: 'primary',
-                    onClick: () => handleUpdateTag(row)
-                }, { default: () => '保存' }),
+                // h(NButton, {
+                //     size: 'small',
+                //     type: 'primary',
+                //     onClick: () => handleUpdateTag(row)
+                // }, { default: () => '保存' }),
                 h(NButton, {
                     size: 'small',
                     type: 'error',
@@ -323,16 +314,6 @@ async function loadList() {
         const { data } = await useSiteInfoListApi(query)
         if (data.value ) {
             const sites = data.value.rows || []
-            // 为每个网站加载标签
-            for (const site of sites) {
-                try {
-                    const { data: tagsData } = await useSiteTagsBySiteIdApi(site.id)
-                    site.tagList = tagsData.value || []
-                } catch (error) {
-                    console.error(`加载网站 ${site.id} 的标签失败:`, error)
-                    site.tagList = []
-                }
-            }
             siteList.value = sites
             total.value = data.value.total || 0
         }
@@ -344,12 +325,6 @@ async function loadList() {
 // 搜索
 function handleSearch() {
     currentPage.value = 1
-    loadList()
-}
-
-// 分页
-function handlePageChange(page) {
-    currentPage.value = page
     loadList()
 }
 
@@ -371,16 +346,25 @@ function openEditModal(site) {
     modalTitle.value = '编辑网站'
     isUpdate.value = true
 
-    Object.assign(formData, {
-        id: site.id,
-        siteName: site.siteName || '',
-        siteUrl: site.siteUrl || '',
-        cover: site.cover || '',
-        description: site.description || '',
-        tags: site.tags || '',
-        status: site.status ?? 1,
+    let siteUrl = site.siteUrl || ''
+    // 获取网站链接地址(有权限校验)
+    useGetSiteInfoByIdApi(site.id, true)
+        .then(({ data }) => {
+        if (data.value) {
+            const siteInfo = data.value
+            const tags = siteInfo.tagList ? siteInfo.tagList.map(tag => tag.id) : []
+            siteUrl = siteInfo.siteUrl || siteUrl
+            Object.assign(formData, {
+                id: site.id,
+                siteName: siteInfo.siteName || '',
+                siteUrl: siteInfo.siteUrl || '',
+                description: site.description || '',
+                tags: tags,
+                status: siteInfo.status ?? 1,
+            })
+            showModal.value = true
+        }
     })
-    showModal.value = true
 }
 
 // 提交表单
@@ -390,10 +374,15 @@ async function handleSubmit() {
     } catch {
         return
     }
-
     submitting.value = true
     const { message } = createDiscreteApi(['message'])
     try {
+        if (formData.tags) {
+            formData.tagList = formData.tags.map(tagId => {
+                    return { id: tagId }
+                }
+            )
+        }
         if (isEdit.value) {
             await useSiteInfoUpdateApi({ ...formData })
             message.success('修改成功')
@@ -403,7 +392,7 @@ async function handleSubmit() {
         }
         showModal.value = false
         loadList()
-    } catch {
+    } catch (error) {
         message.error(isEdit.value ? '修改失败' : '新增失败')
     } finally {
         submitting.value = false
@@ -435,6 +424,7 @@ function handleDelete(id) {
 // 加载所有标签
 async function loadAllTags() {
     try {
+        // -1 为系统标签
         const { data } = await useSiteTagsListApi()
         if (data.value) {
             allTags.value = data.value.map(tag => ({
@@ -443,8 +433,8 @@ async function loadAllTags() {
                 usageCount: tag.usageCount || 0
             }))
             tagOptions.value = data.value.map(tag => ({
-                label: `${tag.tagName} (${tag.usageCount || 0})`,
-                value: tag.tagName
+                label: `${tag.tagName}`,
+                value: tag.id
             }))
         }
     } catch (error) {
@@ -455,6 +445,10 @@ async function loadAllTags() {
 // 打开标签管理弹窗
 function openTagManageModal() {
     showTagManageModal.value = true
+    loadAllTags()
+}
+
+function handleRefreshTags() {
     loadAllTags()
 }
 
@@ -471,7 +465,8 @@ async function handleAddTag() {
     
     try {
         await useSiteTagAddApi({
-            tagName: newTagName.value.trim()
+            tagName: newTagName.value.trim(),
+            siteId: -1 // -1 表示系统标签
         })
         message.success('添加成功')
         newTagName.value = ''
