@@ -1,10 +1,5 @@
 <template>
   <div class="course-container">
-    <n-breadcrumb class="breadcrumb-wrapper">
-      <n-breadcrumb-item><nuxt-link to="/">首页</nuxt-link></n-breadcrumb-item>
-      <n-breadcrumb-item>所有课程</n-breadcrumb-item>
-    </n-breadcrumb>
-
     <CourseFilter
       v-model:modelValue="queryParams"
       :tag-options="tagOptions"
@@ -44,7 +39,6 @@
         @update:page="handleRefresh"
       />
     </div>
-
     <CourseEditModal
       v-model:show="showCreateModal"
       :tag-options="tagOptions"
@@ -54,75 +48,61 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'; // 加上 computed
+import { ref, reactive, computed } from 'vue';
 import CourseEditModal from '~/components/Course/CourseEditModal.vue';
 import CourseFilter from '~/components/Course/CourseFilter.vue';
 import CourseCard from '~/components/Course/CourseCard.vue';
-// 1. 引入接口和 Nuxt 路由工具
+import { NGrid, NGi, NPagination } from 'naive-ui';
 
-import {
-  NGrid,
-  NGi,
-  NPagination,
-  NBreadcrumb,
-  NBreadcrumbItem,
-} from 'naive-ui';
-
-// ✅ 修改后
+// 1. 查询参数
 const queryParams = reactive({
-  keyword: '', // 对应搜索框
-  tags: [], // 对应标签选择，改为 tags
+  keyword: '',
+  tags: [],
   pageNum: 1,
   pageSize: 10,
-  // 如果后端还需要 type，可以保留，不需要就删掉
 });
-// 修改后：将 queryParams 作为函数传入，确保 refresh 时获取的是 reactive 的最新值
-// ✅ 直接传入 reactive 对象，不要传匿名函数
+
+// 2. 核心接口调用
+// 建议：确保 queryParams 的变化能被 refresh 捕捉
 const {
   data: resData,
   pending,
   refresh,
 } = await useCourseSearchApi(queryParams);
-// --- 2. 映射真数据 ---
-// 后端返回的是 { data: { rows: [...], total: 100 } }
-// --- 2. 映射真数据 ---
-// --- 2. 映射真数据 ---
-const courseList = computed(() => {
-  // 核心调试：如果还是 0，看浏览器 Console 里的打印
-  console.log('API 返回的原始 resData:', resData.value);
 
-  // 这里的路径必须极其精准
-  // 方案 A: 对应后端返回 { data: { data: { rows: [...] } } } 的情况
-  // 方案 B: 对应后端返回 { data: { rows: [...] } } 的情况
-  const actualData = resData.value?.data || resData.value;
+// 3. 映射列表数据
+const courseList = computed(() => {
+  const actualData = resData.value?.data?.rows
+    ? resData.value.data
+    : resData.value;
   const rows = actualData?.rows || [];
 
   return rows.map((item) => ({
     ...item,
     buyCount: item.salesCount || 0,
-    // 补全图片路径，防止 404
+    // 这里的域名根据你实际后端地址改，或者写死生产环境域名
     cover: item.cover
       ? item.cover.startsWith('http')
         ? item.cover
         : `http://localhost:8081${item.cover}`
       : 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg',
-    goodCount: item.ratingScore || 5,
-    midCount: 0,
-    badCount: 0,
+    ratingScore: item.ratingScore || 5,
   }));
 });
 
-// totalCount 也要同步修正
+// 4. 映射总条数
 const totalCount = computed(() => {
-  const actualData = resData.value?.data || resData.value;
+  const actualData =
+    resData.value?.data?.total !== undefined
+      ? resData.value.data
+      : resData.value;
   return actualData?.total || 0;
 });
-// --- 3. 搜索与刷新逻辑 ---
 
-// --- 新增课程弹窗控制 ---
+// 5. 弹窗控制
 const showCreateModal = ref(false);
 
-// 标签下拉框数据 - 后续通过接口 tags.map(v => ({label: v.name, value: v.id})) 填充
+// 6. 静态配置
 const tagOptions = [
   { label: 'Vue3', value: 1 },
   { label: 'Nuxt3', value: 2 },
@@ -138,44 +118,23 @@ const typeOptions = [
   { label: '图文课', value: 'text' },
 ];
 
-// Mock 10条数据，体现紧凑感
-// const mockRows = ref(
-//   Array.from({ length: 10 }).map((_, i) => ({
-//     id: i + 1,
-//     title:
-//       i % 2 === 0
-//         ? '全栈开发实战：从零构建高性能助手'
-//         : '程序员副业指南：信息差变现之道',
-//     cover: 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg',
-//     type: ['media', 'live', 'text'][i % 3],
-//     price: (i * 50).toFixed(2),
-//     buyCount: 100 + i * 150,
-//     goodCount: 90,
-//     midCount: 8,
-//     badCount: 2,
-//   }))
-// );
+// --- 逻辑函数 ---
 
-// --- 3. 搜索与刷新逻辑 ---
-// handleRefresh 应该接收组件传回来的新页码
-// --- 3. 搜索与刷新逻辑 ---
 const handleSearch = () => {
   queryParams.pageNum = 1;
-  // 注意：useCourseSearchApi 如果是用的 useFetch 封装，
-  // 必须确保 refresh 能拿到最新的 queryParams
   refresh();
 };
 
 const handleRefresh = (page) => {
-  queryParams.pageNum = page;
+  // 这里的 page 是 n-pagination 传回来的页码
+  queryParams.pageNum = page || 1;
   refresh();
 };
-// 在课程列表页的 <script setup> 中
+
 const handleDetail = (id) => {
-  // 注意：这里路径改成了并列的 course_detail
+  // 确保路径和你的 pages 目录结构一致
   navigateTo(`/course_detail/${id}`);
 };
-const handleNewCourse = () => navigateTo('/course/create');
 </script>
 
 <style scoped>

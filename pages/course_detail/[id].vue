@@ -1,6 +1,8 @@
 <template>
-  <div class="course-detail-page">
-    <div v-if="pending">正在加载...</div>
+  <div class="course-detail-container">
+    <div v-if="pending" class="loading-box">
+      <n-spin size="large" description="正在加载详情..." />
+    </div>
 
     <template v-else-if="courseData">
       <CourseDetailMarketing
@@ -8,14 +10,34 @@
         :data="courseData"
         @pay="handleFakePay"
       />
-      <CourseStudyCenter v-else :data="courseData" />
+
+      <CourseStudyCenter v-else :data="courseData">
+        <template #outline>
+          <div v-if="courseData.sections?.length">
+            <div v-for="(sec, index) in courseData.sections" :key="sec.id">
+              {{ index + 1 }}. {{ sec.title }}
+            </div>
+          </div>
+          <n-empty v-else description="暂无目录" size="small" />
+        </template>
+
+        <template #files>
+          <div v-if="courseData.files?.length"></div>
+          <n-empty v-else description="暂无资料" size="small" />
+        </template>
+
+        <template #qa>
+          <p>暂无提问...</p>
+        </template>
+      </CourseStudyCenter>
     </template>
 
     <div v-else>
-      <n-empty description="接口没返回数据，请检查网络" />
+      <n-empty description="未找到该课程信息" />
     </div>
   </div>
 </template>
+
 <script setup>
 import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
@@ -31,15 +53,6 @@ const isPaying = ref(false);
 // --- 第二步：发起异步请求 ---
 const { data, pending, error } = await useCourseDetailApi(courseId);
 
-// ❌ 原来的写法（错误：多取了一层）
-// if (data.value && data.value.code === 200) {
-//   courseData.value = data.value.data;
-//   isPaid.value = data.value.data.buyFlag === 1;
-//   console.log('✅ 成功抓取到数据:', courseData.value.title);
-// } else {
-//   console.error('❌ 接口没给数据或 code 不对', data.value);
-// }
-
 // ✅ 正确写法（你的 useHttp 已经 transform 过了）
 if (data.value) {
   courseData.value = data.value;
@@ -49,18 +62,6 @@ if (data.value) {
 } else {
   console.error('❌ 接口没数据', data.value);
 }
-
-// ❌ 原来的 watch（错误：多取了一层）
-// watch(
-//   data,
-//   (newVal) => {
-//     if (newVal?.code === 200) {
-//       courseData.value = newVal.data;
-//       isPaid.value = newVal.data.buyFlag === 1;
-//     }
-//   },
-//   { immediate: true }
-// );
 
 // ✅ 正确 watch（可留可不留）
 watch(
@@ -106,6 +107,10 @@ const handleFakePay = async () => {
   padding: 24px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   width: 100%;
+}
+.course-detail-container {
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
 }
 
 .breadcrumb {

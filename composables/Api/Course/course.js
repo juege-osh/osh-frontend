@@ -1,5 +1,5 @@
 // composables/Api/Course/course.js
-
+import { useGetFetchOptions } from '~/composables/useHttp'; // 确保路径正确
 // 1. 课程搜索/列表 (对应后端: POST /pc/course/search)
 // ✅ 修改为 POST 请求
 export function useCourseSearchApi(body) {
@@ -51,5 +51,15 @@ export function useLearnApi(body) {
 export function useSubmitQuestionApi(body) {
   return useHttpPost('SubmitQuestion', '/course/section/submit', {
     body,
+  });
+}
+
+export function useAddCourseApi(body) {
+  return useHttpPost('AddCourse', '/course/save', {
+    body,
+    headers: {
+      token: localStorage.getItem('Token'), // 手动写死小写 key
+      appid: 'bd9d01ecc75dbbaaefce',
+    },
   });
 }

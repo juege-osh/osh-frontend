@@ -35,12 +35,17 @@
 
       <n-gi :span="11">
         <div class="card-module qa-module">
-          <n-tabs type="line" animated>
-            <n-tab-pane name="1" tab="课程问答">
-              <slot name="qa"></slot>
-            </n-tab-pane>
-            <n-tab-pane name="2" tab="公告"></n-tab-pane>
-          </n-tabs>
+          <n-gi :span="11">
+            <div class="card-module qa-module">
+              <div class="module-title">问答列表</div>
+
+              <div class="qa-content-box">
+                <slot name="qa"></slot>
+
+                <div v-if="!$slots.qa" class="empty-text">暂无提问...</div>
+              </div>
+            </div>
+          </n-gi>
         </div>
       </n-gi>
 
@@ -77,8 +82,9 @@ defineProps({
 <style scoped>
 /* 搬运你之前 .study-layout 之后的所有 CSS */
 .study-layout {
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  padding: 20px;
 }
 .study-header {
   display: flex;
@@ -125,5 +131,27 @@ defineProps({
   font-weight: bold;
   font-size: 16px;
   margin-bottom: 15px;
+}
+.course-detail-container {
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+}
+/* 问答列表 */
+.qa-module {
+  display: flex;
+  flex-direction: column;
+}
+
+.qa-content-box {
+  flex: 1;
+  overflow-y: auto;
+  /* 这里的颜色和字体大小对齐你截图里的“暂无提问” */
+  color: #666;
+  font-size: 14px;
+}
+
+.empty-text {
+  padding-top: 20px;
+  color: #999;
 }
 </style>
