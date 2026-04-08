@@ -13,13 +13,26 @@
         />
 
         <n-select
-          v-model:value="modelValue.type"
-          placeholder="课程类型"
-          :options="typeOptions"
-          style="width: 140px"
+          v-model:value="modelValue.isFree"
+          placeholder="收费/免费"
+          :options="priceOptions"
+          style="width: 120px"
           clearable
-          @update:value="$emit('search')"
+          @update:value="handleUpdate"
         />
+
+        <n-button
+          :secondary="!modelValue.isFollowing"
+          :type="modelValue.isFollowing ? 'primary' : 'default'"
+          @click="toggleFollowing"
+        >
+          <template #icon>
+            <n-icon
+              ><HeartOutline v-if="!modelValue.isFollowing" /><Heart v-else
+            /></n-icon>
+          </template>
+          我的关注
+        </n-button>
 
         <n-input
           v-model:value="modelValue.keyword"
@@ -34,7 +47,7 @@
         </n-input>
       </n-space>
 
-      <n-button type="primary" @click="$emit('create')">
+      <n-button type="primary" @click="handleCreateClick">
         <template #icon>
           <n-icon><Add /></n-icon>
         </template>
@@ -46,20 +59,35 @@
 
 <script setup>
 import { NSpace, NSelect, NInput, NButton, NIcon } from 'naive-ui';
-import { Add, SearchOutline } from '@vicons/ionicons5';
+import { Add, SearchOutline, HeartOutline, Heart } from '@vicons/ionicons5';
+import { ref } from 'vue';
 
 const props = defineProps({
   modelValue: Object,
   tagOptions: Array,
-  typeOptions: Array,
 });
 
 const emit = defineEmits(['update:modelValue', 'search', 'create']);
 
-// 封装一个更新函数，确保数据同步后立即搜索
+// 价格筛选选项
+const priceOptions = [
+  { label: '免费课程', value: true },
+  { label: '付费课程', value: false },
+];
+
+// 处理关注状态切换
+const toggleFollowing = () => {
+  props.modelValue.isFollowing = !props.modelValue.isFollowing;
+  handleUpdate();
+};
+
 const handleUpdate = () => {
   emit('update:modelValue', props.modelValue);
   emit('search');
+};
+const handleCreateClick = () => {
+  console.log('子组件：准备触发新增事件');
+  emit('create');
 };
 </script>
 

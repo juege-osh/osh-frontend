@@ -78,6 +78,35 @@
           <n-text depth="3" style="margin-left: 10px">(系统自动统计)</n-text>
         </n-space>
       </n-form-item>
+      <n-form-item label="课程价格">
+        <n-space>
+          <n-input-number
+            v-model:value="formValue.price"
+            :min="0"
+            placeholder="实际售价"
+          >
+            <template #prefix>￥</template>
+          </n-input-number>
+          <n-text depth="3">原价：</n-text>
+          <n-input-number
+            v-model:value="formValue.tPrice"
+            :min="0"
+            placeholder="划线价"
+          >
+            <template #prefix>￥</template>
+          </n-input-number>
+        </n-space>
+      </n-form-item>
+
+      <n-form-item label="课程类型">
+        <n-select
+          v-model:value="formValue.type"
+          :options="[
+            { label: '图文专栏', value: 'column' },
+            { label: '视频课程', value: 'media' },
+          ]"
+        />
+      </n-form-item>
 
       <div class="outline-container">
         <div
@@ -195,6 +224,7 @@
 <script setup>
 import { reactive, ref } from 'vue';
 import { CloudUploadOutline } from '@vicons/ionicons5';
+import { useAddCourseApi } from '~/composables/Api/Course/course';
 import {
   NModal,
   NForm,
@@ -209,7 +239,12 @@ import {
   NTable,
   NIcon,
   NUploadDragger,
+  useMessage,
 } from 'naive-ui';
+// 2. 初始化 message 实例
+
+// 3. 定义 loading 状态
+const loading = ref(false);
 
 defineProps({
   show: Boolean,
@@ -224,6 +259,11 @@ const formValue = reactive({
   tagIds: [],
   service_period: 12,
   service_content: '源码+文档+技术支持',
+  // ✨ 增加以下字段
+  price: 0, // 实际售价
+  tPrice: 0, // 课程原价
+  type: 'media', // 默认类型
+  cover: '', // 封面地址
   good_count: 0,
   mid_count: 0,
   bad_count: 0,
@@ -246,11 +286,61 @@ const addChapter = () => formValue.chapters.push({ title: '', sections: [] });
 const removeChapter = (i) => formValue.chapters.splice(i, 1);
 const addSection = (i) => formValue.chapters[i].sections.push({ title: '' });
 const removeSection = (ci, si) => formValue.chapters[ci].sections.splice(si, 1);
+// 2. 暂时不使用 loading 和 message，排除干扰
+// 修改 handlePublish 内部的 submitData 构造逻辑
+const handlePublish = async () => {
+  // 1. 获取消息实例（Naive UI 必须）
+  const message = useMessage();
 
-const handlePublish = () => {
-  window.$message?.success('课程发布成功！');
-  emit('update:show', false);
-  emit('success');
+  // 2. 基础校验
+  if (!formValue.title) {
+    message.error('请输入课程标题');
+    return;
+  }
+
+  loading.value = true;
+  try {
+    // 3. 构造提交数据
+    const submitData = {
+      title: formValue.title,
+      cover: formValue.cover || 'https://via.placeholder.com/150',
+      intro: formValue.desc, // 👈 确认后端是 intro 还是 desc
+      serviceContent: formValue.service_content,
+      price: formValue.price ?? 0,
+      tPrice: formValue.tPrice ?? 0,
+      type: formValue.type,
+      freeType: 0,
+      afterServiceDays: 0,
+      remark: '',
+      examId: null,
+    };
+
+    console.log('🚀 准备发送:', submitData);
+
+    // 4. 调用 API
+    const { data, error } = await useAddCourseApi(submitData);
+
+    // 5. 成功后的三部曲
+    if (!error.value && (data.value?.code === 200 || data.value > 0)) {
+      message.success('保存成功');
+
+      // 第一步：关窗（必做）
+      emit('update:show', false);
+
+      // 第二步：刷列表（必做）
+      emit('success');
+
+      // 第三步：清数据（防止下次点开还是旧内容）
+      // Object.assign(formValue, initialFormValue);
+    } else {
+      message.error(data.value?.msg || '保存失败');
+    }
+  } catch (err) {
+    console.error('保存报错了:', err);
+    message.error('网络异常');
+  } finally {
+    loading.value = false;
+  }
 };
 </script>
 

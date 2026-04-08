@@ -270,4 +270,8 @@ defineEmits(['pay']);
   flex: 1;
   background: #eee;
 }
+.course-detail-container {
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+}
 </style>
