@@ -5,7 +5,7 @@
         </div>
         <div class="copyright-wrap">
             <small>
-                Copyright © 2022 dishait.cn 粤ICP备2020100536号
+                Copyright © 2022 juegeresource.top 粤ICP备2020100536号
             </small>
         </div>
     </div>
