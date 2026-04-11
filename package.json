@@ -6,7 +6,7 @@
   },
   "dependencies": {
     "@css-render/vue3-ssr": "^0.15.10",
-    // 待测试删除
+    
     "@umoteam/umo-editor-nuxt": "^0.1.2",
     "@vicons/ionicons5": "^0.13.0",
     "@vicons/utils": "^0.1.4",
