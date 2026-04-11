@@ -10,9 +10,7 @@
 <script setup>
 import {
   NConfigProvider,
-  NMessageProvider,
-  NDialogProvider,
-  NNotificationProvider
+  NMessageProvider
 } from "naive-ui"
 </script>
 

@@ -40,11 +40,11 @@ export function useGetCaptchaApi(email,username,password,repassword){
 }
 
 // 绑定手机号
-export function useBindPhoneApi(body){
-    return useHttpPost("bindphone","/bind_mobile",{
-        body
-    })
-}
+// export function useBindPhoneApi(body){
+//     return useHttpPost("bindphone","/bind_mobile",{
+//         body
+//     })
+// }
 
 // 忘记密码
 export function useForgetApi(body){

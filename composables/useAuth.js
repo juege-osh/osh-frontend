@@ -49,12 +49,12 @@ export function useHasAuth(callback = null){
         return navigateTo("/login?from="+route.fullPath)
     }
 
-    // 未绑定手机号
-    const phone = user.value?.phone
-    if(!phone && route.name != 'bindphone'){
-        message.error("请先绑定手机号")
-        return navigateTo("/bindphone?from="+route.fullPath)
-    }
+    // 未绑定手机号 
+    // const phone = user.value?.phone
+    // if(!phone && route.name != 'bindphone'){
+    //     message.error("请先绑定手机号")
+    //     return navigateTo("/bindphone?from="+route.fullPath)
+    // }
 
     if(callback && typeof callback === "function"){
         callback()

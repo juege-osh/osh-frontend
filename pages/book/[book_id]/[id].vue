@@ -2,10 +2,27 @@
     <LoadingGroup :pending="pending" :error="error">
         <!-- 电子书内容容器，增加语义化类名便于样式控制 -->
         <div v-if="data" class="book-detail-content" v-html="data.content"></div>
+        <div v-else>
+            <n-result
+                status="500"
+                title="错误提醒"
+                description="请先购买电子书"
+            >
+                <template #footer>
+                <!-- <n-button>返回上一步</n-button> -->
+                </template>
+            </n-result>
+        </div>
+
     </LoadingGroup>
 </template>
 
 <script setup>
+import { 
+    NResult,
+    NButton
+
+  } from "naive-ui"
 const route = useRoute()
 const { id, book_id } = route.params
 

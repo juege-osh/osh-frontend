@@ -68,6 +68,24 @@ const menus = [
       },
     ],
   },
+    {
+    name: '开源项目',
+    path: '/openproject/list',
+    match: [
+      {
+        name: 'openproject-list',
+      },
+    ],
+  },
+  {
+    name: '实用网站',
+    path: '/usefull/list',
+    match: [
+      {
+        name: 'usefull-list',
+      },
+    ],
+  },
   {
     name: '拼团',
     path: '/list/group/1',
