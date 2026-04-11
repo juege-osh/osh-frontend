@@ -18,5 +18,8 @@
     "qrcode": "^1.5.4",
     "quill": "^2.0.3",
     "windicss": "^3.5.1"
+  },
+  "devDependencies": {
+    "@bg-dev/nuxt-naiveui": "^2.0.0"
   }
 }

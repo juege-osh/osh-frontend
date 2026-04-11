@@ -50,7 +50,9 @@ initFileList()
 const handleSuccess = (...e)=>{
     const { file,event } = e[0]
     const response = JSON.parse(event.target.response)
-    file.url = response.data
+    file.url = response.data.previewUrl
+    // 上传接口返回的data
+    file.userData = response.data
     return file
 }
 
@@ -81,13 +83,14 @@ onBeforeUnmount(()=>stopWatch())
 
 const emit = defineEmits(["update:modelValue"])
 function updateModelValue(){
-    let urls = []
+    let userDataList = []
     fileList.value.forEach(o=>{
         if(o.status === "finished" && o.url){
-            urls.push(o.url)
+            userDataList.push(o.userData)
         }
     })
-    emit("update:modelValue",urls[0] || "")
+    // 适配后台文件上传接口的返回值
+    emit("update:modelValue", userDataList[0] || "")
 }
 
 </script>
