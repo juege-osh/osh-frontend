@@ -14,8 +14,20 @@
       </n-form-item>
 
       <n-form-item label="课程封面">
-        <n-upload action="/api/upload" list-type="image-card" :max="1">
-          + 课程封面
+        <n-upload
+          :action="currentCourseId ? getCoverUploadUrl(currentCourseId) : ''"
+          :disabled="!currentCourseId"
+          list-type="image-card"
+          :max="1"
+          @finish="handleCoverFinish"
+        >
+          <div
+            v-if="!currentCourseId"
+            style="font-size: 12px; text-align: center; color: #999"
+          >
+            请先点击<br />下方保存
+          </div>
+          <template v-else> + 封面 </template>
         </n-upload>
       </n-form-item>
 
@@ -52,32 +64,6 @@
         />
       </n-form-item>
 
-      <n-form-item label="初始评分">
-        <n-space align="center">
-          <n-text depth="3">好评：</n-text>
-          <n-input-number
-            v-model:value="formValue.good_count"
-            disabled
-            size="small"
-            style="width: 80px"
-          />
-          <n-text depth="3" style="margin-left: 10px">中评：</n-text>
-          <n-input-number
-            v-model:value="formValue.mid_count"
-            disabled
-            size="small"
-            style="width: 80px"
-          />
-          <n-text depth="3" style="margin-left: 10px">差评：</n-text>
-          <n-input-number
-            v-model:value="formValue.bad_count"
-            disabled
-            size="small"
-            style="width: 80px"
-          />
-          <n-text depth="3" style="margin-left: 10px">(系统自动统计)</n-text>
-        </n-space>
-      </n-form-item>
       <n-form-item label="课程价格">
         <n-space>
           <n-input-number
@@ -98,74 +84,8 @@
         </n-space>
       </n-form-item>
 
-      <n-form-item label="课程类型">
-        <n-select
-          v-model:value="formValue.type"
-          :options="[
-            { label: '图文专栏', value: 'column' },
-            { label: '视频课程', value: 'media' },
-          ]"
-        />
-      </n-form-item>
-
-      <div class="outline-container">
-        <div
-          class="sub-title"
-          style="display: flex; justify-content: space-between"
-        >
-          课程大纲
-          <n-button size="small" type="primary" secondary @click="addChapter"
-            >添加新章节</n-button
-          >
-        </div>
-
-        <div
-          v-for="(chapter, cIndex) in formValue.chapters"
-          :key="cIndex"
-          class="chapter-card"
-        >
-          <div class="chapter-head">
-            <n-input
-              v-model:value="chapter.title"
-              placeholder="输入章节标题..."
-              style="flex: 1"
-            />
-            <n-button text type="error" @click="removeChapter(cIndex)"
-              >删除章节</n-button
-            >
-          </div>
-
-          <div class="section-container">
-            <div
-              v-for="(section, sIndex) in chapter.sections"
-              :key="sIndex"
-              class="section-row"
-            >
-              <n-input
-                v-model:value="section.title"
-                size="small"
-                placeholder="输入小节标题..."
-              />
-              <n-button text type="error" @click="removeSection(cIndex, sIndex)"
-                >删除</n-button
-              >
-            </div>
-            <n-button
-              dashed
-              block
-              size="small"
-              style="margin-top: 8px"
-              @click="addSection(cIndex)"
-            >
-              + 添加小节
-            </n-button>
-          </div>
-        </div>
-      </div>
-
       <div class="material-layout">
         <div class="table-box">
-          <div class="sub-title">资料列表</div>
           <n-table size="small" :single-line="false">
             <thead>
               <tr>
@@ -202,10 +122,26 @@
           </n-table>
         </div>
         <div class="upload-box">
-          <n-upload multiple directory-dnd action="/api/upload">
+          <n-upload
+            multiple
+            directory-dnd
+            :action="
+              currentCourseId ? getMaterialUploadUrl(currentCourseId) : ''
+            "
+            :disabled="!currentCourseId"
+            :data="{ materialName: '课程附件' }"
+            @finish="handleMaterialFinish"
+          >
             <n-upload-dragger>
-              <n-icon size="32" :depth="3"><CloudUploadOutline /></n-icon>
-              <div style="font-size: 12px; margin-top: 8px">拖拽压缩包上传</div>
+              <div v-if="!currentCourseId" style="padding: 20px">
+                <n-text depth="3">⚠️ 请先保存基础信息再上传资料</n-text>
+              </div>
+              <template v-else>
+                <n-icon size="32" :depth="3"><CloudUploadOutline /></n-icon>
+                <div style="font-size: 12px; margin-top: 8px">
+                  拖拽或点击上传
+                </div>
+              </template>
             </n-upload-dragger>
           </n-upload>
         </div>
@@ -224,7 +160,11 @@
 <script setup>
 import { reactive, ref } from 'vue';
 import { CloudUploadOutline } from '@vicons/ionicons5';
-import { useAddCourseApi } from '~/composables/Api/Course/course';
+import {
+  getCoverUploadUrl,
+  getMaterialUploadUrl,
+  useAddCourseApi,
+} from '~/composables/Api/Course/course';
 import {
   NModal,
   NForm,
@@ -252,6 +192,7 @@ defineProps({
 });
 
 const emit = defineEmits(['update:show', 'success']);
+const currentCourseId = ref(null);
 
 const formValue = reactive({
   title: '',
@@ -282,17 +223,44 @@ const materialList = ref([
   },
 ]);
 
-const addChapter = () => formValue.chapters.push({ title: '', sections: [] });
-const removeChapter = (i) => formValue.chapters.splice(i, 1);
-const addSection = (i) => formValue.chapters[i].sections.push({ title: '' });
-const removeSection = (ci, si) => formValue.chapters[ci].sections.splice(si, 1);
+/**
+ * 封面上传成功
+ */
+const handleCoverFinish = ({ event }) => {
+  // ✨ 关键：挪到函数里！只有点击上传、后端返回后才执行
+  const message = useMessage();
+
+  const res = JSON.parse(event.target.response);
+  if (res.code === 200) {
+    formValue.cover = res.data.url;
+    message.success('封面上传成功');
+  }
+};
+
+/**
+ * 资料上传成功回调
+ */
+/**
+ * 资料上传成功
+ */
+const handleMaterialFinish = ({ file, event }) => {
+  // ✨ 关键：挪到函数里！
+  const message = useMessage();
+
+  const res = JSON.parse(event.target.response);
+  if (res.code === 200) {
+    materialList.value.push({
+      name: file.name,
+      url: res.data,
+      size: (file.file.size / 1024 / 1024).toFixed(2) + ' MB',
+    });
+    message.success(`${file.name} 上传成功`);
+  }
+};
 // 2. 暂时不使用 loading 和 message，排除干扰
 // 修改 handlePublish 内部的 submitData 构造逻辑
 const handlePublish = async () => {
-  // 1. 获取消息实例（Naive UI 必须）
   const message = useMessage();
-
-  // 2. 基础校验
   if (!formValue.title) {
     message.error('请输入课程标题');
     return;
@@ -300,43 +268,31 @@ const handlePublish = async () => {
 
   loading.value = true;
   try {
-    // 3. 构造提交数据
     const submitData = {
       title: formValue.title,
-      cover: formValue.cover || 'https://via.placeholder.com/150',
-      intro: formValue.desc, // 👈 确认后端是 intro 还是 desc
+      intro: formValue.desc,
       serviceContent: formValue.service_content,
       price: formValue.price ?? 0,
       tPrice: formValue.tPrice ?? 0,
       type: formValue.type,
-      freeType: 0,
-      afterServiceDays: 0,
-      remark: '',
-      examId: null,
+      // 初始创建时不带 cover，因为后端现在要单独上传
     };
 
-    console.log('🚀 准备发送:', submitData);
-
-    // 4. 调用 API
     const { data, error } = await useAddCourseApi(submitData);
 
-    // 5. 成功后的三部曲
-    if (!error.value && (data.value?.code === 200 || data.value > 0)) {
-      message.success('保存成功');
+    if (!error.value && (data.value?.code === 200 || data.value?.data > 0)) {
+      // ✨ 重点：拿到后端返回的 ID
+      // 注意：根据你后端 R.ok() 的结构，ID 可能在 data.data 里
+      currentCourseId.value = data.value.data || data.value;
 
-      // 第一步：关窗（必做）
-      emit('update:show', false);
+      message.success('基础信息保存成功！现在可以上传封面和资料了');
 
-      // 第二步：刷列表（必做）
-      emit('success');
-
-      // 第三步：清数据（防止下次点开还是旧内容）
-      // Object.assign(formValue, initialFormValue);
+      // 注意：这里先不要 emit('update:show', false)，让用户传完图再走
+      emit('success'); // 刷新列表
     } else {
       message.error(data.value?.msg || '保存失败');
     }
   } catch (err) {
-    console.error('保存报错了:', err);
     message.error('网络异常');
   } finally {
     loading.value = false;
@@ -364,24 +320,5 @@ const handlePublish = async () => {
   margin-bottom: 10px;
   font-size: 14px;
   color: #333;
-}
-.chapter-card {
-  border: 1px solid #eeeeee;
-  padding: 15px;
-  margin-bottom: 15px;
-  border-radius: 8px;
-  background-color: #fafafa;
-}
-.chapter-head {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
-  align-items: center;
-}
-.section-row {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 8px;
-  padding-left: 20px;
 }
 </style>

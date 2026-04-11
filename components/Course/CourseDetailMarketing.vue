@@ -1,104 +1,121 @@
 <template>
-  <div class="marketing-layout">
-    <div class="breadcrumb">首页 / 课程列表 / {{ data.title }}</div>
-
-    <div class="hero-section">
-      <div class="preview-player">
-        <div class="video-container">
-          <div class="video-mask">
-            <n-tag type="warning" size="small" class="free-badge"
-              >免费试听</n-tag
-            >
-            <div class="video-info">
-              <h3>第1章 {{ data.title }} 介绍</h3>
-              <div style="margin: 10px 0">
-                <n-tag
-                  v-for="tag in data.tags"
-                  :key="tag.id"
-                  type="success"
-                  size="small"
-                  style="margin-right: 6px"
-                >
-                  {{ tag.name }}
-                </n-tag>
-              </div>
-              <p>限时免费，点击预览核心价值</p>
-            </div>
-            <div class="play-trigger">
-              <n-icon size="60" color="#fff"><PlayCircleOutline /></n-icon>
-            </div>
+  <div class="course-detail-container">
+    <div class="content-wrapper">
+      <div class="course-header-card">
+        <img :src="data.cover" class="main-cover" />
+        <div class="info-right">
+          <div class="title-row">
+            <h1>{{ data.title }}</h1>
+            <div class="collect-box">收藏</div>
           </div>
-          <img
-            :src="
-              data.cover || 'https://api.dicebear.com/7.x/shapes/svg?seed=1'
-            "
-            class="video-poster"
-          />
-        </div>
 
-        <div class="detail-tabs-card">
-          <div class="tabs-nav">
-            <span class="active">详情</span>
-            <span>大纲</span>
-            <div class="rating-box">
-              好评数: <span>{{ data.goodCount }}</span> 中评数:
-              <span>{{ data.midCount }}</span> 差评数:
-              <span>{{ data.badCount }}</span>
+          <div v-if="!isPaid" class="price-section">
+            <div class="stat-text">{{ data.buyCount }}人学过</div>
+            <div class="price-main">
+              <span class="current-price">¥ {{ data.price }}</span>
+              <span v-if="data.tPrice > 0" class="old-price"
+                >¥ {{ data.tPrice }}</span
+              >
             </div>
+            <div class="coupon-tag">领取优惠券</div>
           </div>
-          <div class="tabs-body">
-            <section>
-              <h4>课程介绍</h4>
-              <p>{{ data.intro || '暂无课程介绍' }}</p>
-            </section>
-            <section>
-              <h4>服务周期 ({{ data.afterServiceDays || 0 }} 天)</h4>
-              <p>加入后立即可见全部更新内容。</p>
-            </section>
-            <section>
-              <h4>
-                具体包含服务 ({{ data.serviceContent || '答疑+资料+复盘' }})
-              </h4>
-              <p>包含核心代码解析、实时技术答疑、项目实战课件等。</p>
-            </section>
+
+          <div v-if="!isPaid" class="action-btn">
+            <n-button type="primary" color="#18a058" @click="$emit('pay')">
+              立即学习
+            </n-button>
+          </div>
+          <div v-else class="paid-status-tag">
+            <span>已参加</span>
           </div>
         </div>
       </div>
 
-      <div class="purchase-sidebar">
-        <div class="sales-card">
-          <div class="price-header">
-            <span class="symbol">¥</span>
-            <span class="price-num">
-              {{ data.price > 0 ? data.price : '免费' }}
-            </span>
-            <n-tag type="error" size="small" round quaternary>限时特惠</n-tag>
+      <div class="main-layout">
+        <div class="left-content">
+          <div class="tabs-header">
+            <span
+              class="tab-item"
+              :class="{ active: currentTab === 'detail' }"
+              @click="handleTabChange('detail')"
+              >详情</span
+            >
+
+            <span
+              class="tab-item"
+              :class="{ active: currentTab === 'outline' }"
+              @click="handleTabChange('outline')"
+              >目录</span
+            >
           </div>
 
-          <button class="fancy-buy-btn" @click="$emit('pay')">
-            <div class="btn-content">
-              <span class="main-text">立即学习（解锁付费课程）</span>
-              <span class="sub-text">尊享一对一答疑 & 核心源码下载</span>
+          <div class="tabs-pane">
+            <div v-if="currentTab === 'detail'" class="intro-text">
+              {{ data.title }}
             </div>
-            <div class="btn-flare"></div>
-          </button>
 
-          <div class="status-row">
-            <span>学习进度：0%</span>
-            <n-text depth="3">资料下载</n-text>
-            <span>学习人数：{{ data.buyCount }}</span>
-            <n-text depth="3">浏览量：{{ data.viewCount }}</n-text>
+            <div v-else class="outline-list">
+              <div v-if="loading" class="loading-state">
+                <n-spin description="正在抓取课程大纲..." />
+              </div>
+
+              <div
+                v-else-if="!localOutline || localOutline.length === 0"
+                class="empty-outline"
+              >
+                <p>暂无目录数据 (调试ID: {{ courseId }})</p>
+              </div>
+
+              <div v-else class="chapter-container">
+                <div
+                  v-for="(chapter, index) in localOutline"
+                  :key="chapter.id"
+                  class="chapter-wrapper"
+                >
+                  <div class="chapter-title-box">
+                    <span class="c-tag">第 {{ index + 1 }} 章</span>
+                    <span class="c-title">{{ chapter.title }}</span>
+                  </div>
+
+                  <div class="sections-container">
+                    <div
+                      v-for="section in chapter.children || []"
+                      :key="section.id"
+                      class="section-row"
+                    >
+                      <div class="s-left">
+                        <span class="s-play">▶</span>
+                        <span class="s-name">{{ section.title }}</span>
+                      </div>
+
+                      <div class="s-right">
+                        <span v-if="section.freeFlag === 1" class="s-free"
+                          >试看</span
+                        >
+                        <span v-else class="s-lock">🔒</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <div class="locked-outline">
-            <div v-for="i in data.videoCount || 3" :key="i" class="locked-item">
-              <span class="idx">{{ i }}. 核心模块展示</span>
-              <n-icon><LockClosedOutline /></n-icon>
-            </div>
-            <div class="pay-to-unlock">
-              <div class="divider"></div>
-              <span>支付后解锁全部章节</span>
-              <div class="divider"></div>
+        <div class="right-sidebar">
+          <div class="sidebar-title">精品推荐</div>
+          <div class="recommend-list">
+            <div class="recommend-item" v-for="i in 2" :key="i">
+              <div class="rec-img-box">
+                <img src="https://api.dicebear.com/7.x/shapes/svg?seed=2" />
+              </div>
+              <div class="rec-info">
+                <p class="rec-title">uni-app实战在线教育类app开发</p>
+                <div class="rec-price-row">
+                  <span class="rec-price">¥ 10.00</span>
+                  <span class="rec-old-price">¥ 20.00</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -108,170 +125,263 @@
 </template>
 
 <script setup>
-import { NTag, NIcon, NText } from 'naive-ui';
-import { PlayCircleOutline, LockClosedOutline } from '@vicons/ionicons5';
+import { NButton, NSpin } from 'naive-ui';
+import { ref, computed } from 'vue'; // 去掉 onMounted，咱们手动触发
+import { useRoute } from 'vue-router';
+import { fetchConfig } from '~/composables/useHttp';
 
-defineProps({
+const props = defineProps({
   data: Object,
 });
-defineEmits(['pay']);
+
+const route = useRoute();
+const courseId = route.params.id;
+
+const localOutline = ref([]);
+const loading = ref(false);
+const currentTab = ref('detail');
+const hasLoaded = ref(false); // 💡 增加一个标识，防止重复请求
+
+// ✨ 核心：点击“目录”触发的函数
+const handleTabChange = async (tabName) => {
+  currentTab.value = tabName;
+
+  // 只有切换到目录，且之前没加载过，才发请求
+  if (tabName === 'outline' && !hasLoaded.value) {
+    await fetchOutlineData();
+  }
+};
+
+const fetchOutlineData = async () => {
+  console.log('🚀 准备抓取大纲数据，ID 为:', courseId);
+  loading.value = true;
+
+  try {
+    // 强制使用绝对路径调试，确保不被 baseURL 坑
+    const res = await $fetch(`/course/section/outline/${courseId}`, {
+      baseURL: fetchConfig.baseURL, // 保持和 tags 一致的 baseURL
+      headers: {
+        ...fetchConfig.headers,
+        token: localStorage.getItem('Token') || '',
+      },
+    });
+
+    if (res && res.code === 200) {
+      // 确保 res.data 是数组。如果后端多包了一层，这里要指准
+      localOutline.value = Array.isArray(res.data) ? res.data : [];
+      console.log('🔥 当前大纲长度:', localOutline.value.length);
+      hasLoaded.value = true;
+    }
+  } catch (err) {
+    console.error('❌ 请求大纲彻底失败:', err);
+  } finally {
+    loading.value = false;
+  }
+};
+
+const isPaid = computed(() => props.data.buyFlag === 1);
+const emit = defineEmits(['pay']);
 </script>
 
 <style scoped>
-/* 把你代码里以 .marketing-layout, .hero-section, .fancy-buy-btn 等开头的 CSS 挪到这里 */
-/* 此处省略你代码中已有的样式... */
-/* --- 1. 未支付布局 --- */
-.marketing-layout {
+/* --- 基础布局 --- */
+.course-detail-container {
+  background-color: #f4f4f4;
+  min-height: 100vh;
+  padding: 20px 0;
+}
+.content-wrapper {
   max-width: 1200px;
   margin: 0 auto;
-}
-.breadcrumb {
-  font-size: 13px;
-  color: #999;
-  margin-bottom: 20px;
-}
-.hero-section {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 24px;
+  padding: 0 15px;
 }
 
-/* 视频预览区 */
-.preview-player {
+/* --- 顶部卡片 --- */
+.course-header-card {
+  background: #fff;
+  padding: 25px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  display: flex;
+  gap: 25px;
+}
+.main-cover {
+  width: 320px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.info-right {
   flex: 1;
-}
-.video-container {
-  background: #000;
-  border-radius: 12px;
-  overflow: hidden;
-  position: relative;
-  aspect-ratio: 16/9;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
-.video-mask {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  background: rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
-  justify-content: center;
+}
+.title-row {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  color: #fff;
 }
-.video-poster {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.5;
+.title-row h1 {
+  font-size: 20px;
+  margin: 0;
 }
-.free-badge {
-  position: absolute;
-  top: 16px;
-  left: 16px;
+.price-section {
+  margin-top: 10px;
+}
+.current-price {
+  font-size: 24px;
+  font-weight: bold;
+  color: #f44336;
+}
+.paid-status-tag {
+  margin-top: 20px;
+  color: #18a058;
+  font-weight: bold;
 }
 
-/* Tabs 样式 */
-.detail-tabs-card {
+/* --- 下方 Tabs 布局 --- */
+.main-layout {
+  display: grid;
+  grid-template-columns: 8.5fr 3.5fr;
+  gap: 20px;
+}
+.left-content {
   background: #fff;
-  margin-top: 24px;
-  border-radius: 12px;
-  padding: 24px;
-}
-.tabs-nav {
-  display: flex;
-  gap: 30px;
-  border-bottom: 2px solid #f0f0f0;
-  margin-bottom: 20px;
-}
-.tabs-nav span.active {
-  color: #18a058;
-  border-bottom: 2px solid #18a058;
-  padding-bottom: 12px;
-}
-.rating-box {
-  margin-left: auto;
-  background: #fff8f0;
-  padding: 4px 12px;
-  border: 1px solid #ffe8cc;
   border-radius: 4px;
+  min-height: 400px;
+}
+.tabs-header {
+  border-bottom: 1px solid #eee;
+  display: flex;
+  padding: 0 10px;
+}
+.tab-item {
+  padding: 15px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #666;
+  position: relative;
+}
+.tab-item.active {
+  color: #2196f3;
+  font-weight: bold;
+}
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #2196f3;
+}
+.tabs-pane {
+  padding: 20px;
+}
+
+/* --- 目录大纲样式 (重点！) --- */
+/* 确保 outline-list 是 block 布局 */
+.outline-list {
+  display: block !important;
+  width: 100%;
+}
+
+.chapter-container {
+  border: 1px solid #f0f0f0 !important;
+  border-radius: 4px;
+}
+
+.chapter-wrapper {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.chapter-wrapper:last-child {
+  border-bottom: none;
+}
+
+.chapter-title-box {
+  background-color: #f8f9fa !important;
+  padding: 15px 20px;
+  display: flex !important;
+  align-items: center;
+  gap: 15px;
+}
+
+.c-tag {
+  color: #18a058 !important;
+  font-weight: bold;
+  font-size: 14px;
+  min-width: 60px;
+}
+
+.c-title {
+  font-weight: bold;
+  color: #333;
+  font-size: 15px;
+}
+
+/* 节列表样式 */
+.sections-container {
+  background: #fff !important;
+  display: block !important;
+}
+
+.section-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 15px 25px;
+  border-bottom: 1px solid #f9f9f9;
+  transition: all 0.2s;
+}
+
+.section-row:hover {
+  background-color: #f0fdf4 !important;
+}
+
+.s-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.s-play {
+  color: #18a058;
+  font-size: 10px;
+}
+
+.s-name {
+  color: #555;
+  font-size: 14px;
+}
+
+.s-time {
+  color: #999;
   font-size: 12px;
 }
 
-/* 购买侧边栏 */
-.sales-card {
-  background: #fff;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-.price-header {
-  margin-bottom: 20px;
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-.price-num {
-  font-size: 28px;
-  font-weight: bold;
-  color: #e63946;
+.s-free {
+  font-size: 12px;
+  color: #18a058;
+  border: 1px solid #18a058;
+  padding: 1px 6px;
+  border-radius: 3px;
 }
 
-/* 炫酷按钮动画补全 */
-.fancy-buy-btn {
-  width: 100%;
-  border: none;
-  padding: 16px;
-  border-radius: 10px;
-  cursor: pointer;
-  background: linear-gradient(135deg, #ff8c00 0%, #ff4500 100%);
-  color: white;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.2s;
-}
-.btn-flare {
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.3),
-    transparent
-  );
-  animation: flare 3s infinite;
-}
-@keyframes flare {
-  0% {
-    left: -100%;
-  }
-  30% {
-    left: 100%;
-  }
-  100% {
-    left: 100%;
-  }
+.s-unlocked {
+  color: #18a058;
+  font-size: 13px;
 }
 
-.locked-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  margin-bottom: 8px;
-  color: #adb5bd;
+.s-lock {
+  color: #ccc;
+  font-size: 14px;
 }
-.divider {
-  height: 1px;
-  flex: 1;
-  background: #eee;
-}
-.course-detail-container {
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
+
+.loading-state,
+.empty-outline {
+  text-align: center;
+  padding: 60px 0;
+  color: #999;
 }
 </style>
