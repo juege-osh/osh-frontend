@@ -16,29 +16,29 @@
         </ui-menu-item>
       </ui-menu>
 
-      <n-button circle class="search-btn" @click="openSearch">
-        <template #icon>
-          <n-icon><Search /></n-icon>
-        </template>
-      </n-button>
-      <nuxt-link to="/login" v-if="!user">
-        <n-button secondary strong>登录</n-button>
-      </nuxt-link>
+            <!-- <n-button circle class="search-btn" @click="openSearch">
+                <template #icon>
+                    <n-icon><Search /></n-icon>
+                </template>
+            </n-button> -->
+            <!-- 暂时禁用search 两处处加上class防止样式靠左 -->
 
-      <n-dropdown v-else :options="userOptions" @select="handleSelect">
-        <n-avatar
-          round
-          size="small"
-          :src="
-            user.avatar ||
-            'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'
-          "
-        />
-      </n-dropdown>
+            <nuxt-link class="login" to="/login" v-if="!user">
+                <n-button secondary strong>登录</n-button>
+            </nuxt-link>
+            
+            <n-dropdown v-else :options="userOptions" @select="handleSelect">
+                    <n-avatar  
+                    class="login" 
+                    round
+                    size="small"
+                    :src=" user?.avatar || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'"
+                    />
+            </n-dropdown>
+        </div>
     </div>
-  </div>
-  <div class="navbar-margin"></div>
-  <SearchBar ref="SearchBarRef" />
+    <div class="navbar-margin"></div>
+    <SearchBar ref="SearchBarRef" />
 </template>
 
 <script setup>
@@ -65,6 +65,24 @@ const menus = [
     match: [
       {
         name: 'paper-page',
+      },
+    ],
+  },
+    {
+    name: '开源项目',
+    path: '/openproject/list',
+    match: [
+      {
+        name: 'openproject-list',
+      },
+    ],
+  },
+  {
+    name: '实用网站',
+    path: '/usefull/list',
+    match: [
+      {
+        name: 'usefull-list',
       },
     ],
   },
@@ -158,6 +176,10 @@ const menus = [
     path: '/info_gap/1', // 对应你图片中的信息差/星号项目
     match: [{ name: 'info_gap-page' }],
   },
+  {
+    name:"内部网站",
+    path:"/site"
+  }
 ];
 function handleOpen(path) {
   navigateTo(path);
@@ -190,30 +212,30 @@ const userOptions = [
   },
 ];
 
-const SearchBarRef = ref(null);
-const openSearch = () => SearchBarRef.value.open();
+const SearchBarRef = ref(null)
+const openSearch = ()=>SearchBarRef.value.open()
 
-const handleSelect = (k) => {
-  console.log(k);
-  switch (k) {
-    case 'logout':
-      const { dialog } = createDiscreteApi(['dialog']);
-      dialog.warning({
-        content: '是否要退出登录？',
-        positiveText: '退出',
-        negativeText: '取消',
-        onPositiveClick: async () => {
-          await useLogout();
-        },
-      });
-      break;
-    case 'center':
-      navigateTo({
-        path: '/user/history/1',
-      });
-      break;
-  }
-};
+const { dialog } = createDiscreteApi(["dialog"])
+
+const handleSelect = (k)=>{
+    switch (k) {
+        case "logout":
+            dialog.warning({
+                content: "是否要退出登录？",
+                positiveText: "退出",
+                negativeText: "取消",
+                onPositiveClick: async () => {
+                    await useLogout()
+                },
+            });
+            break;
+        case "center":
+            navigateTo({
+                path:"/user/history/1"
+            })
+            break;
+    }
+}
 </script>
 
 <style>
@@ -301,4 +323,9 @@ const handleSelect = (k) => {
 .h-\[60px\] {
   height: 60px;
 }
+
+.login {
+    margin-left: auto;
+}
+
 </style>

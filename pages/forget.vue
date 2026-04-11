@@ -1,25 +1,29 @@
 <template>
+    
     <n-form class="forget-form" ref="formRef" :model="form" :rules="rules" size="large">
-        <n-form-item path="phone">
-            <n-input v-model:value="form.phone" placeholder="手机号"/>
+
+        <n-form-item :show-label="false" path="username">
+                <n-input v-model:value="form.username" placeholder="用户名"/>
         </n-form-item>
-        <n-form-item :show-label="false" path="code">
-            <n-input-group>
-                <n-input class="code-input" v-model:value="form.code" placeholder="验证码"/>
-                <SendCode :phone="form.phone"/>
-            </n-input-group>
+
+        <n-form-item :show-label="false" path="uniqueId">
+                <n-input class="uniqueId-input" v-model:value="form.uniqueId" placeholder="unique id"/>
         </n-form-item>
+        
         <n-form-item :show-label="false" path="password">
             <n-input v-model:value="form.password" placeholder="密码" type="password"/>
         </n-form-item>
+        
         <n-form-item :show-label="false" path="repassword">
             <n-input v-model:value="form.repassword" placeholder="确认密码" type="password" :disabled="!form.password"/>
         </n-form-item>
+        
         <div class="button-container">
             <n-button class="back-login" quaternary type="primary" size="tiny" @click="$router.go(-1)">
                 返回登录
             </n-button>
         </div>
+        
         <div>
             <n-button class="submit-button" type="primary" @click="onSubmit" :loading="loading">
                 重置密码
@@ -42,25 +46,40 @@ useHead({ title:"忘记密码" })
 
 const formRef = ref(null)
 const form = reactive({
-    phone:"",
-    code:"",
+    username:"",
+    uniqueId:"",
     password:"",
     repassword:""
 })
 
 const rules = {
-    phone:[{
+    username:[{
         required: true,
-        message:'手机号必填'
-    }],
-    code:[{
+        message:'用户名必填'
+    },{
+        // 添加用户名或邮箱格式校验规则
+        validator: (rule, value) => {
+            // 检查是否为8位字符的用户名或有效邮箱格式
+            const isUsername = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,16}$/.test(value);
+            const isEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)
+            
+            return isUsername || isEmail;
+        },
+        message: "用户名或邮箱格式不正确",
+        trigger: ["input", "blur"]
+        }],
+    uniqueId:[{
         required: true,
-        message:'验证码必填'
+        message:'unique id必填'
     }],
     password:[{
         required: true,
         message:"密码必填"
-    }],
+    },{
+            pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,16}$/,
+            message: "密码必须至少8位，包含字母和数字",
+            trigger: ["input", "blur"]
+        }],
     repassword:[{
         required: true,
         message:"确认密码必填"
@@ -148,7 +167,7 @@ definePageMeta({
 }
 
 /* 验证码输入框 */
-.code-input {
+.uniqueId-input {
     border-radius: 4px 0 0 4px;
 }
 

@@ -11,3 +11,14 @@ export function useBookDetailApi(book_id,id){
         lazy:true
     })
 }
+
+
+
+
+
+// TODO: 电子书增加接口，用于添加电子书
+// export function useBookDetailApi(book_id,id){
+//     return useHttpPost("bookContent",`/book/detail?book_id=${book_id}&id=${id}`,{
+//         lazy:true
+//     })
+// }

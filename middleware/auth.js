@@ -13,13 +13,15 @@ export default defineNuxtRouteMiddleware((to, from) => {
     }
     return navigateTo('/login?from=' + route.fullPath);
   }
+
   // 未绑定手机号
   // const phone = user.value?.phone
   // if(!phone && route.name != 'bindphone'){
   //     if(process.client){
   //         const { message } = createDiscreteApi(["message"])
-  //         message.error("请先绑定手机号")
+  //         message.error("请先绑定邮箱")
   //     }
   //     return navigateTo("/bindphone?from="+route.fullPath)
   // }
+
 });

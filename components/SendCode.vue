@@ -33,7 +33,7 @@ const text = computed(()=>{
     if(!props.repassword){
         return "请输入确认密码"
     }
-    return "发送邮箱"
+    return "发送uniqueid到邮箱"
 })
 
 // 发送验证码
@@ -59,7 +59,8 @@ const send = async ()=>{
         }
     }, 1000);
 
-    const msg = data.value == "ok" ? "发送成功" : `当前是演示模式，你的验证码是:${data.value}`
+
+    const msg = data.value == "ok" ? "发送成功" : `${data.value}`
     const { message } = createDiscreteApi(["message"])
     message.success(msg)
 }
