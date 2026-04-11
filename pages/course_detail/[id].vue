@@ -5,31 +5,22 @@
     </div>
 
     <template v-else-if="courseData">
-      <CourseDetailMarketing
-        v-if="!isPaid"
+      <CourseStudyCenter v-if="isPaid" :data="courseData"> </CourseStudyCenter>
+
+      <CoursePay
+        v-else-if="isPayingView"
         :data="courseData"
-        @pay="handleFakePay"
+        :loading="confirmLoading"
+        @confirm="handleConfirmPay"
       />
 
-      <CourseStudyCenter v-else :data="courseData">
-        <template #outline>
-          <div v-if="courseData.sections?.length">
-            <div v-for="(sec, index) in courseData.sections" :key="sec.id">
-              {{ index + 1 }}. {{ sec.title }}
-            </div>
-          </div>
-          <n-empty v-else description="暂无目录" size="small" />
-        </template>
-
-        <template #files>
-          <div v-if="courseData.files?.length"></div>
-          <n-empty v-else description="暂无资料" size="small" />
-        </template>
-
-        <template #qa>
-          <p>暂无提问...</p>
-        </template>
-      </CourseStudyCenter>
+      <template v-else-if="courseData">
+        <CourseDetailMarketing
+          :data="courseData"
+          :is-paid="isPaid"
+          @pay="goToPayPage"
+        />
+      </template>
     </template>
 
     <div v-else>
@@ -41,15 +32,20 @@
 <script setup>
 import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-
+import CoursePay from '@/components/Course/CoursePay.vue';
 const route = useRoute();
 const courseId = route.params.id;
 
 // --- 第一步：先声明所有响应式变量 ---
 const courseData = ref(null);
 const isPaid = ref(false);
-const isPaying = ref(false);
+const isPayingView = ref(false); // 是否在支付页面
+const confirmLoading = ref(false); // ✅ 必须加这一行，否则点击支付会报 undefined 错误
 
+// 点击立即学习：跳转到支付视图
+const goToPayPage = () => {
+  isPayingView.value = true;
+};
 // --- 第二步：发起异步请求 ---
 const { data, pending, error } = await useCourseDetailApi(courseId);
 
@@ -62,6 +58,20 @@ if (data.value) {
 } else {
   console.error('❌ 接口没数据', data.value);
 }
+
+// 在支付页面点击“确认支付”：执行解锁逻辑
+const handleConfirmPay = async () => {
+  confirmLoading.value = true; // ✅ 对应上面新加的 ref
+
+  setTimeout(() => {
+    confirmLoading.value = false;
+    isPaid.value = true;
+    isPayingView.value = false;
+    // 注意：window.$message 需要你项目里配置了全局 UI 组件才能用
+    // 如果没配置，可以先用 alert('支付成功') 测试
+    window.$message?.success('支付成功，开始学习吧！');
+  }, 1500);
+};
 
 // ✅ 正确 watch（可留可不留）
 watch(
