@@ -58,7 +58,7 @@ const queryParams = reactive({
   keyword: '',
   tagIds: [],
   tag:[],
-  sortIds: []
+  sortIds:null
 });
 
 const emit = defineEmits(['search', 'singlesearch'])
@@ -78,22 +78,15 @@ const handleSearch = ()=>{
 
 const singleSearch = ()=>{ 
 
-  let a = []
+  let a = null
+ 
+  a = sort[queryParams.sortIds].label
 
-
-  queryParams.sortIds.forEach(val => {
-    const item = sort.find(t => t.value === val)
-    if (item) a.push(item.label)
+  emit('singlesearch',{
+    a
   })
 
-    emit('singlesearch',{
-      a
-    })
 }
-
-
-
-
 
 
 const tagOptions = [
