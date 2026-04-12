@@ -1,3 +1,4 @@
+import { defineNuxtConfig } from 'nuxt/config';
 export default defineNuxtConfig({
   // 1. 必须在最外层，别放进 app 块里！
   compatibilityDate: '2024-04-03',

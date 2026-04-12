@@ -54,10 +54,13 @@
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue';
+import { createDiscreteApi } from 'naive-ui';
 import CourseEditModal from '~/components/Course/CourseEditModal.vue';
 import CourseFilter from '~/components/Course/CourseFilter.vue';
 import CourseCard from '~/components/Course/CourseCard.vue';
-import { NGrid, NGi, NPagination, useMessage } from 'naive-ui';
+import { NGrid, NGi, NPagination } from 'naive-ui';
+import { fetchConfig } from '~/composables/useHttp';
+import { apiCollectCourse, apiRemoveCollect, apiGetCoverUrls } from '~/composables/Api/Course/course';
 
 // 1. 核心修复：在查询参数中增加新的两个字段，并给默认排序赋值
 const queryParams = reactive({
@@ -85,30 +88,26 @@ const courseList = ref([]);
 // 3. 映射列表数据
 watch(
   () => resData.value,
-  (newVal) => {
+  async (newVal) => {
     if (newVal) {
       const actualData = newVal?.data?.rows ? newVal.data : newVal;
       const rows = actualData?.rows || [];
 
-      // 这里处理原始数据，并映射成我们需要的格式
-      courseList.value = rows.map((item) => ({
+      // 先映射基础数据
+      const list = rows.map((item) => ({
         ...item,
-        // 核心：初始化收藏状态，如果后端没给，默认设为 false
         isFavorite: item.isFavorite || false,
         favoriteCount: item.favoriteCount || 0,
-
         buyCount: item.salesCount || 0,
-        cover: item.cover
-          ? item.cover.startsWith('http')
-            ? item.cover
-            : `http://localhost:8081${item.cover}`
-          : 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg',
+        cover: item.cover || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg',
         ratingScore: item.ratingScore || 5,
       }));
+
+      courseList.value = list;
     }
   },
   { immediate: true }
-); // immediate 确保第一次加载也能触发
+);
 
 // 4. 映射总条数
 const totalCount = computed(() => {
@@ -151,31 +150,34 @@ const handleDetail = (id) => {
 };
 
 const handleDoCollect = async (courseId) => {
-  const message = useMessage();
-
+  const { message } = createDiscreteApi(['message']);
   const course = courseList.value.find((c) => c.id === courseId);
   if (!course) return;
 
+  const wasCollected = course.isFavorite;
+  // 乐观更新
+  course.isFavorite = !wasCollected;
+  course.favoriteCount = wasCollected
+    ? Math.max(0, (course.favoriteCount || 0) - 1)
+    : (course.favoriteCount || 0) + 1;
+
   try {
-    const res = await $fetch('/pc/collection/add', {
-      method: 'POST',
-      body: { courseId },
-      headers: {
-        token: localStorage.getItem('Token'),
-        appid: 'bd9d01ecc75dbbaaefce',
-      },
-    });
+    const res = wasCollected
+      ? await apiRemoveCollect(courseId)
+      : await apiCollectCourse(courseId);
 
-    console.log('收藏返回：', res);
-
-    if (res.code === 200 || res === 1) {
-      message.success('收藏成功');
-      course.isFavorite = true;
+    if (res?.code === 200) {
+      message.success(wasCollected ? '已取消收藏' : '收藏成功');
     } else {
-      message.error(res.msg || '收藏失败');
+      // 回滚
+      course.isFavorite = wasCollected;
+      course.favoriteCount = wasCollected
+        ? (course.favoriteCount || 0) + 1
+        : Math.max(0, (course.favoriteCount || 0) - 1);
+      message.error(res?.msg || '操作失败');
     }
-  } catch (err) {
-    console.error(err);
+  } catch {
+    course.isFavorite = wasCollected;
     message.error('请求失败');
   }
 };

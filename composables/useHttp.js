@@ -8,7 +8,7 @@ export const fetchConfig = {
   },
 };
 
-function useGetFetchOptions(options = {}) {
+export function useGetFetchOptions(options = {}) {
   options.baseURL = options.baseURL ?? fetchConfig.baseURL;
   options.headers = options.headers ?? {
     appid: fetchConfig.headers.appid,

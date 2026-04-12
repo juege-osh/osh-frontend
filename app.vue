@@ -5,19 +5,17 @@
 </template> -->
 <template>
   <NConfigProvider inline-theme-disabled>
-    <NuxtLayout>
-      <NuxtPage/>
-    </NuxtLayout>
+    <NMessageProvider>
+      <NDialogProvider>
+        <NuxtLayout>
+          <NuxtPage/>
+        </NuxtLayout>
+      </NDialogProvider>
+    </NMessageProvider>
   </NConfigProvider>
 </template>
 <script setup>
-import {
-  NButton
-} from "naive-ui"
-
-//测试故全局错误界面
-// throwError("故意报错")
-
+import { NMessageProvider, NDialogProvider } from 'naive-ui'
 </script>
 <style>
 .btn {
