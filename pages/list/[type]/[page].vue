@@ -39,63 +39,7 @@
             </div>
         </LoadingGroup>
     </div>
-
-    <LoadingGroup
-      :pending="pending"
-      :error="error"
-      :is-empty="rows.length === 0"
-    >
-      <template #loading>
-        <LoadingBookSkeleton v-if="type == 'book'" />
-        <LoadingCourseSkeleton v-else />
-      </template>
-
-      <n-grid :x-gap="20" :y-gap="20" :cols="type == 'book' ? 2 : 4">
-        <n-gi v-for="(item, index) in rows" :key="index">
-          <BookList v-if="type == 'book'" :item="item" />
-
-          <div
-            v-else-if="type == 'column'"
-            class="custom-course-card"
-            @click="navigateTo(`/course/detail/${item.id}`)"
-          >
-            <div class="course-img-box">
-              <img :src="item.cover" />
-              <div class="type-tag">
-                {{ item.type === 'media' ? '视频' : '图文' }}
-              </div>
-            </div>
-            <div class="course-body">
-              <div class="course-name">{{ item.title }}</div>
-              <div class="price-info">
-                <span class="price">¥{{ item.price }}</span>
-                <span class="count">{{ item.buyCount }}人学过</span>
-              </div>
-              <div class="rating-bar">
-                <span class="r-g">好评 {{ item.goodCount }}</span>
-                <span class="r-m">中评 {{ item.midCount }}</span>
-                <span class="r-b">差评 {{ item.badCount }}</span>
-              </div>
-            </div>
-          </div>
-
-          <CourseList v-else :item="item" />
-        </n-gi>
-      </n-grid>
-
-      <div class="pagination-container">
-        <n-pagination
-          size="large"
-          :page="page"
-          :item-count="total"
-          :page-size="limit"
-          @update:page="handlePageChange"
-        />
-      </div>
-    </LoadingGroup>
-  </div>
 </template>
-
 <script setup>
 import {
     NGrid,
@@ -137,9 +81,8 @@ const {
         ...otherParams
     }
 
-    // 【新增】如果是课程，合并搜索和标签参数
-    if (type == 'column') {
-      query = { ...query, ...extraParams };
+    if(type == "group" || type == "flashsale"){
+        query.usable = 1
     }
 
     return useBookListApi(type,query)
@@ -193,111 +136,34 @@ async function handleSingleSearch(sort) {
 
 
 definePageMeta({
-  middleware: ['list'],
-});
+    middleware:["list"]
+})
 </script>
 
 
 <style scoped>
-/* 保持原有样式并增加课程卡片美化 */
 .breadcrumb-wrapper {
   margin-bottom: 1.25rem;
-}
-.course-filter-section {
-  background: #fff;
-  padding: 1.5rem;
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
-  border: 1px solid #efeff5;
-}
-
-.custom-course-card {
-  background: #fff;
-  border: 1px solid #efeff5;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: 0.3s;
-}
-.custom-course-card:hover {
-  transform: translateY(-5px);
-  border-color: #26a67a;
-}
-
-.course-img-box {
-  position: relative;
-  height: 140px;
-}
-.course-img-box img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 8px 8px 0 0;
-}
-.type-tag {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
-  padding: 2px 6px;
-  font-size: 12px;
-  border-radius: 4px;
-}
-
-.course-body {
-  padding: 12px;
-}
-.course-name {
-  font-weight: bold;
-  height: 40px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-.price-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.price {
-  color: #e53e3e;
-  font-size: 18px;
-  font-weight: bold;
-}
-.count {
-  color: #999;
-  font-size: 12px;
-}
-
-.rating-bar {
-  display: flex;
-  gap: 4px;
-  border-top: 1px solid #f4f4f5;
-  pt: 8px;
-}
-.rating-bar span {
-  font-size: 11px;
-  padding: 2px 5px;
-  border-radius: 3px;
-  flex: 1;
-  text-align: center;
-}
-.r-g {
-  background: #f0fdf4;
-  color: #16a34a;
-}
-.r-m {
-  background: #f8fafc;
-  color: #64748b;
-}
-.r-b {
-  background: #fef2f2;
-  color: #dc2626;
 }
 
 .pagination-container {
   display: flex;
   justify-content: center;
-  margin: 2rem 0;
+  align-items: center;
+  margin-top: 1.25rem;
+  margin-bottom: 2.5rem;
+}
+
+/* 添加基础样式 */
+.x-gap-20 {
+  column-gap: 1.25rem; /* 20px = 1.25rem */
+}
+
+.cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 </style>
