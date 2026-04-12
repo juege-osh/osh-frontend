@@ -1,7 +1,0 @@
-node_modules/
-*copy.vue
-dist
-.output
-.nuxt
-composables/useHttp.js
-nuxt.config.ts
