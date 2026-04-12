@@ -18,6 +18,7 @@
                 :options="sort"
                 style="width: 260px"
                 @update:value="singleSearch"
+                @click="handleSortClick"
             />
             
 
@@ -58,7 +59,7 @@ const queryParams = reactive({
   keyword: '',
   tagIds: [],
   tag:[],
-  sortIds: []
+  sortIds:null
 });
 
 const emit = defineEmits(['search', 'singlesearch'])
@@ -76,24 +77,24 @@ const handleSearch = ()=>{
     })
 }
 
-const singleSearch = ()=>{ 
-
-  let a = []
-
-
-  queryParams.sortIds.forEach(val => {
-    const item = sort.find(t => t.value === val)
-    if (item) a.push(item.label)
-  })
-
-    emit('singlesearch',{
-      a
-    })
-}
+// 用于手动清空的方法
+const handleSortClick = () => {
+  // 如果当前已经有值，点击后置为 null（清空）
+  if (queryParams.sortIds !== null) {
+    queryParams.sortIds = null;
+    singleSearch(); // 同时触发搜索，确保界面更新
+  }
+};
 
 
-
-
+const singleSearch = () => { 
+  if(queryParams.sortIds !== null){ // 增加判空
+    let a = sort[queryParams.sortIds].label;
+    emit('singlesearch', { a });
+  } else {
+    emit('singlesearch', { a: null }); // 清空时传递null
+  }
+};
 
 
 const tagOptions = [
