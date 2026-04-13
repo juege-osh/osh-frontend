@@ -70,10 +70,6 @@
           <!-- 该章节下新增小节的内联输入行 -->
           <div v-if="addingSectionChapterId === chapter.id" class="inline-add-row">
             <span class="section-num">{{ ci + 1 }}.{{ (chapter.children || []).length + 1 }}</span>
-            <select v-model="newSectionType" class="type-select">
-              <option value="video">视频</option>
-              <option value="text">图文</option>
-            </select>
             <input
               v-model="newSectionTitle"
               class="inline-input"

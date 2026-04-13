@@ -23,7 +23,7 @@
           <span class="learn-count">{{ item.salesCount || item.buyCount || 0 }} 人学过</span>
           <span class="fav-count">
             <n-icon size="12"><HeartOutline /></n-icon>
-            {{ item.favoriteCount || 0 }}
+            {{ item.collectionCount || item.favoriteCount || 0 }}
           </span>
         </div>
       </div>

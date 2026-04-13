@@ -30,7 +30,6 @@
         <span class="heart-icon">{{ modelValue.isFollowing ? '♥' : '♡' }}</span>
         我关注的
       </button>
-
       <!-- 搜索关键字 - 更明显 -->
       <div class="search-wrap">
         <span class="search-icon">🔍</span>
@@ -112,6 +111,8 @@ const toggleFollowing = () => {
 
 const handleSearch = () => {
   props.modelValue.isFree = props.modelValue.sortType === 'free' ? true : null;
+  // 「我关注的」映射成后端的 collectionFlag 字段
+  props.modelValue.collectionFlag = props.modelValue.isFollowing ? 1 : null;
   emit('update:modelValue', props.modelValue);
   emit('search');
 };

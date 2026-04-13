@@ -18,12 +18,12 @@
       <ClientOnly>
         <div class="grid-content-box">
           <n-grid
-            v-if="courseList && courseList.length > 0"
+            v-if="displayList && displayList.length > 0"
             :x-gap="16"
             :y-gap="16"
             :cols="5"
           >
-            <n-gi v-for="item in courseList" :key="item.id">
+            <n-gi v-for="item in displayList" :key="item.id">
               <CourseCard
                 :item="item"
                 @click="handleDetail(item.id)"
@@ -33,7 +33,7 @@
           </n-grid>
 
           <div v-else-if="!pending" class="empty-placeholder">
-            <n-empty description="暂无课程数据" />
+            <n-empty :description="queryParams.isFollowing ? '暂无收藏的课程' : '暂无课程数据'" />
           </div>
         </div>
       </ClientOnly>
@@ -68,12 +68,11 @@ const queryParams = reactive({
   tags: [],
   pageNum: 1,
   pageSize: 10,
-  isFree: null, // (已有)
-  isFollowing: false, // (已有)
-
-  // ✨ 新增这两个 ✨
-  sortType: 'createTime', // 默认按时间
-  courseNo: '', // 编号ID
+  isFree: null,
+  isFollowing: false,
+  collectionFlag: null, // 「我关注的」筛选
+  sortType: 'createTime',
+  courseNo: '',
 });
 
 // 2. 核心接口调用
@@ -96,8 +95,9 @@ watch(
       // 先映射基础数据
       const list = rows.map((item) => ({
         ...item,
-        isFavorite: item.isFavorite || false,
-        favoriteCount: item.favoriteCount || 0,
+        // collectionFlag=1 表示已收藏
+        isFavorite: item.collectionFlag === 1,
+        favoriteCount: item.collectionCount || 0,
         buyCount: item.salesCount || 0,
         cover: item.cover || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg',
         ratingScore: item.ratingScore || 5,
@@ -116,6 +116,12 @@ const totalCount = computed(() => {
       ? resData.value.data
       : resData.value;
   return actualData?.total || 0;
+});
+
+// 「我关注的」前端过滤：只显示 collectionFlag=1 的课程
+const displayList = computed(() => {
+  if (!queryParams.isFollowing) return courseList.value;
+  return courseList.value.filter((item) => item.collectionFlag === 1 || item.isFavorite);
 });
 
 // 5. 弹窗控制
@@ -157,9 +163,11 @@ const handleDoCollect = async (courseId) => {
   const wasCollected = course.isFavorite;
   // 乐观更新
   course.isFavorite = !wasCollected;
+  course.collectionFlag = wasCollected ? 0 : 1;
   course.favoriteCount = wasCollected
     ? Math.max(0, (course.favoriteCount || 0) - 1)
     : (course.favoriteCount || 0) + 1;
+  course.collectionCount = course.favoriteCount;
 
   try {
     const res = wasCollected
@@ -171,9 +179,11 @@ const handleDoCollect = async (courseId) => {
     } else {
       // 回滚
       course.isFavorite = wasCollected;
+      course.collectionFlag = wasCollected ? 1 : 0;
       course.favoriteCount = wasCollected
         ? (course.favoriteCount || 0) + 1
         : Math.max(0, (course.favoriteCount || 0) - 1);
+      course.collectionCount = course.favoriteCount;
       message.error(res?.msg || '操作失败');
     }
   } catch {
