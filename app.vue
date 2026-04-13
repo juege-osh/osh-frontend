@@ -12,7 +12,7 @@
 </template>
 <script setup>
 import {
-  NButton
+ NConfigProvider
 } from "naive-ui"
 
 //测试故全局错误界面
