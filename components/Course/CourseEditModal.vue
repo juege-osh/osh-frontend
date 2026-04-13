@@ -14,21 +14,17 @@
       </n-form-item>
 
       <n-form-item label="课程封面">
-        <n-upload
-          :action="currentCourseId ? getCoverUploadUrl(currentCourseId) : ''"
-          :disabled="!currentCourseId"
-          list-type="image-card"
-          :max="1"
-          @finish="handleCoverFinish"
-        >
-          <div
-            v-if="!currentCourseId"
-            style="font-size: 12px; text-align: center; color: #999"
-          >
-            请先点击<br />下方保存
+        <div class="cover-upload">
+          <div v-if="formValue.cover" class="cover-preview" @click="triggerCover">
+            <img :src="formValue.cover" class="cover-img" />
+            <div class="cover-mask">点击更换</div>
           </div>
-          <template v-else> + 封面 </template>
-        </n-upload>
+          <div v-else class="cover-placeholder" @click="triggerCover" :class="{ loading: coverUploading }">
+            {{ coverUploading ? '上传中...' : '+ 点击上传封面' }}
+          </div>
+          <input ref="coverInputRef" type="file" accept="image/*" style="display:none" @change="handleCoverChange" />
+          <span style="font-size:12px;color:#bbb;margin-left:10px">建议 16:9，JPG/PNG，≤5MB</span>
+        </div>
       </n-form-item>
 
       <n-form-item label="课程介绍">
@@ -108,7 +104,7 @@
                 <td>{{ f.download_count }}</td>
                 <td>
                   <n-space>
-                    <n-button text type="primary">下载</n-button>
+                    <n-button text type="primary" @click="handleDownload(f)">下载</n-button>
                     <n-button
                       text
                       type="error"
@@ -122,28 +118,10 @@
           </n-table>
         </div>
         <div class="upload-box">
-          <n-upload
-            multiple
-            directory-dnd
-            :action="
-              currentCourseId ? getMaterialUploadUrl(currentCourseId) : ''
-            "
-            :disabled="!currentCourseId"
-            :data="{ materialName: '课程附件' }"
-            @finish="handleMaterialFinish"
-          >
-            <n-upload-dragger>
-              <div v-if="!currentCourseId" style="padding: 20px">
-                <n-text depth="3">⚠️ 请先保存基础信息再上传资料</n-text>
-              </div>
-              <template v-else>
-                <n-icon size="32" :depth="3"><CloudUploadOutline /></n-icon>
-                <div style="font-size: 12px; margin-top: 8px">
-                  拖拽或点击上传
-                </div>
-              </template>
-            </n-upload-dragger>
-          </n-upload>
+          <div class="mat-upload-btn" @click="triggerMat" :class="{ loading: matUploading }">
+            {{ matUploading ? '上传中...' : '⬆ 上传资料' }}
+          </div>
+          <input ref="matInputRef" type="file" style="display:none" @change="handleMatChange" />
         </div>
       </div>
     </n-form>
@@ -158,145 +136,134 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
-import { CloudUploadOutline } from '@vicons/ionicons5';
+import { reactive, ref, onMounted } from 'vue';
+import { createDiscreteApi } from 'naive-ui';
 import {
-  getCoverUploadUrl,
-  getMaterialUploadUrl,
+  apiUploadCover,
+  apiUploadMaterial,
+  apiGetMaterialUrl,
   useAddCourseApi,
+  getAuthHeaders,
 } from '~/composables/Api/Course/course';
 import {
-  NModal,
-  NForm,
-  NFormItem,
-  NInput,
-  NUpload,
-  NSelect,
-  NSpace,
-  NText,
-  NInputNumber,
-  NButton,
-  NTable,
-  NIcon,
-  NUploadDragger,
-  useMessage,
+  NModal, NForm, NFormItem, NInput, NSelect, NSpace,
+  NText, NInputNumber, NButton, NTable,
 } from 'naive-ui';
-// 2. 初始化 message 实例
 
-// 3. 定义 loading 状态
-const loading = ref(false);
-
-defineProps({
-  show: Boolean,
-  tagOptions: Array,
-});
-
+const props = defineProps({ show: Boolean, tagOptions: Array });
 const emit = defineEmits(['update:show', 'success']);
-const currentCourseId = ref(null);
+
+const { message } = createDiscreteApi(['message']);
+const loading = ref(false);
+const coverUploading = ref(false);
+const matUploading = ref(false);
+const coverInputRef = ref(null);
+const matInputRef = ref(null);
 
 const formValue = reactive({
   title: '',
   desc: '',
   tagIds: [],
+  cover: '',
   service_period: 12,
   service_content: '源码+文档+技术支持',
-  // ✨ 增加以下字段
-  price: 0, // 实际售价
-  tPrice: 0, // 课程原价
-  type: 'media', // 默认类型
-  cover: '', // 封面地址
-  good_count: 0,
-  mid_count: 0,
-  bad_count: 0,
-  chapters: [
-    { title: '第一章：项目介绍', sections: [{ title: '1-1 课程导学' }] },
-  ],
+  price: 0,
+  tPrice: 0,
+  type: 'media',
 });
 
-const materialList = ref([
-  {
-    name: 'core_code.zip',
-    url: 'http://...',
-    size: '25.0 MB',
-    type: 'zip',
-    download_count: 0,
-  },
-]);
+const materialList = ref([]);
 
-/**
- * 封面上传成功
- */
-const handleCoverFinish = ({ event }) => {
-  // ✨ 关键：挪到函数里！只有点击上传、后端返回后才执行
-  const message = useMessage();
+/** 触发封面选择 */
+const triggerCover = () => coverInputRef.value?.click();
 
-  const res = JSON.parse(event.target.response);
-  if (res.code === 200) {
-    formValue.cover = res.data.url;
-    message.success('封面上传成功');
-  }
+/** 封面上传 */
+const handleCoverChange = async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { message.warning('封面不能超过 5MB'); return; }
+  coverUploading.value = true;
+  try {
+    const res = await apiUploadCover(file);
+    if (res?.code === 200) {
+      formValue.cover = res.data?.relativePath || res.data; // 存 relativePath
+      message.success('封面上传成功');
+    } else {
+      message.error(res?.msg || '上传失败');
+    }
+  } catch { message.error('上传失败'); }
+  finally { coverUploading.value = false; e.target.value = ''; }
 };
 
-/**
- * 资料上传成功回调
- */
-/**
- * 资料上传成功
- */
-const handleMaterialFinish = ({ file, event }) => {
-  // ✨ 关键：挪到函数里！
-  const message = useMessage();
+/** 触发资料选择 */
+const triggerMat = () => matInputRef.value?.click();
 
-  const res = JSON.parse(event.target.response);
-  if (res.code === 200) {
-    materialList.value.push({
-      name: file.name,
-      url: res.data,
-      size: (file.file.size / 1024 / 1024).toFixed(2) + ' MB',
-    });
-    message.success(`${file.name} 上传成功`);
-  }
+/** 资料上传 */
+const handleMatChange = async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  matUploading.value = true;
+  try {
+    const res = await apiUploadMaterial(file, file.name);
+    if (res?.code === 200) {
+      materialList.value.push({
+        id: res.data?.materialId,
+        name: res.data?.materialName || file.name,
+        url: res.data?.fileUrl,
+        size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+        type: res.data?.fileType || file.name.split('.').pop(),
+      });
+      message.success('资料上传成功');
+    } else {
+      message.error(res?.msg || '上传失败');
+    }
+  } catch { message.error('上传失败'); }
+  finally { matUploading.value = false; e.target.value = ''; }
 };
-// 2. 暂时不使用 loading 和 message，排除干扰
-// 修改 handlePublish 内部的 submitData 构造逻辑
+
+/** 下载资料（获取临时URL） */
+const handleDownload = async (mat) => {
+  if (!mat.id) { window.open(mat.url, '_blank'); return; }
+  try {
+    const res = await apiGetMaterialUrl(mat.id, 120);
+    window.open(res?.code === 200 ? res.data : mat.url, '_blank');
+  } catch { window.open(mat.url, '_blank'); }
+};
+
+/** 保存并发布 */
 const handlePublish = async () => {
-  const message = useMessage();
-  if (!formValue.title) {
-    message.error('请输入课程标题');
-    return;
-  }
-
+  if (!formValue.title) { message.error('请输入课程标题'); return; }
   loading.value = true;
   try {
     const submitData = {
       title: formValue.title,
+      desc: formValue.desc,
       intro: formValue.desc,
-      serviceContent: formValue.service_content,
-      price: formValue.price ?? 0,
-      tPrice: formValue.tPrice ?? 0,
+      cover: String(formValue.cover || ''),
+      tagIds: formValue.tagIds,
+      service_period: formValue.service_period,
+      service_content: formValue.service_content,
+      price: formValue.price,
+      tPrice: formValue.tPrice,
       type: formValue.type,
-      // 初始创建时不带 cover，因为后端现在要单独上传
+      materials: materialList.value.map((m) => ({
+        materialName: m.name,
+        fileUrl: m.url,
+        fileType: m.type,
+      })),
     };
-
+    // useAddCourseApi 内部 transform 后 data.value 是后端 data 字段（课程ID）
+    // 所以直接判断 data.value 有值即为成功
     const { data, error } = await useAddCourseApi(submitData);
-
-    if (!error.value && (data.value?.code === 200 || data.value?.data > 0)) {
-      // ✨ 重点：拿到后端返回的 ID
-      // 注意：根据你后端 R.ok() 的结构，ID 可能在 data.data 里
-      currentCourseId.value = data.value.data || data.value;
-
-      message.success('基础信息保存成功！现在可以上传封面和资料了');
-
-      // 注意：这里先不要 emit('update:show', false)，让用户传完图再走
-      emit('success'); // 刷新列表
+    if (!error.value && data.value) {
+      message.success('课程创建成功！');
+      emit('success');
+      emit('update:show', false);
     } else {
-      message.error(data.value?.msg || '保存失败');
+      message.error('保存失败');
     }
-  } catch (err) {
-    message.error('网络异常');
-  } finally {
-    loading.value = false;
-  }
+  } catch { message.error('网络异常'); }
+  finally { loading.value = false; }
 };
 </script>
 
@@ -309,16 +276,33 @@ const handlePublish = async () => {
   border-top: 1px solid #f0f0f0;
   padding-top: 20px;
 }
-.table-box {
-  flex: 1;
+.table-box { flex: 1; }
+.upload-box { width: 200px; }
+.sub-title { font-weight: bold; margin-bottom: 10px; font-size: 14px; color: #333; }
+
+.cover-upload { display: flex; align-items: center; gap: 0; }
+.cover-preview {
+  position: relative; width: 160px; height: 90px; border-radius: 4px;
+  overflow: hidden; cursor: pointer;
 }
-.upload-box {
-  width: 280px;
+.cover-img { width: 100%; height: 100%; object-fit: cover; }
+.cover-mask {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.4); color: #fff;
+  display: flex; justify-content: center; align-items: center; font-size: 13px;
+  opacity: 0; transition: opacity 0.2s;
 }
-.sub-title {
-  font-weight: bold;
-  margin-bottom: 10px;
-  font-size: 14px;
-  color: #333;
+.cover-preview:hover .cover-mask { opacity: 1; }
+.cover-placeholder {
+  width: 160px; height: 90px; border: 2px dashed #ddd; border-radius: 4px;
+  display: flex; justify-content: center; align-items: center;
+  font-size: 13px; color: #999; cursor: pointer; transition: all 0.2s;
 }
+.cover-placeholder:hover, .cover-placeholder.loading { border-color: #18a058; color: #18a058; }
+
+.mat-upload-btn {
+  border: 2px dashed #ddd; border-radius: 6px; padding: 20px;
+  text-align: center; cursor: pointer; font-size: 13px; color: #666;
+  transition: all 0.2s;
+}
+.mat-upload-btn:hover, .mat-upload-btn.loading { border-color: #18a058; color: #18a058; }
 </style>

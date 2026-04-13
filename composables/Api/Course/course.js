@@ -1,14 +1,48 @@
 // composables/Api/Course/course.js
 // 1. 获取基础地址
 const baseURL = fetchConfig.baseURL; // 已经是 http://localhost:8081/pc
+const APP_ID = 'bd9d01ecc75dbbaaefce';
+/**
+ * 封装上传组件专用的 Headers
+ */
+// composables/Api/Course/course.js
 
-// 2. 导出获取封面上传地址的函数
-export const getCoverUploadUrl = (courseId) =>
-  `${baseURL}/course/cover/upload/${courseId}`;
+/**
+ * ✨ 精准对齐 useGetFetchOptions 的 Token 获取逻辑
+ */
+export const getAuthHeaders = () => {
+  let tokenValue = '';
+  if (process.client) {
+    // 按照你 fetchConfig 的逻辑取值
+    tokenValue = localStorage.getItem('token') || localStorage.getItem('Token');
+    if (!tokenValue) {
+      tokenValue = useCookie('token').value;
+    }
+  }
 
-// 3. 导出获取资料上传地址的函数
-export const getMaterialUploadUrl = (courseId) =>
-  `${baseURL}/course/material/upload/${courseId}`;
+  return {
+    // 1. 若依后端最标准、最常用的 Key
+    Authorization: 'Bearer ' + tokenValue,
+
+    // 2. 备用 Key（有些魔改版会读这个）
+    token: tokenValue,
+
+    // 3. 你的 appid
+    appid: 'bd9d01ecc75dbbaaefce',
+  };
+};
+
+// 封面上传配置
+export const getCoverUploadConfig = () => ({
+  action: `${baseURL}/course/cover/upload`,
+  // headers: getAuthHeaders(),
+});
+
+// 资料上传配置
+export const getMaterialUploadConfig = () => ({
+  action: `${baseURL}/course/material/upload`,
+  // headers: getAuthHeaders(),
+});
 // 1. 课程搜索/列表 (对应后端: POST /pc/course/search)
 
 // ✅ 修改为 POST 请求
@@ -113,27 +147,207 @@ export function useAddCourseApi(body) {
   });
 }
 
-// 收藏课程接口
-// 收藏课程接口
-export function useCollectCourseApi(courseId) {
-  return useHttpPost('CollectCourse', '/collection/add', {
+// 收藏课程接口 POST /pc/course/collection/add
+export async function apiCollectCourse(courseId) {
+  return $fetch('/course/collection/add', {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
     body: { courseId },
-    headers: {
-      token: localStorage.getItem('Token'), // 手动写死小写 key
-      appid: 'bd9d01ecc75dbbaaefce', // 🔥 必加
-    },
   });
 }
 
-// 取消收藏课程接口
-export function useRemoveCollectApi(courseId) {
-  const token = useCookie('token');
-  return useHttpPost('RemoveCollect', '/collection/remove', {
-    body: {
-      courseId: courseId,
-    },
-    headers: {
-      Authorization: `Bearer ${token.value}`,
-    },
+// 取消收藏课程接口 POST /pc/course/collection/remove
+export async function apiRemoveCollect(courseId) {
+  return $fetch('/course/collection/remove', {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    body: { courseId },
+  });
+}
+
+// ==================== 课程编辑相关 API ====================
+
+/** 获取课程大纲（含章节+小节） GET /pc/course/{courseId}/sections */
+export function useCourseOutlineSectionsApi(courseId) {
+  return useHttpGet('CourseOutlineSections', `/course/${courseId}/sections`, {
+    lazy: true,
+  });
+}
+
+/** 新增章节 POST /pc/course/{courseId}/section */
+export async function apiAddSection(courseId, body) {
+  return $fetch(`/course/${courseId}/section`, {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    body,
+  });
+}
+
+/** 新增一级章节 POST /pc/course/section/chapter/save */
+export async function apiAddChapter(body) {
+  return $fetch('/course/section/chapter/save', {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    body,
+  });
+}
+
+/** 新增视频小节 POST /pc/course/section/video/save */
+export async function apiAddVideoSection(body) {
+  return $fetch('/course/section/video/save', {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    body,
+  });
+}
+
+/** 新增文本小节 POST /pc/course/section/textContent/save */
+export async function apiAddTextSection(body) {
+  return $fetch('/course/section/textContent/save', {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    body,
+  });
+}
+
+/** 修改课程基本信息 POST /pc/course/update */
+export async function apiUpdateCourse(body) {
+  return $fetch('/course/update', {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    body,
+  });
+}
+
+/** 删除课程 DELETE /pc/course/{courseId} */
+export async function apiDeleteCourse(courseId) {
+  return $fetch(`/course/${courseId}`, {
+    method: 'DELETE',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+  });
+}
+
+/** 删除课程资料 DELETE /pc/course/material/{materialId} */
+export async function apiDeleteMaterial(materialId) {
+  return $fetch(`/course/material/${materialId}`, {
+    method: 'DELETE',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+  });
+}
+
+/** 获取课程资料列表 GET /pc/course/{courseId}/materials */
+export function useCourseMaterialsApi(courseId) {
+  return useHttpGet('CourseMaterials', `/course/${courseId}/materials`, {
+    lazy: true,
+  });
+}
+
+/** 上传封面（直接 $fetch，返回 url 字符串） */
+export async function apiUploadCover(file) {
+  const form = new FormData();
+  form.append('file', file);
+  return $fetch('/course/cover/upload', {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    body: form,
+  });
+}
+
+/** 上传资料 */
+export async function apiUploadMaterial(file, materialName) {
+  const form = new FormData();
+  form.append('file', file);
+  if (materialName) form.append('materialName', materialName);
+  return $fetch('/course/material/upload', {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    body: form,
+  });
+}
+
+/** 上传视频 POST /pc/course/video/upload，返回视频信息 Map */
+export async function apiUploadVideo(file, videoName) {
+  const form = new FormData();
+  form.append('file', file);
+  if (videoName) form.append('videoName', videoName);
+  return $fetch('/course/video/upload', {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    body: form,
+  });
+}
+
+/** 上传章节视频 POST /pc/course/section/video/upload */
+export async function apiUploadSectionVideo(file, courseId, sectionId) {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('courseId', courseId);
+  form.append('sectionId', sectionId);
+  return $fetch('/course/section/video/upload', {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    body: form,
+  });
+}
+
+/** 获取章节视频信息 GET /pc/course/section/{sectionId}/video */
+export async function apiGetSectionVideo(sectionId) {
+  return $fetch(`/course/section/${sectionId}/video`, {
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+  });
+}
+
+/** 获取课程封面临时URL GET /pc/course/covers?courseIds=1,2,3&minute=30 */
+export async function apiGetCoverUrls(courseIds, minute = 30) {
+  return $fetch('/course/covers', {
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    params: { courseIds: courseIds.join(','), minute },
+  });
+}
+
+/** 获取章节视频临时URL GET /pc/course/section/video-urls?sectionIds=4&minute=60 */
+export async function apiGetVideoUrls(sectionIds, minute = 60) {
+  return $fetch('/course/section/video-urls', {
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    params: { sectionIds: Array.isArray(sectionIds) ? sectionIds.join(',') : sectionIds, minute },
+  });
+}
+
+/** 获取课程资料下载临时URL GET /pc/course/material-url?materialId=1&minute=120 */
+export async function apiGetMaterialUrl(materialId, minute = 120) {
+  return $fetch('/course/material-url', {
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    params: { materialId, minute },
+  });
+}
+
+export async function apiDeleteSection(id) {
+  return $fetch(`/course/section/${id}`, {
+    method: 'DELETE',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+  });
+}
+export async function apiGetCourseDetail(courseId) {
+  return $fetch(`/course/detail/${courseId}`, {
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
   });
 }
