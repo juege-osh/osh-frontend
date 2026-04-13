@@ -10,10 +10,18 @@
 </template>
 
 <script setup>
-// 保留原有业务逻辑，无修改
-let {
-    data
-} = await useHotCourseListApi()
+const result = useHotCourseListApi()
+console.log('[HotCourseList] result:', result)
+
+const rawData = result?.data
+console.log('[HotCourseList] rawData:', rawData)
+
+const data = computed(() => {
+  const val = rawData?.value
+  console.log('[HotCourseList] val:', val)
+  if (!val) return []
+  return val.records ?? val.list ?? (Array.isArray(val) ? val : [])
+})
 </script>
 
 <style>

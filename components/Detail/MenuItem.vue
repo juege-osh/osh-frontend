@@ -33,21 +33,25 @@
 <style>
     .detail-menu-item {
         display: flex;
-        padding: 1.25rem;
-        border-bottom: 1px solid currentColor;
+        align-items: center;
+        padding: 14px 24px;
+        border-bottom: 1px solid #f3f4f6;
         cursor: pointer;
-        font-size: 0.875rem;
+        font-size: 14px;
+        color: #374151;
+        transition: background 0.15s;
     }
-    
+
     .detail-menu-item:hover {
-        background-color: #f3f4f6 !important;
+        background-color: #f9fafb !important;
     }
-    
-    .detail-menu-item:active {
-        background-color: #e5e7eb !important;
+
+    .detail-menu-item:last-child {
+        border-bottom: none;
     }
-    
+
     .active {
-        background-color: #e5e7eb;
+        background-color: #eff6ff !important;
+        color: #3b82f6;
     }
 </style>

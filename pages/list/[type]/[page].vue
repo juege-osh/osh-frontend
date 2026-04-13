@@ -7,7 +7,7 @@
             <n-breadcrumb-item>{{ title }}</n-breadcrumb-item>
         </n-breadcrumb>
 
-        <BookSearch v-if="type == 'book'"  @search="handleSearch"  @singlesearch="handleSingleSearch"/>
+        <BookSearch v-if="type == 'book'" ref="bookSearchRef" @search="handleSearch" @singlesearch="handleSingleSearch"/>
 
         <LoadingGroup :pending="pending" :error="error" :is-empty="rows.length === 0">
             <template #loading>
@@ -15,12 +15,11 @@
                 <LoadingCourseSkeleton v-else/>
             </template>
             
-
             <n-grid :x-gap="20" :cols="4">
             <!-- 条件1：如果 a 有数据，就显示筛选的 a -->
                 <template v-if="w">
                     <n-gi v-for="(item, index) in a" :key="item.id || index">
-                    <BookList v-if="type == 'book'" :item="item" />
+                    <BookList v-if="type == 'book'" :item="item" @tag-click="handleTagSearch" />
                     <CourseList v-else :item="item" />
                     </n-gi>
                 </template>
@@ -28,7 +27,7 @@
             <!-- 条件2：否则显示默认的 rows -->
                 <template v-else>
                     <n-gi v-for="(item, index) in rows" :key="item.id || index">
-                    <BookList v-if="type == 'book'" :item="item" />
+                    <BookList v-if="type == 'book'" :item="item" @tag-click="handleTagSearch" />
                     <CourseList v-else :item="item" />
                     </n-gi>
                 </template>
@@ -72,7 +71,7 @@ const {
     pending,
     error,
     refresh,
-    // 传入分页处理函数
+    data,
 } = await usePage(({ pageNum,pageSize, ...otherParams })=> {
 
     let query = {
@@ -89,45 +88,57 @@ const {
 }, initialFilters)
 
 
-// 获取电子书的标签
+// 搜索栏触发搜索（含标签点击）：直接更新 data 刷新 rows
 async function handleSearch(queryParams){
+    initialFilters.title = queryParams.keyword || ''
+    initialFilters.tagNameList = queryParams.tag || []
 
-  initialFilters.title = queryParams.keyword || '';
-  initialFilters.tagNameList = Object.values(queryParams.tag || {});
-
-  // const route = useRoute()
-//   console.log('route ', route.params.page);
-
-
-    const query = {
-        pageNum: 1, 
-        pageSize: 12, 
-        ...initialFilters
-    }
-    await useBookListApi("book",query)
-
+    const res = await $fetch('http://127.0.0.1:8080/pc/book/page', {
+        method: 'POST',
+        body: { pageNum: 1, pageSize: limit.value, ...initialFilters }
+    })
+    // 更新 data 让 rows computed 自动刷新，同时清掉筛选态
+    data.value = res?.data ?? data.value
+    w.value = false
 }
 
 
 
-const a = ref()
+const a = ref([])
 const w = ref(false)
+
+const filterApiMap = {
+  free: 'http://127.0.0.1:8080/pc/book/getFilterBookList?filter=free',
+  paid_score: 'http://127.0.0.1:8080/pc/book/getFilterBookList?filter=paid_score',
+  score: 'http://127.0.0.1:8080/pc/book/getFilterBookList?filter=score',
+  gold: 'http://127.0.0.1:8080/pc/book/getFilterBookList?filter=gold',
+  gold_small_class: 'http://127.0.0.1:8080/pc/book/getFilterBookList?filter=gold_small_class',
+  internal: 'http://127.0.0.1:8080/pc/book/getFilterBookList?filter=internal',
+}
+
+const bookSearchRef = ref(null)
+
+// 点击标签直接按标签搜索
+async function handleTagSearch(tag) {
+    bookSearchRef.value?.addTagAndSearch(tag)
+}
+
 async function handleSingleSearch(sort) {
-  console.log("当前选中的 sort =", sort);
+  const filterKey = sort.a
+  if (!filterKey || !filterApiMap[filterKey]) {
+    w.value = false
+    a.value = []
+    return
+  }
 
-
-  if (sort.a == "免费课程") {
-    const { data } = await useFetch('http://127.0.0.1:8080/pc/book/getFilterBookList?filter=free', {
-      method: 'GET',
-      key: 'book-filter'
-    })
-        a.value = data.value?.data?.records;
-        w.value = !w.value;
-    }else{
-        w.value = false;
-    }
-
-
+  try {
+    const res = await $fetch(filterApiMap[filterKey], { method: 'GET' })
+    a.value = res?.data?.records ?? []
+    w.value = true
+  } catch (e) {
+    console.error('筛选请求失败', e)
+    w.value = false
+  }
 }
 
 

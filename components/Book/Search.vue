@@ -14,11 +14,11 @@
             <n-select
                 v-model:value="queryParams.sortIds"
                 filterable
+                clearable
                 placeholder="筛选（单选）"
                 :options="sort"
                 style="width: 260px"
                 @update:value="singleSearch"
-                @click="handleSortClick"
             />
             
 
@@ -58,60 +58,59 @@ import { SearchOutline, Add } from '@vicons/ionicons5'
 const queryParams = reactive({
   keyword: '',
   tagIds: [],
-  tag:[],
-  sortIds:null
+  tag: [],
+  sortIds: null
 });
 
 const emit = defineEmits(['search', 'singlesearch'])
-const handleSearch = ()=>{ 
-  queryParams.tag = []
 
-  queryParams.tagIds.forEach(val => {
-    const item = tagOptions.find(t => t.value === val)
-    if (item) queryParams.tag.push(item.label)
+// 动态标签选项，初始预设常用标签，点击卡片标签时会自动追加
+const tagOptions = reactive([
+  { label: 'Vue3', value: 'Vue3' },
+  { label: 'Nuxt3', value: 'Nuxt3' },
+  { label: 'Node.js', value: 'Node.js' },
+  { label: 'Python', value: 'Python' },
+  { label: 'AI实战', value: 'AI实战' },
+  { label: '信息差', value: '信息差' },
+  { label: '人工智能', value: '人工智能' },
+]);
+
+const handleSearch = () => {
+  queryParams.tag = [...queryParams.tagIds]
+  emit('search', {
+    keyword: queryParams.keyword,
+    tag: queryParams.tag
   })
-
-    emit('search',{
-      keyword: queryParams.keyword,
-      tag: queryParams.tag
-    })
 }
 
-// 用于手动清空的方法
-const handleSortClick = () => {
-  // 如果当前已经有值，点击后置为 null（清空）
-  if (queryParams.sortIds !== null) {
-    queryParams.sortIds = null;
-    singleSearch(); // 同时触发搜索，确保界面更新
-  }
+const singleSearch = (val) => {
+  emit('singlesearch', { a: val ?? null });
 };
 
-
-const singleSearch = () => { 
-  if(queryParams.sortIds !== null){ // 增加判空
-    let a = sort[queryParams.sortIds].label;
-    emit('singlesearch', { a });
-  } else {
-    emit('singlesearch', { a: null }); // 清空时传递null
+// 供父组件调用：点击卡片标签时，将标签注入搜索框并触发搜索
+const addTagAndSearch = (tagName) => {
+  // 如果选项里没有这个标签，动态添加
+  if (!tagOptions.find(t => t.value === tagName)) {
+    tagOptions.push({ label: tagName, value: tagName })
   }
-};
+  // 如果还没选中，加入选中列表
+  if (!queryParams.tagIds.includes(tagName)) {
+    queryParams.tagIds.push(tagName)
+  }
+  // 触发搜索
+  handleSearch()
+}
 
-
-const tagOptions = [
-  { label: 'Vue3', value: 0 },
-  { label: 'Nuxt3', value: 1 },
-  { label: 'Node.js', value: 2 },
-  { label: 'Python', value: 3 },
-  { label: 'AI实战', value: 4 },
-  { label: '信息差', value: 5 },
-  { label: '人工智能', value: 6 }
-];
+defineExpose({ addTagAndSearch })
 
 
 const sort = [
-  { label: '免费课程', value: 0 },
-  { label: '热门/已付费', value: 1 },
-  { label: '付费优先', value: 2 }
+  { label: '免费', value: 'free' },
+  { label: '付费积分付费', value: 'paid_score' },
+  { label: '积分付费', value: 'score' },
+  { label: '金币付费', value: 'gold' },
+  { label: '金币付费小班专属', value: 'gold_small_class' },
+  { label: '内部成员专属', value: 'internal' }
 ];
 
 

@@ -55,10 +55,12 @@ export function useCourseDetailApi(id) {
 // 注意：如果你的上传接口不带 /pc 前缀，可以用 replace 删掉它
 export const UPLOAD_ACTION_URL = fetchConfig.baseURL + '/upload';
 
-// 2. 精品推荐 (使用 search 接口带参数模拟)
+// 精品推荐
 export function useHotCourseListApi() {
-  return useHttpGet('HotCourseList', '/course/search', {
-    query: { isHot: 1, pageSize: 4 },
+  return useHttpGet('HotCourseList', '/course/page', {
+    query: { pageSize: 4, pageNum: 1 },
+    server: false,
+    lazy: true,
   });
 }
 

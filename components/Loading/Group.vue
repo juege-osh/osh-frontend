@@ -56,10 +56,10 @@ onBeforeUnmount(()=>stop())
 </script>
 <style scoped>
 .loading-group-container {
-  /* Container div doesn't have specific Tailwind classes to convert */
+  width: 100%;
 }
 
 .result-container {
-  margin-top: 2.5rem; /* corresponds to mt-10 */
+  margin-top: 2.5rem;
 }
 </style>
