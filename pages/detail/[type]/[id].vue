@@ -94,8 +94,9 @@
         NButton,
         NGrid,
         NGridItem,
-        createDiscreteApi
+        createDiscreteApi,
     } from "naive-ui"
+    
     const route = useRoute()
     const { id,type } = route.params
 
@@ -115,7 +116,7 @@
         error,
         pending,
         refresh
-    } = await useReadDetailApi(type,query)
+    } = await usegetByIdDetailApi(type,query)
 
     const title = computed(()=> !pending.value ? data.value?.title : "详情页")
 
@@ -211,10 +212,13 @@
     const learn = (item)=>{
         useHasAuth(()=>{
             const { message } = createDiscreteApi(["message"])
+
             // 专栏
             if(type == "column" && item.price != 0 && !data.value.isbuy){
                 return message.error("请先购买该专栏")
             }
+
+
             // 跳转
             let url = ""
             if(type == "column"){
