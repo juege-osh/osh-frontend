@@ -1,0 +1,24 @@
+node_modules/
+*copy.vue
+dist
+.output
+.nuxt
+composables/useHttp.js
+nuxt.config.ts
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 编辑器配置
+.vscode/
+.idea/
+
+# 配置文件
+tsconfig.json
+server/tsconfig.json
+
+# 公共静态资源 (如果你确定不交这些图)
+public/fail.png
+public/logo.png
+public/robots.txt
+public/aplayer/
