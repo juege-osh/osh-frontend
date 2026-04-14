@@ -78,26 +78,11 @@ const rules = computed(() => {
     let r = {
         username: [{
             required: true,
-            message: '请输入用户名/邮箱'
-        },{
-            // 添加用户名或邮箱格式校验规则
-            validator: (rule, value) => {
-                // 检查是否为8位字符的用户名或有效邮箱格式
-                const isUsername = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,16}$/.test(value);
-                const isEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)
-                
-                return isUsername || isEmail;
-            },
-            message: "用户名需为8-16位数字并且包含至少一个字母",
-            trigger: ["input", "blur"]
+            message: '请输入用户名'
         }],
         password: [{
             required: true,
             message: "请输入密码"
-        },{
-            pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,16}$/,
-            message: "密码必须至少8位，包含大小写字母和数字",
-            trigger: ["input", "blur"]
         }],
         repassword: [{
             required: true,
@@ -108,7 +93,7 @@ const rules = computed(() => {
             message: "请输入邮箱"
         },{
             // 邮箱格式校验规则
-            validator: (rule, value) => {
+            validator: (_rule, value) => {
                 const isEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)
                 return isEmail;
             },
@@ -121,17 +106,38 @@ const rules = computed(() => {
         }]
     }
 
-    // 注册时需要验证确认密码
+    // 注册时添加额外的验证规则
     if (type.value != "login") {
+        // 用户名：4-20 位字母、数字、下划线组成，字母开头
+        r.username.push({
+            validator: (_rule, value) => {
+                return /^[a-zA-Z][a-zA-Z0-9_]{3,19}$/.test(value);
+            },
+            message: "用户名必须是4-20位字母、数字、下划线组成，且以字母开头",
+            trigger: ["input", "blur"]
+        })
+
+        // 密码：8-20 位，必须包含大小写字母、数字，可包含特殊符号
+        r.password.push({
+            validator: (_rule, value) => {
+                if (value.length < 8 || value.length > 20) return false
+                const hasUpperCase = /[A-Z]/.test(value)
+                const hasLowerCase = /[a-z]/.test(value)
+                const hasNumber = /[0-9]/.test(value)
+                return hasUpperCase && hasLowerCase && hasNumber
+            },
+            message: "密码必须是8-20位，且包含大小写字母和数字",
+            trigger: ["input", "blur"]
+        })
+
         r.repassword = [{
             required: true,
             message: "请输入确认密码"
         }, {
-            validator(rule, value) {
+            validator(_rule, value) {
                 return value === form.password
             },
             message: "两次密码输入不一致",
-            // 输入和失去焦点时
             trigger: ["input", "blur"]
         }]
     }
