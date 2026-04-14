@@ -62,7 +62,31 @@ const rules = computed(()=>{
         }]
     }
 
+    // 注册时添加额外的验证规则
     if(type.value != "login"){
+        // 用户名：4-20 位字母、数字、下划线组成，字母开头
+        r.username.push({
+            validator(rule, value) {
+                const usernameRegex = /^[a-zA-Z][a-zA-Z0-9_]{3,19}$/
+                return usernameRegex.test(value)
+            },
+            message:"用户名必须是4-20位字母、数字、下划线组成，且以字母开头",
+            trigger: ["input", "blur"]
+        })
+
+        // 密码：8-20 位，必须包含大小写字母、数字，可包含特殊符号
+        r.password.push({
+            validator(rule, value) {
+                if(value.length < 8 || value.length > 20) return false
+                const hasUpperCase = /[A-Z]/.test(value)
+                const hasLowerCase = /[a-z]/.test(value)
+                const hasNumber = /[0-9]/.test(value)
+                return hasUpperCase && hasLowerCase && hasNumber
+            },
+            message:"密码必须是8-20位，且包含大小写字母和数字",
+            trigger: ["input", "blur"]
+        })
+
         r.repassword = [{
             required: true,
             message:"确认密码必填"
