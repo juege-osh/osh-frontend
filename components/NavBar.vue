@@ -163,8 +163,8 @@ const menus = [
   /* --- 【标注：新模块补充开始】 --- */
   {
     name: '答疑',
-    path: '/question_answer', // 修改路径，不再共用 bbs
-    match: [{ name: 'question_answer' }],
+    path: '/question_answer/1',
+    match: [{ name: 'question_answer-page' }],
   },
   {
     name: '工具',
