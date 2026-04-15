@@ -1,11 +1,10 @@
 <template>
-  <div class="qna-page-container">
-    <div v-if="isListPage" class="page-content">
-      <div class="header-action">
-        <n-breadcrumb>
-          <n-breadcrumb-item>首页</n-breadcrumb-item>
-          <n-breadcrumb-item>问答社区</n-breadcrumb-item>
-        </n-breadcrumb>
+  <div class="qna-page">
+    <div class="qna-inner">
+      <div class="breadcrumb">
+        <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
+        <span class="bc-sep">›</span>
+        <span class="bc-current">💬 问答社区</span>
       </div>
 
       <QuestionAnswerList
@@ -13,75 +12,63 @@
         @open-create="showCreate = true"
       />
     </div>
-
-    <div v-else class="page-content">
-      <QuestionAnswerDetail :question-id="routeId" @back="handleBack" />
-    </div>
-
-    <QuestionAnswerCreateModal v-model:show="showCreate" />
+    
+    <QuestionAnswerCreateModal
+      v-model:show="showCreate"
+      @success="handleCreateSuccess"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-const route = useRoute();
 const router = useRouter();
-
-// 1. 获取当前路由参数。这里的 'page' 对应你的文件名 [page].vue
-const pageParam = computed(() => route.params.page);
-
-// 2. 核心逻辑：只有参数明确为 'list' 时才显示列表
-// 访问 /question_answer/list -> pageParam 为 'list' -> isListPage 为 true
-// 访问 /question_answer/1    -> pageParam 为 '1'      -> isListPage 为 false
-const isListPage = computed(() => {
-  return pageParam.value === 'list';
-});
-
-// 3. 详情页需要的 ID
-const routeId = computed(() => (isListPage.value ? null : pageParam.value));
-
 const showCreate = ref(false);
 
-const handleToDetail = (id) => {
-  router.push(`/question_answer/${id}`);
-};
+function handleToDetail(id) {
+  router.push(`/question_answer/detail/${id}`);
+}
 
-const handleBack = () => {
-  router.push('/question_answer/list');
-};
+function handleCreateSuccess() {
+  // 刷新列表
+  router.go(0);
+}
 </script>
 
 <style scoped>
-.qna-page-container {
-  min-height: 100vh;
-  width: 100vw;
-  background-color: #f9fbff; /* 浅色背景更显社区质感 */
+.qna-page { 
+  min-height: 100vh; 
+  background: #f5f6fa;
 }
-
-/* 修改 [page].vue 里的这一段 */
-/* 修改 [page].vue 里的样式 */
-.page-content {
-  /* ❌ 删除了 max-width: 1240px; */
-  /* ❌ 删除了 margin: 0 auto; */
-  width: 100%;
-  padding: 20px;
-  box-sizing: border-box; /* 确保 padding 不会把宽度撑破 */
+.qna-inner { 
+  max-width: 1200px; 
+  margin: 0 auto; 
+  padding: 20px 20px 60px; 
 }
-
-.header-action {
-  margin-bottom: 20px;
+.breadcrumb { 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  font-size: 14px; 
+  color: #999; 
+  margin-bottom: 16px; 
 }
-
-/* 页面切换动画，提升用户体验 */
-.page-enter-active,
-.page-leave-active {
-  transition: opacity 0.3s ease;
+.bc-item { 
+  color: #666; 
+  cursor: pointer; 
+  transition: color 0.2s;
 }
-
-.page-enter-from,
-.page-leave-to {
-  opacity: 0;
+.bc-item:hover { 
+  color: #18a058; 
+}
+.bc-sep { 
+  color: #ddd; 
+  user-select: none;
+}
+.bc-current { 
+  color: #333; 
+  font-weight: 600; 
 }
 </style>

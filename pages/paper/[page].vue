@@ -31,10 +31,8 @@ const {
     pending,
     error,
     refresh
-} = await usePage(({ page,limit })=> {
-    return useListApi("testpaper",{
-        page
-    })
+} = await usePage(({ pageNum, pageSize })=> {
+    return useListApi("testpaper", { pageNum, pageSize })
 })
 
 useHead({
