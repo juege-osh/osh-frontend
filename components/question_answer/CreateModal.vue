@@ -8,35 +8,6 @@
     @update:show="$emit('update:show', $event)"
   >
     <n-form label-placement="left" label-width="100">
-      <n-form-item label="资源类型">
-        <n-select
-          v-model:value="formValue.resourceType"
-          placeholder="请选择资源类型（可不选）"
-          :options="resourceTypeOptions"
-          clearable
-        />
-      </n-form-item>
-
-      <n-form-item label="资源ID" v-if="formValue.resourceType">
-        <n-input-number
-          v-model:value="formValue.resourceNo"
-          placeholder="请输入资源ID"
-          :min="1"
-          style="width: 100%"
-        />
-      </n-form-item>
-
-      <n-form-item label="问题内容" required>
-        <n-input
-          v-model:value="formValue.content"
-          type="textarea"
-          placeholder="详细描述你的问题，包括报错信息、环境等...&#10;&#10;提示：清晰的问题描述能帮助你更快获得解答"
-          :autosize="{ minRows: 6, maxRows: 12 }"
-          maxlength="2000"
-          show-count
-        />
-      </n-form-item>
-
       <n-form-item label="问题类型">
         <n-radio-group v-model:value="formValue.isPaidOnly">
           <n-space>
@@ -48,6 +19,35 @@
             </n-radio>
           </n-space>
         </n-radio-group>
+      </n-form-item>
+
+      <n-form-item label="资源类型">
+        <n-select
+          v-model:value="formValue.resourceType"
+          placeholder="请选择资源类型（可不选）"
+          :options="resourceTypeOptions"
+          clearable
+        />
+      </n-form-item>
+
+      <n-form-item label="资源编号" v-if="formValue.resourceType">
+        <n-input-number
+          v-model:value="formValue.resourceNo"
+          placeholder="请输入资源编号"
+          :min="1"
+          style="width: 100%"
+        />
+      </n-form-item>
+
+      <n-form-item label="问题内容" required>
+        <n-input
+          v-model:value="formValue.content"
+          type="textarea"
+          placeholder="详细描述你的问题，包括报错信息、环境等...&#10;&#10;提示：清晰的问题描述能帮助你更快获得解答"
+          :autosize="{ minRows: 4, maxRows: 8 }"
+          maxlength="200"
+          show-count
+        />
       </n-form-item>
 
       <n-form-item label="标签">
@@ -224,7 +224,7 @@ async function handlePublish() {
     return;
   }
   if (formValue.resourceType && !formValue.resourceNo) {
-    message.warning('请输入资源ID');
+    message.warning('请输入资源编号');
     return;
   }
 
