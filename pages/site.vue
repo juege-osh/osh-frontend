@@ -55,10 +55,34 @@
                             <Globe />
                         </n-icon>
                     </div>
-                    <!-- 状态徽标 -->
-                    <!-- <span class="status-badge" :class="site.status === 1 ? 'badge-active' : 'badge-disabled'">
-                        {{ site.status === 1 ? '启用' : '禁用' }}
-                    </span> -->
+                    <!-- 连接状态徽章 -->
+                    <span v-if="site.lastCheckTime" class="status-badge" :class="site.status == 1 ? 'badge-online' : 'badge-offline'">
+                        {{ site.status == 1 ? '在线' : '掉线' }}
+                    </span>
+                    <!-- 操作按钮 - 右上角悬浮 -->
+                    <div class="site-card-actions">
+                        <n-button size="small" @click.stop="handleRefreshSite(site)" class="card-action-btn" :loading="site.checking">
+                            <template #icon>
+                                <n-icon>
+                                    <Refresh />
+                                </n-icon>
+                            </template>
+                        </n-button>
+                        <n-button size="small" @click.stop="openEditModal(site)" class="card-action-btn">
+                            <template #icon>
+                                <n-icon>
+                                    <CreateOutline />
+                                </n-icon>
+                            </template>
+                        </n-button>
+                        <n-button size="small" type="error" @click.stop="handleDelete(site.id)" class="card-action-btn">
+                            <template #icon>
+                                <n-icon>
+                                    <TrashOutline />
+                                </n-icon>
+                            </template>
+                        </n-button>
+                    </div>
                 </div>
 
                 <!-- 网站信息 -->
@@ -77,29 +101,12 @@
                     </div>
                     <!-- 最后检查时间 -->
                     <div v-if="site.lastCheckTime" class="site-last-check">
-                        最后检查：<n-icon size="10" color="#6b7280">
+                        最后检查于：<n-icon size="10" color="#6b7280">
                             <TimeOutline />
                         </n-icon>
                         <span>{{ formatLastCheckTime(site.lastCheckTime) }}</span>
+                        <span>({{ site.lastCheckTime }})</span>
                     </div>
-                </div>
-
-                <!-- 操作按钮 -->
-                <div class="site-actions">
-                    <n-button size="small" @click="openEditModal(site)" style="margin-right: 6px;">
-                        <template #icon>
-                            <n-icon>
-                                <CreateOutline />
-                            </n-icon>
-                        </template>
-                    </n-button>
-                    <n-button size="small" type="error" @click="handleDelete(site.id)">
-                        <template #icon>
-                            <n-icon>
-                                <TrashOutline />
-                            </n-icon>
-                        </template>
-                    </n-button>
                 </div>
             </div>
         </div>
@@ -559,12 +566,33 @@ const checkingAll = ref(false)
 async function handleRefreshAll() {
     checkingAll.value = true
     try {
-        await useSiteInfoRefreshAllApi()
-        loadList()
+        const { data } = await useSiteInfoRefreshAllApi()
+        if (data.value) {
+            const results = data.value
+            // Update connection status for each site
+            siteList.value.forEach(site => {
+                const result = results.find(r => r.siteId === site.id)
+                if (result) {
+                    site.isConnected = result.isConnected
+                    site.lastCheckTime = result.lastCheckTime
+                }
+            })
+        }
     } catch (error) {
         console.error('刷新检查失败:', error)
     } finally {
         checkingAll.value = false
+    }
+}
+
+async function handleRefreshSite(site) {
+    site.checking = true
+    try {
+        await useSiteInfoRefreshApi(site.id)
+    } catch (error) {
+        console.error('刷新检查失败:', error)
+    } finally {
+        site.checking = false
     }
 }
 
@@ -643,8 +671,8 @@ width: 100vw;
 .site-grid {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
 }
 
 .site-card {
@@ -655,6 +683,7 @@ width: 100vw;
     transition: box-shadow 0.2s, transform 0.2s;
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .site-card:hover {
@@ -664,7 +693,7 @@ width: 100vw;
 
 .site-cover {
     position: relative;
-    height: 70px;
+    height: 120px;
     background: #f3f4f6;
     overflow: hidden;
     cursor: pointer;
@@ -688,36 +717,71 @@ width: 100vw;
 .status-badge {
     position: absolute;
     top: 8px;
-    right: 8px;
-    padding: 2px 8px;
-    border-radius: 999px;
+    left: 8px;
+    padding: 3px 10px;
+    border-radius: 12px;
     font-size: 11px;
     font-weight: 600;
+    z-index: 2;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.badge-active {
-    background: #d1fae5;
-    color: #065f46;
+.badge-online {
+    background: #10b981;
+    color: #ffffff;
 }
 
-.badge-disabled {
-    background: #fee2e2;
-    color: #991b1b;
+.badge-offline {
+    background: #ef4444;
+    color: #ffffff;
+    animation: pulse-red 2s ease-in-out infinite;
+}
+
+@keyframes pulse-red {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+.site-card-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 2;
+}
+
+.site-card:hover .site-card-actions {
+    opacity: 1;
+}
+
+.card-action-btn {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .site-info {
-    padding: 6px 8px;
+    padding: 10px 12px;
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .site-name {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     color: #111827;
-    margin-bottom: 4px;
+    margin-bottom: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.3;
 }
 
 .site-url {
@@ -742,40 +806,51 @@ width: 100vw;
 }
 
 .site-desc {
-    font-size: 10px;
+    font-size: 12px;
     color: #6b7280;
-    margin-bottom: 4px;
+    margin-bottom: 0;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    line-height: 1.4;
 }
 
 .site-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 2px;
+    gap: 4px;
+    min-height: 0;
+}
+
+.site-tags .n-tag {
+    font-size: 11px;
+    padding: 0 6px;
+    height: 20px;
+    line-height: 18px;
 }
 
 .site-responsibles {
     display: flex;
     flex-wrap: wrap;
-    gap: 2px;
+    gap: 4px;
+    min-height: 0;
+}
+
+.site-responsibles .n-tag {
+    font-size: 11px;
+    padding: 0 6px;
+    height: 20px;
+    line-height: 18px;
 }
 
 .site-last-check {
     display: flex;
     align-items: center;
-    gap: 3px;
-    font-size: 10px;
+    gap: 4px;
+    font-size: 11px;
     color: #6b7280;
-}
-
-.site-actions {
-    padding: 6px 8px;
-    border-top: 1px solid #f3f4f6;
-    display: flex;
-    justify-content: flex-end;
+    margin-top: auto;
 }
 
 .pagination-container {
@@ -784,4 +859,23 @@ width: 100vw;
     justify-content: center;
     padding: 16px 0;
 }
+
+@media (max-width: 1400px) {
+    .site-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 1024px) {
+    .site-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .site-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 </style>

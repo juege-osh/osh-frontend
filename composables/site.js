@@ -43,6 +43,14 @@ export function useSiteInfoRefreshAllApi() {
     })
 }
 
+// 刷新检查单个网站
+export function useSiteInfoRefreshApi(siteId) {
+    return useHttpPost("SiteInfoRefresh", `/site/check`, {
+        $: true,
+        body: [siteId]
+    })
+}
+
 // 获取网站负责人列表
 export function useSiteResponsibleListApi(siteId) {
     return useHttpGet("SiteResponsibleList", `/site/responsible/${siteId}`, {
