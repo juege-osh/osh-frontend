@@ -15,6 +15,12 @@
                 <n-select v-model:value="searchForm.status" placeholder="状态筛选" :options="statusOptions" clearable
                     style="width: 120px; margin-right: 8px;" @update:value="handleSearch" />
                 <n-button type="primary" @click="handleSearch" style="margin-right: 8px;">搜索</n-button>
+                <n-button type="primary" @click="handleRefreshAll" style="margin-right: 8px;" :loading="checkingAll">
+                    <template #icon><n-icon>
+                            <Refresh />
+                        </n-icon></template>
+                    刷新检查
+                </n-button>
                 <n-button type="primary" @click="openTagManageModal" style="margin-right: 8px;">
                     <template #icon><n-icon>
                             <Add />
@@ -58,17 +64,23 @@
                 <!-- 网站信息 -->
                 <div class="site-info">
                     <div class="site-name">{{ site.siteName }}</div>
-                    <!-- <div class="site-url">
-                        <n-icon size="12" color="#6b7280">
-                            <LinkOutline />
-                        </n-icon>
-                        <a :href="site.siteUrl" target="_blank" class="url-link" @click.stop>{{ site.siteUrl }}</a>
-                    </div> -->
                     <div v-if="site.description" class="site-desc">{{ site.description }}</div>
                     <!-- 标签 -->
                     <div v-if="site.tagList && site.tagList.length > 0" class="site-tags">
                         <n-tag v-for="(tag, index) in site.tagList" :key="index" size="tiny" type="info"
                             style="margin-right: 3px; margin-top: 3px;">{{ tag.tagName }}</n-tag>
+                    </div>
+                    <!-- 负责人 -->
+                    <div v-if="site.maintainers && site.maintainers.length > 0" class="site-responsibles">
+                        <n-tag v-for="(resp, index) in site.maintainers" :key="index" size="tiny" type="success"
+                            style="margin-right: 3px; margin-top: 3px;">{{ resp.userName }}</n-tag>
+                    </div>
+                    <!-- 最后检查时间 -->
+                    <div v-if="site.lastCheckTime" class="site-last-check">
+                        最后检查：<n-icon size="10" color="#6b7280">
+                            <TimeOutline />
+                        </n-icon>
+                        <span>{{ formatLastCheckTime(site.lastCheckTime) }}</span>
                     </div>
                 </div>
 
@@ -117,6 +129,9 @@
                 <n-form-item label="网站描述" path="description">
                     <n-input v-model:value="formData.description" type="textarea" placeholder="请输入网站描述（可选）"
                         maxlength="500" show-count :autosize="{ minRows: 2, maxRows: 4 }" />
+                </n-form-item>
+                <n-form-item label="责任人" path="maintainerUserIds">
+                    <user-selector :model-value="formData.maintainerUserIds" @update:model-value="handlemaintainerUserIdsUpdated"/>
                 </n-form-item>
                 <n-form-item label="标签" path="tags">
                     <div style="display: flex; gap: 8px; width: 100%;">
@@ -183,7 +198,7 @@ import {
     NTag, NSpin, NEmpty,
     NIcon, createDiscreteApi, NDataTable
 } from 'naive-ui'
-import { Search, Add, Globe, CreateOutline, TrashOutline } from '@vicons/ionicons5'
+import { Search, Add, Globe, CreateOutline, TrashOutline, Refresh, TimeOutline } from '@vicons/ionicons5'
 import { h } from 'vue'
 
 useHead({
@@ -201,6 +216,10 @@ function handleCoverUploaded(file) {
     if (file) {
         formData.cover = file.userData.url
     }
+}
+
+function handlemaintainerUserIdsUpdated(value) {
+    formData.maintainerUserIds = value
 }
 
 // 状态选项
@@ -235,6 +254,7 @@ const defaultFormData = () => ({
     siteUrl: 'https://www.baidu.com',
     cover: '',
     description: '',
+    maintainerUserIds: [],
     tags: [],
     status: 1,
 })
@@ -346,6 +366,7 @@ function openEditModal(site) {
     modalTitle.value = '编辑网站'
     isUpdate.value = true
 
+    let maintainerUserIds = site.maintainerUserIds || []
     let siteUrl = site.siteUrl || ''
     // 获取网站链接地址(有权限校验)
     useGetSiteInfoByIdApi(site.id, true)
@@ -360,6 +381,7 @@ function openEditModal(site) {
                 siteUrl: siteInfo.siteUrl || '',
                 description: site.description || '',
                 tags: tags,
+                maintainerUserIds: maintainerUserIds,
                 status: siteInfo.status ?? 1,
             })
             showModal.value = true
@@ -532,6 +554,46 @@ function handleSiteClicked(site) {
     })
 }
 
+const checkingAll = ref(false)
+
+async function handleRefreshAll() {
+    checkingAll.value = true
+    try {
+        await useSiteInfoRefreshAllApi()
+        loadList()
+    } catch (error) {
+        console.error('刷新检查失败:', error)
+    } finally {
+        checkingAll.value = false
+    }
+}
+
+// 格式化最后检查时间
+function formatLastCheckTime(timeStr) {
+    if (!timeStr) return ''
+    const date = new Date(timeStr)
+    const now = new Date()
+    const diff = now - date
+    
+    // 小于1分钟
+    if (diff < 60000) {
+        return '刚刚'
+    }
+    // 小于1小时
+    if (diff < 3600000) {
+        return Math.floor(diff / 60000) + '分钟前'
+    }
+    // 小于24小时
+    if (diff < 86400000) {
+        return Math.floor(diff / 3600000) + '小时前'
+    }
+    // 超过24小时，显示具体日期
+    const month = date.getMonth() + 1
+    const day = date.getDate()
+    const hour = date.getHours().toString().padStart(2, '0')
+    const minute = date.getMinutes().toString().padStart(2, '0')
+    return `${month}月${day}日 ${hour}:${minute}`
+}
 
 onMounted(() => {
     loadList()
@@ -693,6 +755,20 @@ width: 100vw;
     display: flex;
     flex-wrap: wrap;
     gap: 2px;
+}
+
+.site-responsibles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+}
+
+.site-last-check {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: #6b7280;
 }
 
 .site-actions {
