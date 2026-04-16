@@ -1,6 +1,6 @@
 <template>
-    <section class="book-section">
-        <UiImage :src="item.cover" class="book-cover"/>
+    <section class="book-section" @click="open">
+        <UiImage :src="item.cover || defaultCover" class="book-cover"/>
         <div class="book-info">
             <h4 class="book-title">{{ item.title }}</h4>
 
@@ -10,7 +10,7 @@
             </div>
 
             <div class="book-footer">
-                <n-button size="small" strong secondary round type="primary" class="subscribe-btn" @click="open">
+                <n-button size="small" strong secondary round type="primary" class="subscribe-btn">
                     {{ item.sub_count == 0 ? '立即购买' : (item.sub_count + '人购买') }}
                 </n-button>
 
@@ -21,7 +21,7 @@
                     :loading="followLoading"
                     :disabled="followLoading"
                     :type="isFollowed ? 'error' : 'default'"
-                    @click="handleFollow"
+                    @click.stop="handleFollow"
                 >
                     <template #icon>
                         <n-icon v-if="!followLoading" size="16">
@@ -43,6 +43,9 @@
     const props = defineProps({
         item: Object
     })
+
+    // 默认封面图
+    const defaultCover = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='108' height='138'%3E%3Crect width='108' height='138' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='%239ca3af'%3E暂无封面%3C/text%3E%3C/svg%3E"
 
     const open = () => {
         navigateTo(`/detail/book/${props.item.id}`)
@@ -73,6 +76,12 @@
     align-items: center;
     margin-bottom: 1rem;
     min-height: auto;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.book-section:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
 }
 .book-cover {
     width: 108px;

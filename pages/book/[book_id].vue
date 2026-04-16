@@ -1,37 +1,52 @@
 <template>
     <LoadingGroup :pending="pending" :error="error">
-        <n-grid :x-gap="20">
-            <n-grid-item :span="6">
-                <!-- 滚动容器：替换行内style为类名，便于维护 -->
-                <n-scrollbar class="book-menu-scrollbar bg-white rounded shadow mb-5">
-                    <div class="book-cover-wrap">
-                        <n-image 
-                            :src="data.detail.cover" 
-                            width="60" 
-                            height="80"
-                            class="book-cover-img"
-                        />
-                        <span class="book-title-text">{{ data.detail.title }}</span>
+        <div class="book-reader-container">
+            <aside class="book-sidebar">
+                <div class="book-info-card">
+                    <n-image 
+                        :src="data.detail.cover" 
+                        class="book-cover"
+                        object-fit="cover"
+                    />
+                    <h3 class="book-title">{{ data.detail.title }}</h3>
+                    <div class="book-stats">
+                        <span class="stat-item">
+                            <n-icon size="14"><BookOutline /></n-icon>
+                            {{ data.menus.length }} 章节
+                        </span>
                     </div>
-                    <DetailMenu class="book-menu-list">
-                        <DetailMenuItem 
+                </div>
+                
+                <n-scrollbar class="chapter-list-scroll">
+                    <div class="chapter-list">
+                        <div 
                             v-for="(item,index) in data.menus"
                             :key="index" 
-                            :item="item" 
-                            :index="index" 
+                            class="chapter-item"
+                            :class="{ 'active': activeId == item.id }"
                             @click="open(item.id)"
-                            :active="activeId == item.id"
-                        />
-                        <Empty v-if="data.menus.length == 0" desc="暂无目录"/>
-                    </DetailMenu>
+                        >
+                            <div class="chapter-number">{{ index + 1 }}</div>
+                            <div class="chapter-info">
+                                <div class="chapter-title">{{ item.title }}</div>
+                                <div class="chapter-badge" v-if="item.isFree">免费</div>
+                            </div>
+                            <n-icon class="chapter-arrow" size="16"><ChevronForwardOutline /></n-icon>
+                        </div>
+                        <div v-if="data.menus.length == 0" class="empty-state">
+                            <n-icon size="48" color="#ccc"><BookOutline /></n-icon>
+                            <p>暂无目录</p>
+                        </div>
+                    </div>
                 </n-scrollbar>
-            </n-grid-item>
-            <n-grid-item :span="18">
-                <n-card>
+            </aside>
+            
+            <main class="book-content">
+                <n-card class="content-card">
                     <NuxtPage :page-key="pageKey" />
                 </n-card>
-            </n-grid-item>
-        </n-grid>
+            </main>
+        </div>
     </LoadingGroup>
 </template>
 
@@ -41,8 +56,10 @@ import {
     NGridItem,
     NCard,
     NScrollbar,
-    NImage
+    NImage,
+    NIcon
 } from "naive-ui"
+import { BookOutline, ChevronForwardOutline } from '@vicons/ionicons5'
 
 const route = useRoute()
 const pageKey = computed(()=>route.fullPath)
@@ -66,7 +83,7 @@ const open = (d)=>{
 }
 
 definePageMeta({
-    middleware(to,from){
+    middleware(to){
         const { book_id } = to.params
         if(isNaN(+book_id)){
             return abortNavigation("页面不存在")
@@ -76,40 +93,186 @@ definePageMeta({
 })
 </script>
 
-<style>
-/* 滚动容器样式（替换行内style和Tailwind类） */
-.book-menu-scrollbar {
-    height: 450px; /* 原行内style的height */
-    background-color: #ffffff; /* bg-white */
-    border-radius: 8px; /* rounded */
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); /* shadow */
-    margin-bottom: 20px; /* mb-5 */
+<style scoped>
+.book-reader-container {
+    display: flex;
+    gap: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem;
 }
 
-/* 封面容器（替换flex flex-col items-center justify-center） */
-.book-cover-wrap {
+.book-sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.book-info-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.book-cover {
+    width: 140px;
+    height: 196px;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.book-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a1a;
+    text-align: center;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.book-stats {
+    display: flex;
+    gap: 1rem;
+    color: #666;
+    font-size: 13px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.chapter-list-scroll {
+    flex: 1;
+    max-height: calc(100vh - 400px);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.chapter-list {
+    padding: 0.5rem;
+}
+
+.chapter-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 0.5rem;
+}
+
+.chapter-item:hover {
+    background: #f5f7fa;
+}
+
+.chapter-item.active {
+    background: linear-gradient(135deg, #18a058 0%, #0e7a3e 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(24,160,88,0.3);
+}
+
+.chapter-number {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    flex-shrink: 0;
+}
+
+.chapter-item.active .chapter-number {
+    background: rgba(255,255,255,0.2);
+    color: white;
+}
+
+.chapter-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.chapter-title {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.chapter-badge {
+    background: #18a058;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.chapter-item.active .chapter-badge {
+    background: rgba(255,255,255,0.3);
+}
+
+.chapter-arrow {
+    color: #999;
+    flex-shrink: 0;
+}
+
+.chapter-item.active .chapter-arrow {
+    color: white;
+}
+
+.empty-state {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 8px 0; /* 补充基础内边距，优化布局 */
+    padding: 3rem 1rem;
+    color: #999;
 }
 
-/* 封面图片（替换rounded shadow my-4） */
-.book-cover-img {
-    border-radius: 8px; /* rounded */
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); /* shadow */
-    margin: 16px 0; /* my-4：上下外边距16px */
+.empty-state p {
+    margin-top: 1rem;
+    font-size: 14px;
 }
 
-/* 书籍标题文字（替换text-sm） */
-.book-title-text {
-    font-size: 0.875rem; /* text-sm：14px */
-    color: #333333; /* 补充文字颜色，提升可读性 */
+.book-content {
+    flex: 1;
+    min-width: 0;
 }
 
-/* 目录列表容器（替换mt-5） */
-.book-menu-list {
-    margin-top: 20px; /* mt-5：上外边距20px */
+.content-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+@media (max-width: 1024px) {
+    .book-reader-container {
+        flex-direction: column;
+    }
+    
+    .book-sidebar {
+        width: 100%;
+    }
+    
+    .chapter-list-scroll {
+        max-height: 300px;
+    }
 }
 </style>

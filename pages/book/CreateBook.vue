@@ -2,41 +2,70 @@
   <div class="ebook-container">
     <h2 class="ebook-title">新增电子书</h2>
 
-    <!-- 👉 关键：在这里绑定 @save 事件 -->
     <BookEditor ref="editorRef" @save="handleSave" />
 
-    <button @click="submitContent" class="submit-btn">
-      保存电子书
-    </button>
+    <div class="action-buttons">
+      <n-button @click="goBack" class="back-btn">返回</n-button>
+      <n-button type="primary" @click="submitContent" class="submit-btn" :loading="saving">
+        保存电子书
+      </n-button>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
+import { NButton, createDiscreteApi } from 'naive-ui'
+
+useHead({ title: '新增电子书' })
+
 const editorRef = ref(null)
+const saving = ref(false)
+const { message } = createDiscreteApi(['message'])
 
-// 状态
-const bookContent = useState('saveBookContent', () => '')
-
-// ======================================
-// 1. 点击按钮 → 触发子组件的保存方法
-// ======================================
+// 提交内容
 const submitContent = () => {
-  // 调用子组件里的 saveToDatabase()
-  // 它内部会自动 emit('save', 数据)
   editorRef.value?.saveToDatabase()
 }
 
-// ======================================
-// 2. 监听子组件触发的 @save 事件（拿到数据）
-// ======================================
-const handleSave = (data) => {
-  console.log('✅ 父组件收到保存数据：', data)
+// 处理保存
+const handleSave = async (data) => {
+  console.log('✅ 准备保存数据：', data)
+  saving.value = true
   
-  // 存入状态
-  bookContent.value = data
+  try {
+    const response = await $fetch('/book/create', {
+      method: 'POST',
+      body: data,
+      baseURL: fetchConfig.baseURL,
+      headers: {
+        appid: fetchConfig.headers.appid
+      }
+    })
+    
+    if (response.code === 200) {
+      message.success('创建成功')
+      const newBookId = response.data?.id || response.data
+      setTimeout(() => {
+        if (newBookId) {
+          navigateTo(`/detail/book/${newBookId}`)
+        } else {
+          navigateTo('/list/book/1')
+        }
+      }, 1000)
+    } else {
+      message.error(response.msg || '创建失败')
+    }
+  } catch (err) {
+    console.error('创建失败:', err)
+    message.error('创建失败: ' + (err.message || '未知错误'))
+  } finally {
+    saving.value = false
+  }
+}
 
-  // 跳转
+// 返回
+const goBack = () => {
   navigateTo('/list/book/1')
 }
 </script>
@@ -44,26 +73,29 @@ const handleSave = (data) => {
 <style scoped>
 .ebook-container {
   padding: 16px;
-  max-width: 1024px;
+  max-width: 1400px;
   margin: 0 auto;
 }
+
 .ebook-title {
   font-size: 20px;
   font-weight: bold;
   margin-bottom: 16px;
   text-align: center;
 }
-.submit-btn {
-  display: block;
-  margin: 16px auto 0;
-  padding: 8px 16px;
-  background-color: #3b82f6;
-  color: #fff;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 20px auto 0;
+  max-width: 400px;
 }
-.submit-btn:hover {
-  background-color: #2563eb;
+
+.back-btn,
+.submit-btn {
+  flex: 1;
+  padding: 10px 20px;
+  font-size: 16px;
 }
 </style>

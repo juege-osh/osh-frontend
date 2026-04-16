@@ -1,10 +1,25 @@
 import {
     createDiscreteApi
 } from "naive-ui"
+
+// 自动检测环境并设置API地址
+function getBaseURL() {
+    // 服务端渲染时使用默认地址
+    if (process.server) {
+        return "http://localhost:8081/pc"
+    }
+    
+    // 客户端根据hostname判断
+    const hostname = window.location.hostname
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return "http://localhost:8081/pc"
+    } else {
+        return "http://43.242.200.25:8081/pc"
+    }
+}
+
 export const fetchConfig = {
-    // baseURL:"http://demonuxtapi.dishait.cn/pc",
-    // baseURL:"http://43.242.200.25:8090/pc",
-    baseURL:"http://localhost:8081/pc",
+    baseURL: getBaseURL(),
     headers:{
         appid:"bd9d01ecc75dbbaaefce"
     },

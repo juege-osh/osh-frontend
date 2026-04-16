@@ -50,7 +50,7 @@ const send = async ()=>{
 
     if(error.value) return
 
-    time.value = 60
+    time.value = 38
     if(timer.value) clearInterval(timer.value)
     timer.value = setInterval(() => {
         time.value--

@@ -15,23 +15,36 @@
         </section>
 
         <section v-else class="detail-top">
-            <n-image :src="data.cover" object-fit="cover" class="image"
-            :class="{ 'book-image':type == 'book' }"/>
+            <div class="book-cover-container" v-if="type == 'book'">
+                <n-image :src="data.cover" object-fit="cover" class="book-cover-large"/>
+                <div class="book-badge" v-if="data.price == 0">免费</div>
+            </div>
+            <n-image v-else :src="data.cover" object-fit="cover" class="image"/>
+            
             <div class="info">
                 <div class="flex flex-col items-start">
-                    <div class="flex items-center">
-                        <span class="text-xl mr-2">{{ data.title }}</span>
+                    <div class="book-header">
+                        <h1 class="book-title">{{ data.title }}</h1>
                         <FavaBtn :isfava="data.isfava" :goods_id="data.id" :type="type"/>
                     </div>
-                    <p class="my-2 text-xs text-gray-400">{{ subTitle }}</p>
+                    <div class="book-meta">
+                        <span class="meta-item">
+                            <n-icon size="16"><PeopleOutline /></n-icon>
+                            {{ data.sub_count || 0 }}人学过
+                        </span>
+                        <span class="meta-divider">|</span>
+                        <span class="meta-item" v-if="type === 'course'">
+                            【{{ o[data.type] }}】
+                        </span>
+                    </div>
 
                     <template v-if="!data.isbuy">
                         <DetailActiveBar :data="data" v-if="data.group || data.flashsale"/>
 
                         <template v-else>
-                            <div>
-                                <Price :value="data.price" class="text-xl"/>
-                                <Price :value="data.t_price" through class="ml-1 text-xs"/>
+                            <div class="price-section">
+                                <Price :value="data.price" class="current-price"/>
+                                <Price :value="data.t_price" through class="original-price"/>
                             </div>
 
                             <!-- 领取优惠券 -->
@@ -42,22 +55,31 @@
 
                 </div>
 
-                <div class="mt-auto" v-if="!data.isbuy">
-
+                <div class="action-buttons">
                     <template v-if="type == 'book'">
                         <template v-if="menus.length > 0">
-                            <n-button type="primary" :loading="loading" @click="buy">立即学习</n-button>
-                            <n-button v-if="freeId"
-                            strong secondary type="primary" class="ml-2" 
-                            @click="learn({ id:freeId })">
+                            <n-button type="primary" size="large" :loading="loading" @click="buy" class="primary-btn">
+                                <template #icon><n-icon><BookOutline /></n-icon></template>
+                                立即学习
+                            </n-button>
+                            <n-button v-if="freeId" size="large" strong secondary type="primary" @click="learn({ id:freeId })" class="secondary-btn">
+                                <template #icon><n-icon><EyeOutline /></n-icon></template>
                                 免费试看
                             </n-button>
                         </template>
-                        <n-button v-else type="primary" disabled>敬请期待</n-button>
+                        <n-button v-else type="primary" size="large" disabled>敬请期待</n-button>
                     </template>
 
-                    <n-button v-else type="primary" :loading="loading" @click="buy">
+                    <n-button v-else type="primary" size="large" :loading="loading" @click="buy" class="primary-btn">
                         {{ btn }}
+                    </n-button>
+                    
+                    <!-- 编辑按钮 - 仅电子书显示 -->
+                    <n-button v-if="type == 'book'" size="large" secondary @click="handleEdit" class="edit-btn">
+                        <template #icon>
+                            <n-icon><CreateOutline /></n-icon>
+                        </template>
+                        编辑电子书
                     </n-button>
                 </div>
             </div>
@@ -94,8 +116,10 @@
         NButton,
         NGrid,
         NGridItem,
+        NIcon,
         createDiscreteApi,
     } from "naive-ui"
+    import { CreateOutline, PeopleOutline, BookOutline, EyeOutline } from '@vicons/ionicons5'
     
     const route = useRoute()
     const { id,type } = route.params
@@ -241,6 +265,11 @@
         }
         return fid
     })
+
+    // 编辑电子书
+    const handleEdit = () => {
+        navigateTo(`/book/edit/${id}`)
+    }
 
     // 获取query
     function useRequestQuery(){
@@ -416,42 +445,198 @@
     
     .detail-top {
         display: flex;
-        padding: 1.25rem;
-        border-radius: 0.25rem;
-        background-color: #fff;
-        margin-bottom: 1.25rem;
+        padding: 2rem;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        gap: 2rem;
     }
+    
+    .book-cover-container {
+        position: relative;
+        flex-shrink: 0;
+    }
+    
+    .book-cover-large {
+        width: 200px;
+        height: 280px;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        transition: transform 0.3s ease;
+    }
+    
+    .book-cover-large:hover {
+        transform: translateY(-4px);
+    }
+    
+    .book-badge {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: linear-gradient(135deg, #18a058 0%, #0e7a3e 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(24,160,88,0.3);
+    }
+    
     .detail-top .image {
-        width: 21.25rem;
-        height: 12.5rem;
-        margin-right: 1.25rem;
-        border-radius: 0.25rem;
-    }
-
-    .detail-top .book-image {
-        width: 8.125rem;
-        height: 11.25rem;
-        margin-right: 2rem;
-        margin-left: 0.75rem;
+        width: 340px;
+        height: 200px;
+        border-radius: 12px;
+        flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
     .detail-top .info {
         flex: 1;
         display: flex;
         flex-direction: column;
-        padding: 0.5rem 0;
+        gap: 1.5rem;
+    }
+    
+    .book-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .book-title {
+        font-size: 28px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin: 0;
+        line-height: 1.3;
+    }
+    
+    .book-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #666;
+        font-size: 14px;
+        margin-top: 0.5rem;
+    }
+    
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .meta-divider {
+        color: #ddd;
+    }
+    
+    .price-section {
+        display: flex;
+        align-items: baseline;
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+    
+    .current-price {
+        font-size: 32px;
+        font-weight: 700;
+        color: #d03050;
+    }
+    
+    .original-price {
+        font-size: 16px;
+        color: #999;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-top: auto;
+        flex-wrap: wrap;
+    }
+    
+    .primary-btn {
+        min-width: 140px;
+    }
+    
+    .secondary-btn {
+        min-width: 120px;
+    }
+    
+    .edit-btn {
+        min-width: 120px;
     }
 
     .detail-bottom {
         background-color: #fff;
-        border-radius: 0.25rem;
-        margin-bottom: 1.25rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        overflow: hidden;
     }
 
     .detail-bottom .content {
-        padding: 1.25rem;
+        padding: 2rem;
+        line-height: 1.8;
+        font-size: 16px;
+        color: #333;
     }
+    
     .detail-bottom .content img {
         max-width: 100% !important;
+        border-radius: 8px;
+        margin: 1rem 0;
+    }
+    
+    .detail-bottom .content h2 {
+        font-size: 24px;
+        font-weight: 600;
+        margin: 1.5rem 0 1rem;
+        color: #1a1a1a;
+    }
+    
+    .detail-bottom .content h3 {
+        font-size: 20px;
+        font-weight: 600;
+        margin: 1.25rem 0 0.75rem;
+        color: #333;
+    }
+    
+    .detail-bottom .content p {
+        margin: 0.75rem 0;
+    }
+    
+    .detail-bottom .content ul, 
+    .detail-bottom .content ol {
+        padding-left: 1.5rem;
+        margin: 0.75rem 0;
+    }
+    
+    .detail-bottom .content li {
+        margin: 0.5rem 0;
+    }
+    
+    .detail-bottom .content code {
+        background: #f5f7fa;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        color: #d03050;
+    }
+    
+    .detail-bottom .content pre {
+        background: #f5f7fa;
+        padding: 1rem;
+        border-radius: 8px;
+        overflow-x: auto;
+        margin: 1rem 0;
+    }
+    
+    .detail-bottom .content pre code {
+        background: none;
+        padding: 0;
+        color: #333;
     }
 </style>
