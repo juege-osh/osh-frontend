@@ -13,7 +13,7 @@
           v-model.number="filter.resourceNo" 
           type="number"
           class="text-input short" 
-          placeholder="资源ID" 
+          placeholder="资源编号" 
           @keyup.enter="doSearch" 
         />
         <input 

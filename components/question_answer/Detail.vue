@@ -223,6 +223,15 @@
       :mask-closable="false"
     >
       <n-form label-placement="left" label-width="90">
+        <n-form-item label="问题类型">
+          <n-radio-group v-model:value="editForm.isPaidOnly">
+            <n-space>
+              <n-radio value="0">🔓 公开问题（所有人可见）</n-radio>
+              <n-radio value="1">🔒 付费专属（仅付费用户可见）</n-radio>
+            </n-space>
+          </n-radio-group>
+        </n-form-item>
+
         <n-form-item label="资源类型">
           <n-select
             v-model:value="editForm.resourceType"
@@ -232,10 +241,10 @@
           />
         </n-form-item>
 
-        <n-form-item label="资源ID" v-if="editForm.resourceType">
+        <n-form-item label="资源编号" v-if="editForm.resourceType">
           <n-input-number
             v-model:value="editForm.resourceNo"
-            placeholder="请输入资源ID"
+            placeholder="请输入资源编号"
             :min="1"
             style="width: 100%"
           />
@@ -246,19 +255,10 @@
             v-model:value="editForm.content"
             type="textarea"
             placeholder="详细描述你的问题..."
-            :autosize="{ minRows: 6, maxRows: 14 }"
-            maxlength="2000"
+            :autosize="{ minRows: 4, maxRows: 10 }"
+            maxlength="200"
             show-count
           />
-        </n-form-item>
-
-        <n-form-item label="问题类型">
-          <n-radio-group v-model:value="editForm.isPaidOnly">
-            <n-space>
-              <n-radio value="0">🔓 公开问题（所有人可见）</n-radio>
-              <n-radio value="1">🔒 付费专属（仅付费用户可见）</n-radio>
-            </n-space>
-          </n-radio-group>
         </n-form-item>
 
         <n-form-item label="标签">
