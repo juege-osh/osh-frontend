@@ -1,33 +1,33 @@
 <template>
-    <!-- 保留原有组件逻辑，仅调整样式类名 -->
-    <n-carousel 
-        show-arrow 
-        class="banner-carousel mb-6"
-        trigger="hover"
-        autoplay
-        autoplay-interval="3000"
-        dots-placement="bottom"
-    >
-        <img 
-            v-for="(item,index) in data" 
-            :key="index"
-            class="carousel-img rounded-lg cursor-pointer"
-            :src="item.src"
-            @click="open(item)"
+    <div class="banner-wrapper">
+        <n-carousel 
+            show-arrow 
+            class="banner-carousel"
+            trigger="hover"
+            autoplay
+            :autoplay-interval="4000"
+            dots-placement="bottom"
         >
-    </n-carousel>
+            <div 
+                v-for="(item,index) in data" 
+                :key="index"
+                class="banner-slide"
+                @click="open(item)"
+            >
+                <img :src="item.src" alt="" class="banner-image">
+            </div>
+        </n-carousel>
+    </div>
 </template>
 
 <script setup>
 import { NCarousel } from "naive-ui"
 
-// 保留原有 props 定义
 defineProps({
     data: Array
 })
 
-// 保留原有点击逻辑
-const open = (item)=>{
+const open = (item) => {
     if(item.type == "webview"){
         window.open(item.url)
     }
@@ -35,58 +35,80 @@ const open = (item)=>{
 </script>
 
 <style scoped>
-/* 优化轮播图容器样式 */
+.banner-wrapper {
+    margin-bottom: var(--space-2xl);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+}
+
 .banner-carousel {
-  width: 100%;
-  max-width: 1280px; /* 限制最大宽度，避免拉伸过宽 */
-  margin: 0 auto 24px; /* 居中+合理的底部间距，替换 mb-6 的 1.5rem */
-  border-radius: 12px; /* 更圆润的圆角 */
-  overflow: hidden; /* 防止图片溢出圆角 */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* 轻微阴影，提升质感 */
+    width: 100%;
+    height: 400px;
 }
 
-/* 优化轮播图图片样式 */
-.carousel-img {
-  width: 100%;
-  height: 420px; /* 适度加高，视觉更协调 */
-  object-fit: cover; /* 保留原有图片裁剪逻辑 */
-  transition: transform 0.3s ease; /* 鼠标悬浮轻微放大效果 */
+.banner-slide {
+    width: 100%;
+    height: 400px;
+    cursor: pointer;
+    overflow: hidden;
 }
 
-/* 鼠标悬浮图片轻微放大，提升交互感 */
-.carousel-img:hover {
-  transform: scale(1.01);
+.banner-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
 }
 
-/* 优化箭头按钮样式（覆盖 naive-ui 默认样式） */
+.banner-slide:hover .banner-image {
+    transform: scale(1.02);
+}
+
 :deep(.n-carousel-arrow) {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.8);
-  color: #333;
-  opacity: 0.7;
-  transition: all 0.2s ease;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--color-text-primary);
+    opacity: 0;
+    transition: all 0.2s ease;
 }
 
-/* 箭头 hover 效果 */
+.banner-wrapper:hover :deep(.n-carousel-arrow) {
+    opacity: 1;
+}
+
 :deep(.n-carousel-arrow:hover) {
-  opacity: 1;
-  background-color: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    background: white;
+    box-shadow: var(--shadow-md);
 }
 
-/* 优化指示器样式 */
 :deep(.n-carousel-dot) {
-  width: 12px;
-  height: 12px;
-  margin: 0 6px;
-  background-color: rgba(255, 255, 255, 0.5);
+    width: 8px;
+    height: 8px;
+    margin: 0 4px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 4px;
+    transition: all 0.3s ease;
 }
 
 :deep(.n-carousel-dot-active) {
-  background-color: #ffffff;
-  width: 24px;
-  border-radius: 6px; /* 激活态改为椭圆，更美观 */
+    width: 24px;
+    background: white;
+}
+
+@media (max-width: 992px) {
+    .banner-carousel,
+    .banner-slide {
+        height: 300px;
+    }
+}
+
+@media (max-width: 640px) {
+    .banner-carousel,
+    .banner-slide {
+        height: 200px;
+    }
 }
 </style>
