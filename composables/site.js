@@ -36,6 +36,46 @@ export function useUploadSiteCoverApi(cover) {
     })
 }
 
+// 刷新检查所有网站
+export function useSiteInfoRefreshAllApi() {
+    return useHttpPost("SiteInfoRefreshAll", `/site/check-all`, {
+        $: true
+    })
+}
+
+// 刷新检查单个网站
+export function useSiteInfoRefreshApi(siteId) {
+    return useHttpPost("SiteInfoRefresh", `/site/check`, {
+        $: true,
+        body: [siteId]
+    })
+}
+
+// 获取网站负责人列表
+export function useSiteResponsibleListApi(siteId) {
+    return useHttpGet("SiteResponsibleList", `/site/responsible/${siteId}`, {
+        $: true
+    })
+}
+
+// 新增网站负责人
+export function useSiteResponsibleAddApi(body) {
+    return useHttpPost("SiteResponsibleAdd", "/site/responsible", {
+        $: true,
+        body
+    })
+}
+
+// 删除网站负责人
+export function useSiteResponsibleDeleteApi(ids) {
+    const idArray = Array.isArray(ids) ? ids : [ids]
+    const idParams = idArray.join(',')
+    return useHttp("SiteResponsibleDelete", `/site/responsible/${idParams}`, {
+        $: true,
+        method: "DELETE"
+    })
+}
+
 // 新增内部网站
 export function useSiteInfoAddApi(body) {
     return useHttpPost("SiteInfoAdd", "/site", {
