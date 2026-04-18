@@ -27,6 +27,7 @@
             placeholder="搜索电子书..."
             style="width: 220px"
             clearable
+            @input="handleInputChange"
             @keyup.enter="handleSearch"
           >
             <template #prefix>
@@ -63,6 +64,21 @@ const queryParams = reactive({
 });
 
 const emit = defineEmits(['search', 'singlesearch'])
+
+// 防抖定时器
+let searchTimer = null
+
+// 输入框变化时自动搜索（带防抖）
+const handleInputChange = () => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+  
+  searchTimer = setTimeout(() => {
+    handleSearch()
+  }, 500) // 500ms防抖
+}
+
 const handleSearch = ()=>{ 
   queryParams.tag = []
 
