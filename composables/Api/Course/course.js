@@ -186,7 +186,7 @@ export async function apiAddSection(courseId, body) {
   });
 }
 
-/** 新增一级章节 POST /pc/course/section/chapter/save */
+/** 新增一级章节 POST /pc/course/section/chapter/save（传 id 时后端走更新） */
 export async function apiAddChapter(body) {
   return $fetch('/course/section/chapter/save', {
     method: 'POST',

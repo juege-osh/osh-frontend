@@ -61,6 +61,28 @@
         <!-- 链接 -->
         <button class="tb-btn" title="插入链接 (Ctrl+K)" @mousedown.prevent @click="insertLink">🔗</button>
 
+        <!-- 图片 -->
+        <div class="tb-img-wrap">
+          <button class="tb-btn" title="插入图片" @mousedown.prevent @click.stop="showImgMenu = !showImgMenu">🖼</button>
+          <div v-if="showImgMenu" class="tb-img-menu" @click.stop>
+            <div class="img-menu-title">插入图片</div>
+            <div class="img-menu-row">
+              <input
+                v-model="imgUrlInput"
+                class="img-url-input"
+                placeholder="粘贴图片链接..."
+                @keyup.enter="insertImageByUrl"
+              />
+              <button class="img-btn-confirm" @mousedown.prevent @click="insertImageByUrl">插入</button>
+            </div>
+            <div class="img-menu-divider">或</div>
+            <button class="img-btn-upload" @mousedown.prevent @click="imgFileRef?.click()">
+              📁 从本地上传
+            </button>
+            <input ref="imgFileRef" type="file" accept="image/*" style="display:none" @change="handleImgUpload" />
+          </div>
+        </div>
+
         <!-- 分割线 -->
         <button class="tb-btn" title="插入分割线" @mousedown.prevent @click="insertHr">—</button>
 
@@ -78,7 +100,12 @@
     </div>
 
     <!-- 编辑区 -->
-    <div class="editor-body" :class="`mode-${viewMode}`">
+    <div
+      class="editor-body"
+      :class="`mode-${viewMode}`"
+      @drop.prevent="onEditorDrop"
+      @dragover.prevent
+    >
       <!-- 富文本编辑区 -->
       <div
         v-show="viewMode !== 'preview'"
@@ -91,6 +118,7 @@
         @mouseup="updateStates"
         @keyup="updateStates"
         @focus="updateStates"
+        @paste="onPaste"
       />
       <!-- 预览区 -->
       <div v-show="viewMode === 'preview' || viewMode === 'split'" class="preview-pane">
@@ -117,6 +145,9 @@ const emit = defineEmits(['update:modelValue']);
 
 const editorRef = ref<HTMLDivElement | null>(null);
 const showHeadingMenu = ref(false);
+const showImgMenu = ref(false);
+const imgUrlInput = ref('');
+const imgFileRef = ref<HTMLInputElement | null>(null);
 const viewMode = ref<'edit' | 'preview' | 'split'>('edit');
 const formatBrushActive = ref(false);
 const formatBrushStyles = ref<any>(null);
@@ -143,8 +174,13 @@ onMounted(() => {
   if (editorRef.value && props.modelValue) {
     editorRef.value.innerHTML = props.modelValue;
     localHtml.value = props.modelValue;
+    // 回显时给已有图片绑定缩放
+    editorRef.value.querySelectorAll<HTMLImageElement>('img.doc-img').forEach(bindImgResize);
   }
-  document.addEventListener('click', () => { showHeadingMenu.value = false; });
+  document.addEventListener('click', () => {
+    showHeadingMenu.value = false;
+    showImgMenu.value = false;
+  });
 });
 
 // 外部 modelValue 变化时同步（仅初始化时）
@@ -192,6 +228,168 @@ function insertLink() {
     const text = window.getSelection()?.toString() || url;
     execCmd('insertHTML', `<a href="${url}" target="_blank">${text}</a>`);
   }
+}
+
+// ===== 图片插入 =====
+// 通过 URL 插入图片
+function insertImageByUrl() {
+  const url = imgUrlInput.value.trim();
+  if (!url) return;
+  insertImgNode(url);
+  imgUrlInput.value = '';
+  showImgMenu.value = false;
+}
+
+// 本地上传图片
+async function handleImgUpload(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  showImgMenu.value = false;
+  (e.target as HTMLInputElement).value = '';
+  await insertFileAsImage(file);
+}
+
+// 拖拽图片到编辑器
+function onEditorDrop(e: DragEvent) {
+  const file = e.dataTransfer?.files?.[0];
+  if (file && file.type.startsWith('image/')) {
+    insertFileAsImage(file);
+    return;
+  }
+  // 拖拽图片 URL
+  const url = e.dataTransfer?.getData('text/uri-list') || e.dataTransfer?.getData('text/plain');
+  if (url && /\.(png|jpg|jpeg|gif|webp|svg)(\?|$)/i.test(url)) {
+    insertImgNode(url);
+  }
+}
+
+// 粘贴处理：识别图片链接自动转为图片
+function onPaste(e: ClipboardEvent) {
+  // 粘贴图片文件
+  const items = e.clipboardData?.items;
+  if (items) {
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) insertFileAsImage(file);
+        return;
+      }
+    }
+  }
+  // 粘贴文本：检测是否是图片链接
+  const text = e.clipboardData?.getData('text/plain')?.trim();
+  if (text && /^https?:\/\/.+\.(png|jpg|jpeg|gif|webp|svg)(\?.*)?$/i.test(text)) {
+    e.preventDefault();
+    insertImgNode(text);
+  }
+  // 其他粘贴走默认行为
+}
+
+// 将 File 对象读取为 DataURL 并插入（不走服务器，直接 base64 存储）
+function insertFileAsImage(file: File) {
+  return new Promise<void>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      if (dataUrl) insertImgNode(dataUrl);
+      resolve();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// 核心：直接操作 DOM 插入 img 节点，不走 execCmd
+function insertImgNode(src: string) {
+  const editor = editorRef.value;
+  if (!editor) return;
+  editor.focus();
+
+  // 创建图片节点
+  const img = document.createElement('img');
+  img.src = src;
+  img.style.cssText = 'width:400px;max-width:100%;height:auto;display:block;margin:8px 0;border-radius:4px;cursor:default;';
+  img.className = 'doc-img';
+  img.draggable = false;
+
+  // 创建换行节点
+  const br = document.createElement('br');
+
+  // 在光标位置插入，或追加到末尾
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0) {
+    const range = sel.getRangeAt(0);
+    // 确保光标在编辑器内
+    if (editor.contains(range.commonAncestorContainer)) {
+      range.deleteContents();
+      range.insertNode(br);
+      range.insertNode(img);
+      range.setStartAfter(br);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      editor.appendChild(img);
+      editor.appendChild(br);
+    }
+  } else {
+    editor.appendChild(img);
+    editor.appendChild(br);
+  }
+
+  // 绑定缩放
+  bindImgResize(img);
+
+  // 同步内容
+  syncContent();
+}
+
+// ===== 图片缩放（独立 overlay，不影响 contenteditable）=====
+
+function bindImgResize(img: HTMLImageElement) {
+  if (img.dataset.rb) return;
+  img.dataset.rb = '1';
+  img.addEventListener('dragstart', (e) => e.preventDefault());
+  img.addEventListener('mousedown', startResize);
+}
+
+function startResize(e: MouseEvent) {
+  const img = e.currentTarget as HTMLImageElement;
+  const rect = img.getBoundingClientRect();
+  // 整个图片区域都可以拖拽缩放（右下角 30px 区域）
+  const inCorner = e.clientX > rect.right - 30 && e.clientY > rect.bottom - 30;
+  if (!inCorner) return;
+  e.preventDefault();
+  e.stopPropagation();
+
+  const startX = e.clientX;
+  const startW = img.offsetWidth;
+
+  img.style.outline = '2px solid #18a058';
+
+  function onMove(ev: MouseEvent) {
+    const newW = Math.max(60, startW + (ev.clientX - startX));
+    img.style.width = `${newW}px`;
+  }
+
+  function onUp() {
+    img.style.outline = '';
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    syncContent();
+  }
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+// 同步编辑器内容到 modelValue
+function syncContent() {
+  if (!editorRef.value) return;
+  const html = editorRef.value.innerHTML;
+  localHtml.value = html;
+  emit('update:modelValue', html);
+  updateStates();
 }
 
 // 插入分割线
@@ -391,6 +589,72 @@ function onKeydown(e: KeyboardEvent) {
 :deep(.preview-content hr) { border: none; border-top: 2px solid #f0f0f0; margin: 12px 0; }
 :deep(.preview-content ul) { padding-left: 20px; }
 :deep(.preview-content ol) { padding-left: 20px; }
+
+/* 图片插入菜单 */
+.tb-img-wrap { position: relative; }
+.tb-img-menu {
+  position: absolute; top: calc(100% + 6px); left: 0;
+  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12); z-index: 300;
+  padding: 14px; min-width: 280px;
+}
+.img-menu-title {
+  font-size: 13px; font-weight: 600; color: #333; margin-bottom: 10px;
+}
+.img-menu-row { display: flex; gap: 6px; }
+.img-url-input {
+  flex: 1; border: 1px solid #d9d9d9; border-radius: 5px;
+  padding: 7px 10px; font-size: 13px; outline: none;
+  transition: border-color 0.2s;
+}
+.img-url-input:focus { border-color: #18a058; }
+.img-btn-confirm {
+  background: #18a058; color: #fff; border: none;
+  border-radius: 5px; padding: 7px 14px; font-size: 13px;
+  cursor: pointer; white-space: nowrap; font-weight: 500;
+}
+.img-btn-confirm:hover { background: #0e7a3e; }
+.img-menu-divider {
+  text-align: center; font-size: 12px; color: #bbb;
+  margin: 10px 0; position: relative;
+}
+.img-menu-divider::before, .img-menu-divider::after {
+  content: ''; position: absolute; top: 50%; width: 42%;
+  height: 1px; background: #e8e8e8;
+}
+.img-menu-divider::before { left: 0; }
+.img-menu-divider::after { right: 0; }
+.img-btn-upload {
+  width: 100%; background: #f5f5f5; border: 1px dashed #d9d9d9;
+  border-radius: 5px; padding: 9px; font-size: 13px; color: #555;
+  cursor: pointer; text-align: center; transition: all 0.2s;
+}
+.img-btn-upload:hover { border-color: #18a058; color: #18a058; background: #f0fdf4; }
+
+/* 编辑区图片样式 */
+.rich-editor :deep(img.doc-img) {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 8px 0;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  cursor: default;
+  outline: 2px solid transparent;
+  transition: outline-color 0.15s;
+  user-select: none;
+}
+.rich-editor :deep(img.doc-img:hover) {
+  outline-color: #18a058;
+  cursor: se-resize;
+}
+
+/* 预览区图片 */
+:deep(.preview-content img) {
+  max-width: 100%; height: auto; display: block;
+  margin: 8px 0; border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
 
 /* 状态栏 */
 .status-bar {

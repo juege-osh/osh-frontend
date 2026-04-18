@@ -5,8 +5,24 @@
       :tag-options="tagOptions"
       :type-options="typeOptions"
       @search="handleSearch"
-      @create="showCreateModal = true"
     />
+
+    <!-- 多选操作栏 -->
+    <div class="batch-bar">
+      <div class="batch-left">
+        <button class="btn-select-mode" :class="{ active: selectMode }" @click="toggleSelectMode">
+          {{ selectMode ? '退出选择' : '☑ 选择删除' }}
+        </button>
+        <template v-if="selectedIds.size > 0">
+          <span class="batch-tip">已选 {{ selectedIds.size }} 门课程</span>
+          <button class="btn-batch-cancel" @click="selectedIds.clear(); selectMode = false">取消</button>
+          <button class="btn-batch-delete" @click="handleBatchDelete">🗑 删除选中</button>
+        </template>
+      </div>
+      <button class="btn-create-course" @click="showCreateModal = true">
+        + 新增课程
+      </button>
+    </div>
 
     <div class="list-main-section">
       <Transition name="fade">
@@ -26,8 +42,11 @@
             <n-gi v-for="item in displayList" :key="item.id">
               <CourseCard
                 :item="item"
+                :selectable="selectMode"
+                :selected="selectedIds.has(item.id)"
                 @click="handleDetail(item.id)"
                 @favorite="handleDoCollect"
+                @select="toggleSelect"
               />
             </n-gi>
           </n-grid>
@@ -48,11 +67,9 @@
       </div>
     </div>
 
-    <CourseEditModal v-model:show="showCreateModal" @success="handleRefresh" />
+    <CourseEditModal v-model:show="showCreateModal" :tag-options="tagOptions" @success="handleRefresh" />
   </div>
-</template>
-
-<script setup>
+</template><script setup>
 import { ref, reactive, computed, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import CourseEditModal from '~/components/Course/CourseEditModal.vue';
@@ -60,7 +77,7 @@ import CourseFilter from '~/components/Course/CourseFilter.vue';
 import CourseCard from '~/components/Course/CourseCard.vue';
 import { NGrid, NGi, NPagination } from 'naive-ui';
 import { fetchConfig } from '~/composables/useHttp';
-import { apiCollectCourse, apiRemoveCollect, apiGetCoverUrls } from '~/composables/Api/Course/course';
+import { apiCollectCourse, apiRemoveCollect, apiGetCoverUrls, getAuthHeaders } from '~/composables/Api/Course/course';
 
 // 1. 核心修复：在查询参数中增加新的两个字段，并给默认排序赋值
 const queryParams = reactive({
@@ -71,7 +88,7 @@ const queryParams = reactive({
   isFree: null,
   isFollowing: false,
   collectionFlag: null, // 「我关注的」筛选
-  sortType: 'createTime',
+  sortType: 'all',
   courseNo: '',
 });
 
@@ -127,15 +144,81 @@ const displayList = computed(() => {
 // 5. 弹窗控制
 const showCreateModal = ref(false);
 
+// 多选删除
+const selectMode = ref(false);
+const selectedIds = ref(new Set());
+
+function toggleSelectMode() {
+  selectMode.value = !selectMode.value;
+  if (!selectMode.value) selectedIds.value.clear();
+}
+
+function toggleSelect(id) {
+  const s = new Set(selectedIds.value);
+  if (s.has(id)) s.delete(id);
+  else s.add(id);
+  selectedIds.value = s;
+}
+
+async function handleBatchDelete() {
+  const { message, dialog } = createDiscreteApi(['message', 'dialog']);
+  dialog.warning({
+    title: '确认删除',
+    content: `确定删除选中的 ${selectedIds.value.size} 门课程？此操作不可恢复，将同时删除课程的章节、资料等所有数据。`,
+    positiveText: '确认删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const ids = Array.from(selectedIds.value);
+        const res = await $fetch('/course/delete', {
+          method: 'POST',
+          baseURL: fetchConfig.baseURL,
+          headers: getAuthHeaders(),
+          body: { ids },
+        });
+        if (res?.code === 200) {
+          message.success(`已删除 ${ids.length} 门课程`);
+          selectedIds.value.clear();
+          selectMode.value = false;
+          queryParams.pageNum = 1;
+          refresh();
+        } else {
+          message.error(res?.msg || '删除失败');
+        }
+      } catch (e) {
+        message.error('删除失败，请重试');
+      }
+    },
+  });
+}
+
 const typeOptions = [
   { label: '视频课', value: 'media' },
   { label: '直播课', value: 'live' },
   { label: '图文课', value: 'text' },
 ];
 
-// 3. 映射数据格式 (将后端返回的 List<Map> 转成 Naive UI 要求的 label/value)
-// 假设你用 resData 接收了标签接口的返回值
-// 3. 映射数据格式 (将后端返回的 name/id 转成 Naive UI 要求的 label/value)
+// 标签列表
+const tagOptions = ref([]);
+const loadTags = async () => {
+  try {
+    const res = await $fetch('/course/tags', {
+      baseURL: fetchConfig.baseURL,
+      headers: {
+        token: process.client ? (localStorage.getItem('token') || localStorage.getItem('Token') || '') : '',
+        appid: 'bd9d01ecc75dbbaaefce',
+      },
+    });
+    const list = res?.code === 200 ? (res.data || []) : (Array.isArray(res) ? res : []);
+    tagOptions.value = list.map(item => ({
+      label: item.name || item.tagName || String(item),
+      value: item.id ?? item,
+    }));
+  } catch (e) {
+    console.error('加载标签失败', e);
+  }
+};
+if (process.client) loadTags();
 
 // --- 逻辑函数 ---
 
@@ -199,6 +282,49 @@ const handleDoCollect = async (courseId) => {
   padding: 0 24px;
 }
 
+/* 多选操作栏 */
+.batch-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  min-height: 36px;
+}
+.batch-left { display: flex; align-items: center; gap: 10px; }
+.batch-tip { font-size: 14px; color: #d03050; font-weight: 600; }
+
+/* 统一按钮样式 */
+.btn-select-mode,
+.btn-batch-cancel,
+.btn-batch-delete,
+.btn-create-course {
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-select-mode {
+  background: #fff; color: #666; border: 1px solid #d9d9d9;
+}
+.btn-select-mode:hover, .btn-select-mode.active {
+  border-color: #d03050; color: #d03050; background: #fff2f0;
+}
+.btn-batch-cancel {
+  background: #fff; color: #666; border: 1px solid #d9d9d9;
+}
+.btn-batch-cancel:hover { border-color: #999; color: #333; }
+.btn-batch-delete {
+  background: #d03050; color: #fff; border: 1px solid #d03050;
+}
+.btn-batch-delete:hover { background: #a0203a; border-color: #a0203a; }
+.btn-create-course {
+  background: #fff; color: #18a058; border: 1px solid #18a058;
+}
+.btn-create-course:hover { background: #18a058; color: #fff; }
+
 .list-main-section {
   position: relative;
   display: flex;
@@ -214,28 +340,14 @@ const handleDoCollect = async (courseId) => {
 
 /* ✨ 解决分页器看不到的核心：限制内容区总高度 */
 .grid-content-box {
-  /* 既然卡片高了，我们就通过 min-height 确保位置，但不设死 height */
-  min-height: 480px;
-  margin-bottom: 20px; /* 下方箭头距离控制 */
-}
-
-/* ✨ 压低单项卡片高度：防止挤压分页器 */
-:deep(.limit-card) {
-  /* 这里的 230px-250px 是关键，根据你的实际卡片内容微调 */
-  height: 240px !important;
-  overflow: hidden;
-}
-
-/* 强制卡片内的图片高度，防止撑开卡片 */
-:deep(.limit-card .n-card-cover img) {
-  height: 130px;
-  object-fit: cover;
+  min-height: 200px;
+  margin-bottom: 12px;
 }
 
 .pagination-footer {
   display: flex;
   justify-content: center;
-  padding-bottom: 30px;
+  padding-bottom: 16px;
 }
 
 .loading-overlay {

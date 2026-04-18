@@ -136,6 +136,8 @@ const { message } = createDiscreteApi(['message']);
 
 const sectionId = Number(route.params.id);
 const courseId = Number(route.query.courseId);
+// chapterId 从 URL query 传入，作为 parentId 的兜底
+const chapterIdFromQuery = Number(route.query.chapterId) || 0;
 
 // 状态
 const loading = ref(true);
@@ -201,23 +203,54 @@ async function loadData() {
     if (res?.code === 200) {
       for (const chapter of res.data || []) {
         const sections = chapter.children || chapter.sections || [];
-        const found = sections.find((s: any) => s.id === sectionId);
+        // 用字符串比较，避免雪花ID精度问题
+        const found = sections.find((s: any) => String(s.id) === String(sectionId));
         if (found) {
-          sectionData.value = found;
+          const resolvedParentId = found.parentId || found.chapterId || found.parent_id || chapter.id || chapter.sectionId || chapterIdFromQuery;
+          sectionData.value = { ...found, parentId: resolvedParentId };
           breadcrumb.chapter = chapter.title || '';
           form.title = found.title || '';
-          form.freeFlag = found.freeFlag || 0;
+          form.freeFlag = found.freeFlag ?? 0;
           form.content = found.textContent || found.content || '';
           if (found.duration) form.durationStr = fmtDuration(found.duration);
-          // 大纲接口已返回临时播放URL
           if (found.mediaUrl) videoUrl.value = found.mediaUrl;
-          break;
+          return;
         }
       }
     }
-  } catch {
+  } catch (e) {
+    console.error('[lesson] loadData error:', e);
     message.error('加载数据失败');
+    return;
   }
+
+  // 大纲遍历找不到时，直接查单个小节接口
+  try {
+    const res2: any = await $fetch(`/course/section/detail/${sectionId}`, {
+      baseURL: fetchConfig.baseURL,
+      headers: getAuthHeaders(),
+    });
+    if (res2?.code === 200 && res2.data) {
+      const found = res2.data;
+      const resolvedParentId = found.parentId || found.chapterId || chapterIdFromQuery || null;
+      sectionData.value = { ...found, parentId: resolvedParentId };
+      form.title = found.title || '';
+      form.freeFlag = found.freeFlag ?? 0;
+      form.content = found.textContent || found.content || '';
+      if (found.duration) form.durationStr = fmtDuration(found.duration);
+      if (found.mediaUrl) videoUrl.value = found.mediaUrl;
+      return;
+    }
+  } catch {}
+
+  // 最终兜底：至少保证 parentId 有值，不影响保存
+  sectionData.value = {
+    parentId: chapterIdFromQuery || null,
+    sort: 1,
+    freeFlag: 0,
+    fileSize: 0,
+    duration: 0,
+  };
 }
 
 // 视频上传
@@ -298,10 +331,17 @@ async function handleSave() {
   try {
     const isVid = isVideo.value;
     const endpoint = isVid ? '/course/section/video/save' : '/course/section/textContent/save';
+    const parentId = sectionData.value?.parentId || chapterIdFromQuery || null;
+    console.log('[lesson] handleSave parentId:', parentId, 'sectionData:', JSON.stringify(sectionData.value));
+    if (!parentId) {
+      message.error('无法获取父章节ID，请返回目录重新进入');
+      saving.value = false;
+      return;
+    }
     const body: any = {
       id: sectionId,
       courseId,
-      parentId: sectionData.value?.parentId,
+      parentId,
       title: form.title.trim(),
       freeFlag: form.freeFlag,
       sort: sectionData.value?.sort || 1,
