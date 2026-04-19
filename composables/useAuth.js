@@ -4,6 +4,36 @@ const { message } = createDiscreteApi(["message"])
 
 export const useUser = ()=> useState("user",()=>null)
 
+// 权限列表：优先从 localStorage 读，保证刷新后不丢失
+export const usePermissions = () => {
+  const state = useState("permissions", () => {
+    if (process.client) {
+      try {
+        const stored = localStorage.getItem('__permissions__')
+        return stored ? JSON.parse(stored) : []
+      } catch { return [] }
+    }
+    return []
+  })
+  return state
+}
+
+// 保存权限到 localStorage
+export const savePermissions = (list) => {
+  if (process.client) {
+    try {
+      localStorage.setItem('__permissions__', JSON.stringify(list || []))
+    } catch {}
+  }
+}
+
+// 清除权限
+export const clearPermissions = () => {
+  if (process.client) {
+    localStorage.removeItem('__permissions__')
+  }
+}
+
 // 更新用户信息
 export async function useRefreshUserInfo(){
     const token = useCookie("token")
@@ -16,9 +46,11 @@ export async function useRefreshUserInfo(){
         } = await useGetinfoApi()
 
         if(data.value){
-            
-            user.value = data.value
-            
+            // 合并数据，保留 permissionList 等登录时存的字段
+            user.value = {
+                ...user.value,
+                ...data.value,
+            }
         }
     }
 }
@@ -30,6 +62,10 @@ export async function useLogout(){
     user.value = null
     const token = useCookie("token")
     token.value = null
+    // 清除权限缓存
+    clearPermissions()
+    const permissions = usePermissions()
+    permissions.value = []
     message.success("退出登录成功")
     // 回到首页
     const route = useRoute()

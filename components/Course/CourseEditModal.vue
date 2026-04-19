@@ -2,7 +2,7 @@
   <n-modal
     :show="show"
     preset="card"
-    title="课程新增界面"
+    :title="formValue.id ? '编辑基础信息' : '课程新增界面'"
     style="width: 1000px"
     size="huge"
     :segmented="{ content: 'soft', footer: 'soft' }"
@@ -47,6 +47,7 @@
         <n-input
           v-model:value="formValue.service_content"
           placeholder="具体包含服务"
+          :theme-overrides="{ textColor: '#999' }"
         />
       </n-form-item>
 
@@ -56,7 +57,7 @@
           multiple
           filterable
           placeholder="请选择课程标签"
-          :options="tagOptions"
+          :options="mergedTagOptions"
         />
       </n-form-item>
 
@@ -119,7 +120,7 @@
         </div>
         <div class="upload-box">
           <div class="mat-upload-btn" @click="triggerMat" :class="{ loading: matUploading }">
-            {{ matUploading ? '上传中...' : '⬆ 上传资料' }}
+            {{ matUploading ? '上传中...' : '⬇ 资料下载' }}
           </div>
           <input ref="matInputRef" type="file" style="display:none" @change="handleMatChange" />
         </div>
@@ -136,7 +137,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue';
+import { reactive, ref, onMounted, computed, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import {
   apiUploadCover,
@@ -145,12 +146,17 @@ import {
   useAddCourseApi,
   getAuthHeaders,
 } from '~/composables/Api/Course/course';
+import { fetchConfig } from '~/composables/useHttp';
 import {
   NModal, NForm, NFormItem, NInput, NSelect, NSpace,
   NText, NInputNumber, NButton, NTable,
 } from 'naive-ui';
 
-const props = defineProps({ show: Boolean, tagOptions: Array });
+const props = defineProps({
+  show: Boolean,
+  tagOptions: { type: Array, default: () => [] },
+  initData: { type: Object, default: null }, // 编辑时传入，新增时为 null
+});
 const emit = defineEmits(['update:show', 'success']);
 
 const { message } = createDiscreteApi(['message']);
@@ -160,13 +166,83 @@ const matUploading = ref(false);
 const coverInputRef = ref(null);
 const matInputRef = ref(null);
 
+// 标签列表：优先用父组件传入，否则自己加载
+const innerTagOptions = ref([]);
+const mergedTagOptions = computed(() => {
+  if (props.tagOptions && props.tagOptions.length > 0) return props.tagOptions;
+  return innerTagOptions.value;
+});
+
+const loadInnerTags = async () => {
+  try {
+    const res = await $fetch('/course/tags', {
+      baseURL: fetchConfig.baseURL,
+      headers: {
+        token: process.client ? (localStorage.getItem('token') || localStorage.getItem('Token') || '') : '',
+        appid: fetchConfig.headers.appid,
+      },
+    });
+    const list = res?.code === 200 ? (res.data || []) : (Array.isArray(res) ? res : []);
+    innerTagOptions.value = list.map(item => ({
+      label: item.name || item.tagName || String(item),
+      value: item.id ?? item,
+    }));
+  } catch (e) {
+    console.error('加载标签失败', e);
+  }
+};
+
+// 弹窗打开时加载标签，并回显数据
+watch(() => props.show, (val) => {
+  if (val) {
+    if (mergedTagOptions.value.length === 0) loadInnerTags();
+    // 有 initData 时回显（编辑模式），否则重置（新增模式）
+    if (props.initData) {
+      console.log('[CourseEditModal] initData:', JSON.stringify({
+        id: props.initData.id,
+        tagIds: props.initData.tagIds,
+        materialsLen: props.initData.materials?.length,
+      }));
+      formValue.id = props.initData.id || null;
+      formValue.title = props.initData.title || '';
+      formValue.desc = props.initData.desc || '';
+      formValue.cover = props.initData.cover || '';
+      formValue.coverPath = props.initData.coverPath || '';
+      formValue.tagIds = Array.isArray(props.initData.tagIds) ? [...props.initData.tagIds] : [];
+      formValue.service_period = props.initData.service_period || 12;
+      formValue.service_content = props.initData.service_content || '源码+文档+网站答疑+专属交流微信群';
+      formValue.price = props.initData.price || 0;
+      formValue.tPrice = props.initData.tPrice || 0;
+      formValue.type = props.initData.type || 'media';
+      // 回显资料列表
+      materialList.value = Array.isArray(props.initData.materials) ? [...props.initData.materials] : [];
+    } else {
+      // 新增：重置表单
+      formValue.id = null;
+      formValue.title = '';
+      formValue.desc = '';
+      formValue.cover = '';
+      formValue.coverPath = '';
+      formValue.tagIds = [];
+      formValue.service_period = 12;
+      formValue.service_content = '源码+文档+网站答疑+专属交流微信群';
+      formValue.price = 0;
+      formValue.tPrice = 0;
+      formValue.type = 'media';
+      materialList.value = [];
+    }
+  }
+});
+
 const formValue = reactive({
+  id: null,  // 有值时为编辑，null 时为新增
   title: '',
   desc: '',
   tagIds: [],
   cover: '',
+  coverPath: '',
   service_period: 12,
-  service_content: '源码+文档+技术支持',
+  service_content: '源码+文档+网站答疑+专属交流微信群',
   price: 0,
   tPrice: 0,
   type: 'media',
@@ -186,12 +262,22 @@ const handleCoverChange = async (e) => {
   try {
     const res = await apiUploadCover(file);
     if (res?.code === 200) {
-      formValue.cover = res.data?.relativePath || res.data; // 存 relativePath
+      const d = res.data;
+      // 优先用完整 url，其次拼接 baseURL + relativePath，最后直接用 data 字符串
+      const fullUrl = d?.url || d?.fileUrl
+        || (d?.relativePath ? `${fetchConfig.baseURL.replace('/pc', '')}${d.relativePath}` : null)
+        || (typeof d === 'string' ? d : '');
+      formValue.cover = fullUrl;
+      formValue.coverPath = d?.relativePath || d; // 保存 relativePath 用于提交
       message.success('封面上传成功');
+      console.log('[封面上传] res.data:', d, '=> 显示URL:', fullUrl);
     } else {
       message.error(res?.msg || '上传失败');
     }
-  } catch { message.error('上传失败'); }
+  } catch (err) {
+    console.error('封面上传失败:', err);
+    message.error('上传失败');
+  }
   finally { coverUploading.value = false; e.target.value = ''; }
 };
 
@@ -202,6 +288,12 @@ const triggerMat = () => matInputRef.value?.click();
 const handleMatChange = async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
+  const maxSize = 50 * 1024 * 1024; // 50MB
+  if (file.size > maxSize) {
+    message.warning('文件大小不应超过 50MB');
+    e.target.value = '';
+    return;
+  }
   matUploading.value = true;
   try {
     const res = await apiUploadMaterial(file, file.name);
@@ -236,10 +328,11 @@ const handlePublish = async () => {
   loading.value = true;
   try {
     const submitData = {
+      id: formValue.id || undefined,  // 有 id 时后端走更新
       title: formValue.title,
       desc: formValue.desc,
       intro: formValue.desc,
-      cover: String(formValue.cover || ''),
+      cover: String(formValue.coverPath || formValue.cover || ''),
       tagIds: formValue.tagIds,
       service_period: formValue.service_period,
       service_content: formValue.service_content,
@@ -252,11 +345,9 @@ const handlePublish = async () => {
         fileType: m.type,
       })),
     };
-    // useAddCourseApi 内部 transform 后 data.value 是后端 data 字段（课程ID）
-    // 所以直接判断 data.value 有值即为成功
     const { data, error } = await useAddCourseApi(submitData);
     if (!error.value && data.value) {
-      message.success('课程创建成功！');
+      message.success(formValue.id ? '课程信息已更新！' : '课程创建成功！');
       emit('success');
       emit('update:show', false);
     } else {

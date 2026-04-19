@@ -19,18 +19,33 @@
           <n-button type="primary" color="#18a058" @click="$emit('pay')">
             {{ isPaid ? '继续学习' : '立即学习' }}
           </n-button>
-          <n-button secondary style="margin-left:10px" @click="editMode = !editMode">
-            <template #icon><n-icon><CreateOutline /></n-icon></template>
-            {{ editMode ? '退出编辑' : '编辑课程信息' }}
-          </n-button>
+          <ClientOnly>
+            <n-button secondary style="margin-left:10px" @click="openEditBasic" v-if="canUpdate">
+              <template #icon><n-icon><CreateOutline /></n-icon></template>
+              编辑基础信息
+            </n-button>
+            <n-button secondary style="margin-left:10px" @click="editMode = !editMode" v-if="canEditContent">
+              <template #icon><n-icon><CreateOutline /></n-icon></template>
+              {{ editMode ? '退出编辑' : '编辑课程内容' }}
+            </n-button>
+          </ClientOnly>
         </div>
       </div>
     </div>
 
     <!-- 课程目录（含编辑功能） -->
     <CourseOutlineManager
+      :key="outlineKey"
       :course-id="String(courseId)"
       :edit-mode="editMode"
+    />
+
+    <!-- 编辑基础信息弹窗 -->
+    <CourseEditModal
+      v-model:show="showEditBasic"
+      :tag-options="tagOptions"
+      :init-data="editInitData"
+      @success="onEditSuccess"
     />
   </div>
 </template>
@@ -41,24 +56,37 @@ import { useRoute } from 'vue-router';
 import { NButton, NIcon } from 'naive-ui';
 import { CreateOutline } from '@vicons/ionicons5';
 import CourseOutlineManager from '~/components/Course/edit/CourseOutlineManager.vue';
-import { apiGetCoverUrls } from '~/composables/Api/Course/course';
+import CourseEditModal from '~/components/Course/CourseEditModal.vue';
+import { apiGetCoverUrls, apiGetMaterialUrl, getAuthHeaders } from '~/composables/Api/Course/course';
+import { fetchConfig } from '~/composables/useHttp';
+
+const { permissionList } = usePermission();
+const canUpdate = computed(() => permissionList.value.includes('course:update'));
+const canEditContent = computed(() => permissionList.value.includes('course:chapter:save'));
 
 const props = defineProps<{
   data: any;
   isPaid?: boolean;
 }>();
-defineEmits(['pay']);
+const emit = defineEmits(['pay', 'refresh']);
 
 const route = useRoute();
 const courseId = route.params.id;
 const isPaid = computed(() => props.isPaid || props.data?.buyFlag === 1);
 const editMode = ref(false);
 
+// 本地课程数据副本，编辑后更新
+const localData = ref<any>({ ...props.data });
+
 // 封面临时URL
 const coverUrl = ref(props.data?.cover || '');
 
+// 课程资料列表
+const courseMaterials = ref<any[]>([]);
+
 onMounted(async () => {
   if (props.data?.id) {
+    // 只加载封面，资料在编辑时按需加载
     try {
       const res: any = await apiGetCoverUrls([props.data.id], 30);
       if (res?.code === 200 && res.data?.[props.data.id]) {
@@ -67,6 +95,114 @@ onMounted(async () => {
     } catch {}
   }
 });
+
+// 下载资料
+async function downloadMaterial(mat: any) {
+  const id = mat.id || mat.materialId;
+  if (!id) {
+    window.open(mat.fileUrl || mat.url, '_blank');
+    return;
+  }
+  try {
+    const res: any = await apiGetMaterialUrl(id, 120);
+    if (res?.code === 200 && res.data) {
+      window.open(res.data, '_blank');
+    } else {
+      window.open(mat.fileUrl || mat.url, '_blank');
+    }
+  } catch {
+    window.open(mat.fileUrl || mat.url, '_blank');
+  }
+}
+
+// ===== 编辑基础信息 =====
+const showEditBasic = ref(false);
+const tagOptions = ref<any[]>([]);
+const editInitData = ref<any>(null);
+
+// 加载标签
+const loadTags = async () => {
+  if (tagOptions.value.length > 0) return;
+  try {
+    const res: any = await $fetch('/course/tags', {
+      baseURL: fetchConfig.baseURL,
+      headers: {
+        token: process.client ? (localStorage.getItem('token') || localStorage.getItem('Token') || '') : '',
+        appid: fetchConfig.headers.appid,
+      },
+    });
+    const list = res?.code === 200 ? (res.data || []) : [];
+    tagOptions.value = list.map((item: any) => ({
+      label: item.name || item.tagName,
+      value: item.id,
+    }));
+  } catch {}
+};
+
+async function openEditBasic() {
+  await loadTags();
+
+  // 诊断：打印课程原始数据
+  console.log('[EditBasic] props.data:', JSON.stringify({
+    id: props.data?.id,
+    tags: props.data?.tags,
+    tagList: props.data?.tagList,
+    tagIds: props.data?.tagIds,
+  }));
+
+  // 加载课程资料列表
+  let materials: any[] = [];
+  try {
+    const matRes: any = await $fetch(`/course/${props.data?.id}/materials`, {
+      baseURL: fetchConfig.baseURL,
+      headers: getAuthHeaders(),
+    });
+    console.log('[EditBasic] materials res:', JSON.stringify(matRes));
+    if (matRes?.code === 200 && Array.isArray(matRes.data)) {
+      materials = matRes.data.map((m: any) => ({
+        id: m.id || m.materialId,
+        name: m.materialName || m.name || '',
+        url: m.fileUrl || m.url || '',
+        size: m.fileSize ? (m.fileSize / 1024).toFixed(2) + ' MB' : '',
+        type: m.fileType || m.type || '',
+        download_count: m.downloadCount || 0,
+      }));
+    }
+  } catch (e) {
+    console.error('[EditBasic] load materials error:', e);
+  }
+
+  // 标签 id 列表：兼容多种格式
+  const rawTags = props.data?.tags || props.data?.tagList || props.data?.tagIds || [];
+  const tagIds = rawTags.map((t: any) => {
+    if (typeof t === 'object' && t !== null) return t.id ?? t.tagId ?? t.value;
+    return t;
+  }).filter((id: any) => id != null);
+
+  console.log('[EditBasic] resolved tagIds:', tagIds);
+
+  editInitData.value = {
+    id: props.data?.id,
+    title: props.data?.title || '',
+    desc: props.data?.intro || props.data?.desc || '',
+    cover: coverUrl.value || props.data?.cover || '',
+    coverPath: props.data?.cover || '',
+    tagIds,
+    service_period: props.data?.servicePeriod || props.data?.service_period || 12,
+    service_content: props.data?.serviceContent || props.data?.service_content || '源码+文档+网站答疑+专属交流微信群',
+    price: props.data?.price || 0,
+    tPrice: props.data?.tPrice || props.data?.t_price || 0,
+    type: props.data?.type || 'media',
+    materials,
+  };
+  showEditBasic.value = true;
+}
+
+function onEditSuccess() {
+  // 重新加载课程详情，不刷新整页（避免 permissions 状态丢失）
+  emit('refresh');
+  showEditBasic.value = false;
+}
 </script>
 
 <style scoped>
@@ -104,4 +240,41 @@ onMounted(async () => {
 .meta-sep { color: #ddd; }
 .price-text { color: #18a058; font-weight: 600; }
 .btn-row { display: flex; align-items: center; margin-top: 8px; }
+
+/* 资料下载 */
+.material-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin-top: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.material-header {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 14px;
+}
+.material-list { display: flex; flex-direction: column; gap: 8px; }
+.material-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e8e8e8;
+}
+.mat-icon { font-size: 16px; flex-shrink: 0; }
+.mat-name { flex: 1; font-size: 14px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mat-type {
+  font-size: 12px; color: #888;
+  background: #e8e8e8; padding: 2px 8px; border-radius: 10px; flex-shrink: 0;
+}
+.mat-dl-btn {
+  background: #18a058; color: #fff; border: none;
+  border-radius: 5px; padding: 5px 14px; font-size: 13px;
+  cursor: pointer; flex-shrink: 0; transition: background 0.2s;
+}
+.mat-dl-btn:hover { background: #0e7a3e; }
 </style>
