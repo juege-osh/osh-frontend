@@ -18,7 +18,7 @@
         <div class="form-group">
           <label class="form-label">封面图片</label>
           <div class="cover-upload">
-            <img v-if="bookInfo.cover" :src="bookInfo.cover" class="cover-preview" />
+            <img v-if="bookInfo.coverPreview || bookInfo.cover" :src="bookInfo.coverPreview || bookInfo.cover" class="cover-preview" />
             <button class="upload-btn" @click="uploadCover">
               {{ bookInfo.cover ? '更换封面' : '上传封面' }}
             </button>
@@ -160,9 +160,9 @@ const emit = defineEmits(['save'])
 const bookInfo = ref({
   id: props.bookId,
   title: '',
-  cover: '',
+  cover: '',  // 保存到数据库的相对路径
+  coverPreview: '',  // 用于显示的完整URL
   description: '',
-  tryContent: '',
   price: 0.00,
   tPrice: 0.00,
   tags: []
@@ -554,6 +554,7 @@ const setupImageUpload = (editor) => {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('type', 'image')
+        formData.append('preview', 'true')  // 添加preview参数
 
         // 上传到后端
         const response = await $fetch('/upload', {
@@ -568,12 +569,12 @@ const setupImageUpload = (editor) => {
         // 删除"上传中..."文字
         editor.deleteText(range.index, 5)
 
-        // 插入图片
+        // 插入图片 - 使用previewUrl
         if (response.code === 200 && response.data) {
-          const imageUrl = response.data.url || response.data
+          const imageUrl = response.data.previewUrl || response.data.url || response.data
           editor.insertEmbed(range.index, 'image', imageUrl)
           editor.setSelection(range.index + 1)
-          console.log('✅ 图片上传成功:', imageUrl)
+          console.log('✅ 图片上传成功 - 显示URL:', imageUrl, '原始URL:', response.data.url)
         } else {
           throw new Error(response.msg || '上传失败')
         }
@@ -614,6 +615,7 @@ const uploadCover = () => {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('type', 'image')
+      formData.append('preview', 'true')
 
       const response = await $fetch('/upload', {
         method: 'POST',
@@ -625,8 +627,11 @@ const uploadCover = () => {
       })
 
       if (response.code === 200 && response.data) {
-        bookInfo.value.cover = response.data.url || response.data
-        console.log('✅ 封面上传成功:', bookInfo.value.cover)
+        // 保存相对路径url到数据库，显示用previewUrl
+        bookInfo.value.cover = response.data.url  // 保存相对路径
+        bookInfo.value.coverPreview = response.data.previewUrl || response.data.url  // 显示用临时URL
+        
+        console.log('✅ 封面上传成功 - 保存URL:', bookInfo.value.cover, '显示URL:', bookInfo.value.coverPreview)
       } else {
         throw new Error(response.msg || '上传失败')
       }
@@ -666,6 +671,9 @@ const deleteChapter = (idx) => {
 
 // ==================== 【保存】 ====================
 const saveToDatabase = () => {
+  // 同步当前章节内容
+  syncChapterTitle()
+  
   // 更新章节顺序和编号（从1开始）
   chapters.value.forEach((ch, i) => {
     ch.sortOrder = i + 1
@@ -676,17 +684,26 @@ const saveToDatabase = () => {
   const saveData = {
     id: bookInfo.value.id,
     title: bookInfo.value.title,
-    cover: bookInfo.value.cover,
+    cover: bookInfo.value.cover,  // 保存URL字段
     desc: bookInfo.value.description,
-    try: bookInfo.value.tryContent,
     price: bookInfo.value.price,
     t_price: bookInfo.value.tPrice,
     tags: bookInfo.value.tags.length > 0 ? bookInfo.value.tags : [],
-    chapters: chapters.value
+    chapters: chapters.value.map(ch => ({
+      id: ch.id,
+      bookId: ch.bookId,
+      title: ch.title,
+      content: ch.content,
+      chapterNo: ch.chapterNo,
+      sortOrder: ch.sortOrder,
+      isFree: ch.isFree
+    }))
   }
 
+  console.log('📦 保存数据:', saveData)
+  console.log('📚 章节数据:', saveData.chapters)
+  
   emit('save', saveData)
-  console.log('✅ 保存成功', saveData)
 }
 
 // ==================== 监听内容变化 ====================
@@ -704,15 +721,38 @@ defineExpose({
   saveToDatabase,
   loadBookData: (data) => {
     console.log('📖 开始加载电子书数据:', data)
+    console.log('📸 接收到的封面URL:', data.cover)
     
     // 重置 bookInfo
     bookInfo.value.id = props.bookId || data.id
     bookInfo.value.title = data.title || ''
-    bookInfo.value.cover = data.cover || ''
+    
+    // 编辑模式：后端返回相对路径，我们需要保存相对路径，但显示时需要完整URL
+    // 如果是相对路径（不包含http），需要请求后端获取临时URL
+    if (data.cover) {
+      bookInfo.value.cover = data.cover  // 保存相对路径
+      // 如果是相对路径，调用后端获取临时URL用于显示
+      if (!data.cover.startsWith('http')) {
+        // 调用后端API获取临时URL
+        $fetch(`/book/getById?id=${props.bookId}`, {
+          baseURL: fetchConfig.baseURL,
+          headers: fetchConfig.headers
+        }).then(res => {
+          if (res.code === 200 && res.data && res.data.cover) {
+            bookInfo.value.coverPreview = res.data.cover
+            console.log('📸 获取到临时URL:', bookInfo.value.coverPreview)
+          }
+        })
+      } else {
+        bookInfo.value.coverPreview = data.cover
+      }
+    }
+    
     bookInfo.value.description = data.desc || data.description || ''
-    bookInfo.value.tryContent = data.try || data.tryContent || ''
     bookInfo.value.price = data.price !== undefined ? Number(data.price) : 0
     bookInfo.value.tPrice = data.t_price !== undefined ? Number(data.t_price) : 0
+    
+    console.log('📸 设置后的封面 - 保存用:', bookInfo.value.cover)
     
     // 处理标签
     if (data.tags) {
@@ -749,7 +789,12 @@ defineExpose({
       }))
       
       console.log('✅ 章节数据已加载:', chapters.value.length, '章')
-      console.log('章节列表:', chapters.value.map(ch => ({ title: ch.title, isFree: ch.isFree })))
+      console.log('📚 章节详情:', chapters.value.map(ch => ({ 
+        id: ch.id,
+        title: ch.title, 
+        isFree: ch.isFree,
+        contentLength: ch.content?.length || 0
+      })))
     } else {
       console.log('⚠️ 没有章节数据，保持默认章节')
     }
