@@ -19,20 +19,23 @@
           <n-button type="primary" color="#18a058" @click="$emit('pay')">
             {{ isPaid ? '继续学习' : '立即学习' }}
           </n-button>
-          <n-button secondary style="margin-left:10px" @click="openEditBasic">
-            <template #icon><n-icon><CreateOutline /></n-icon></template>
-            编辑基础信息
-          </n-button>
-          <n-button secondary style="margin-left:10px" @click="editMode = !editMode">
-            <template #icon><n-icon><CreateOutline /></n-icon></template>
-            {{ editMode ? '退出编辑' : '编辑课程内容' }}
-          </n-button>
+          <ClientOnly>
+            <n-button secondary style="margin-left:10px" @click="openEditBasic" v-if="canUpdate">
+              <template #icon><n-icon><CreateOutline /></n-icon></template>
+              编辑基础信息
+            </n-button>
+            <n-button secondary style="margin-left:10px" @click="editMode = !editMode" v-if="canEditContent">
+              <template #icon><n-icon><CreateOutline /></n-icon></template>
+              {{ editMode ? '退出编辑' : '编辑课程内容' }}
+            </n-button>
+          </ClientOnly>
         </div>
       </div>
     </div>
 
     <!-- 课程目录（含编辑功能） -->
     <CourseOutlineManager
+      :key="outlineKey"
       :course-id="String(courseId)"
       :edit-mode="editMode"
     />
@@ -57,16 +60,23 @@ import CourseEditModal from '~/components/Course/CourseEditModal.vue';
 import { apiGetCoverUrls, apiGetMaterialUrl, getAuthHeaders } from '~/composables/Api/Course/course';
 import { fetchConfig } from '~/composables/useHttp';
 
+const { permissionList } = usePermission();
+const canUpdate = computed(() => permissionList.value.includes('course:update'));
+const canEditContent = computed(() => permissionList.value.includes('course:chapter:save'));
+
 const props = defineProps<{
   data: any;
   isPaid?: boolean;
 }>();
-defineEmits(['pay']);
+const emit = defineEmits(['pay', 'refresh']);
 
 const route = useRoute();
 const courseId = route.params.id;
 const isPaid = computed(() => props.isPaid || props.data?.buyFlag === 1);
 const editMode = ref(false);
+
+// 本地课程数据副本，编辑后更新
+const localData = ref<any>({ ...props.data });
 
 // 封面临时URL
 const coverUrl = ref(props.data?.cover || '');
@@ -76,22 +86,11 @@ const courseMaterials = ref<any[]>([]);
 
 onMounted(async () => {
   if (props.data?.id) {
-    // 加载封面
+    // 只加载封面，资料在编辑时按需加载
     try {
       const res: any = await apiGetCoverUrls([props.data.id], 30);
       if (res?.code === 200 && res.data?.[props.data.id]) {
         coverUrl.value = res.data[props.data.id];
-      }
-    } catch {}
-
-    // 加载课程资料
-    try {
-      const matRes: any = await $fetch(`/course/${props.data.id}/materials`, {
-        baseURL: fetchConfig.baseURL,
-        headers: getAuthHeaders(),
-      });
-      if (matRes?.code === 200 && Array.isArray(matRes.data)) {
-        courseMaterials.value = matRes.data;
       }
     } catch {}
   }
@@ -200,8 +199,9 @@ async function openEditBasic() {
 }
 
 function onEditSuccess() {
-  // 刷新页面数据
-  window.location.reload();
+  // 重新加载课程详情，不刷新整页（避免 permissions 状态丢失）
+  emit('refresh');
+  showEditBasic.value = false;
 }
 </script>
 

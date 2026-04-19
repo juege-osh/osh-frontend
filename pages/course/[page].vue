@@ -7,22 +7,24 @@
       @search="handleSearch"
     />
 
-    <!-- 多选操作栏 -->
-    <div class="batch-bar">
-      <div class="batch-left">
-        <button class="btn-select-mode" :class="{ active: selectMode }" @click="toggleSelectMode">
-          {{ selectMode ? '退出选择' : '☑ 选择删除' }}
+    <!-- 多选操作栏：只有有增删权限时才显示这一行，ClientOnly 避免 SSR 权限判断失效 -->
+    <ClientOnly>
+      <div v-if="canCreate || canDelete" class="batch-bar">
+        <div class="batch-left">
+          <button v-if="canDelete" class="btn-select-mode" :class="{ active: selectMode }" @click="toggleSelectMode">
+            {{ selectMode ? '退出选择' : '☑ 选择删除' }}
+          </button>
+          <template v-if="selectedIds.size > 0">
+            <span class="batch-tip">已选 {{ selectedIds.size }} 门课程</span>
+            <button class="btn-batch-cancel" @click="selectedIds.clear(); selectMode = false">取消</button>
+            <button class="btn-batch-delete" @click="handleBatchDelete">🗑 删除选中</button>
+          </template>
+        </div>
+        <button v-if="canCreate" class="btn-create-course" @click="showCreateModal = true">
+          + 新增课程
         </button>
-        <template v-if="selectedIds.size > 0">
-          <span class="batch-tip">已选 {{ selectedIds.size }} 门课程</span>
-          <button class="btn-batch-cancel" @click="selectedIds.clear(); selectMode = false">取消</button>
-          <button class="btn-batch-delete" @click="handleBatchDelete">🗑 删除选中</button>
-        </template>
       </div>
-      <button class="btn-create-course" @click="showCreateModal = true">
-        + 新增课程
-      </button>
-    </div>
+    </ClientOnly>
 
     <div class="list-main-section">
       <Transition name="fade">
@@ -78,6 +80,12 @@ import CourseCard from '~/components/Course/CourseCard.vue';
 import { NGrid, NGi, NPagination } from 'naive-ui';
 import { fetchConfig } from '~/composables/useHttp';
 import { apiCollectCourse, apiRemoveCollect, apiGetCoverUrls, getAuthHeaders } from '~/composables/Api/Course/course';
+
+const { hasPermission, permissionList } = usePermission();
+
+// 响应式权限判断，确保 user 数据加载后自动更新
+const canCreate = computed(() => permissionList.value.includes('course:create'));
+const canDelete = computed(() => permissionList.value.includes('course:delete'));
 
 // 1. 核心修复：在查询参数中增加新的两个字段，并给默认排序赋值
 const queryParams = reactive({
