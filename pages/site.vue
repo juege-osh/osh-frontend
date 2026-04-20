@@ -631,7 +631,7 @@ onMounted(() => {
 
 <style scoped>
 .site-page {
-width: 100vw;
+width: 100%;
     min-height: 60vh;
 }
 
