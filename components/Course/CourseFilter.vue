@@ -58,10 +58,6 @@
         🔍 查询
       </button>
     </div>
-
-    <button class="btn-create" @click="$emit('create')">
-      + 新增课程
-    </button>
   </div>
 </template>
 
@@ -96,9 +92,9 @@ onMounted(async () => {
 });
 
 const sortOptions = [
+  { label: '全部', value: 'all' },
   { label: '免费', value: 'free' },
-  { label: '小班', value: 'small_class' },
-  { label: '专属', value: 'exclusive' },
+  { label: '小班专属', value: 'small_exclusive' },
   { label: '付费', value: 'paid' },
   { label: 'VIP', value: 'vip' },
   { label: '内部', value: 'internal' },
@@ -111,7 +107,11 @@ const toggleFollowing = () => {
 
 const handleSearch = () => {
   props.modelValue.isFree = props.modelValue.sortType === 'free' ? true : null;
-  // 「我关注的」映射成后端的 collectionFlag 字段
+  // 全部时清空类型筛选
+  if (props.modelValue.sortType === 'all') {
+    props.modelValue.isFree = null;
+    props.modelValue.courseType = null;
+  }
   props.modelValue.collectionFlag = props.modelValue.isFollowing ? 1 : null;
   emit('update:modelValue', props.modelValue);
   emit('search');
@@ -121,16 +121,17 @@ const handleSearch = () => {
 <style scoped>
 .filter-bar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   background: #fff;
   padding: 14px 18px;
   border-radius: 8px;
   border: 1px solid #e8e8e8;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
   gap: 12px;
   flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
 }
 .filter-left {
   display: flex;

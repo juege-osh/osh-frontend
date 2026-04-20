@@ -16,7 +16,7 @@
 
         <section v-else class="detail-top">
             <div class="book-cover-container" v-if="type == 'book'">
-                <n-image :src="data.cover" object-fit="cover" class="book-cover-large"/>
+                <img :src="data.cover" class="book-cover-large" />
                 <div class="book-badge" v-if="data.price == 0">免费</div>
             </div>
             <n-image v-else :src="data.cover" object-fit="cover" class="image"/>
@@ -464,6 +464,8 @@
         border-radius: 12px;
         box-shadow: 0 8px 24px rgba(0,0,0,0.15);
         transition: transform 0.3s ease;
+        object-fit: cover;
+        display: block;
     }
     
     .book-cover-large:hover {

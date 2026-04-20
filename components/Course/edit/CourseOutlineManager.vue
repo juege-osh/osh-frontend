@@ -2,7 +2,26 @@
   <div class="outline-wrap">
     <div class="outline-header">
       <div class="outline-title">课程目录</div>
-      <button v-if="editMode" class="btn-green" @click="addChapterInline">+ 新增章节</button>
+      <div class="header-right">
+        <button class="btn-download-mat" @click="toggleMaterials">
+          📦 资料下载
+        </button>
+        <button v-if="editMode" class="btn-green" @click="addChapterInline">+ 新增章节</button>
+      </div>
+    </div>
+
+    <!-- 资料下载列表 -->
+    <div v-if="showMaterials" class="material-panel">
+      <div v-if="materialsLoading" class="mat-loading">加载中...</div>
+      <div v-else-if="materials.length === 0" class="mat-empty">暂无课程资料</div>
+      <div v-else class="mat-list">
+        <div v-for="mat in materials" :key="mat.id" class="mat-row">
+          <span class="mat-icon">📄</span>
+          <span class="mat-name">{{ mat.materialName || mat.name }}</span>
+          <span v-if="mat.fileType" class="mat-tag">{{ mat.fileType }}</span>
+          <button class="mat-dl-btn" @click="downloadMat(mat)">⬇ 下载</button>
+        </div>
+      </div>
     </div>
 
     <div v-if="loading" style="padding:40px;text-align:center">
@@ -105,6 +124,7 @@
 
   <!-- 小节内容编辑弹窗 -->
   <SectionEditModal
+    v-if="showSectionEdit"
     :show="showSectionEdit"
     :section="editingSection"
     :course-id="courseId"
@@ -118,7 +138,7 @@ import { ref, onMounted } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import { useRouter } from 'vue-router';
 import { fetchConfig } from '~/composables/useHttp';
-import { getAuthHeaders, apiAddChapter, apiAddVideoSection, apiAddTextSection, apiDeleteSection } from '~/composables/Api/Course/course';
+import { getAuthHeaders, apiAddChapter, apiAddVideoSection, apiAddTextSection, apiDeleteSection, apiGetMaterialUrl } from '~/composables/Api/Course/course';
 import SectionEditModal from '~/components/Course/edit/SectionEditModal.vue';
 
 const vFocus = { mounted: (el: HTMLElement) => el.focus() };
@@ -142,13 +162,56 @@ function toggleChapter(id: number) {
 
 // ===== 跳转学习/编辑页 =====
 function goToLesson(section: any) {
-  router.push(`/course/lesson/${section.id}?courseId=${props.courseId}`);
+  // 带上 chapterId（parentId），确保小节编辑页能拿到父节点 id
+  const chapterId = section.parentId || section.chapterId || '';
+  router.push(`/course/lesson/${section.id}?courseId=${props.courseId}&chapterId=${chapterId}`);
 }
 
 const loading = ref(false);
 const outline = ref<any[]>([]);
 
 onMounted(loadOutline);
+
+// ===== 资料下载 =====
+const showMaterials = ref(false);
+const materials = ref<any[]>([]);
+const materialsLoading = ref(false);
+
+async function loadMaterials() {
+  if (materials.value.length > 0) return; // 已加载过不重复请求
+  materialsLoading.value = true;
+  try {
+    const res: any = await $fetch(`/course/${props.courseId}/materials`, {
+      baseURL: fetchConfig.baseURL,
+      headers: getAuthHeaders(),
+    });
+    if (res?.code === 200 && Array.isArray(res.data)) {
+      materials.value = res.data;
+    }
+  } catch {}
+  finally { materialsLoading.value = false; }
+}
+
+// 点击资料下载按钮：展开/收起，首次展开时加载
+function toggleMaterials() {
+  showMaterials.value = !showMaterials.value;
+  if (showMaterials.value) loadMaterials();
+}
+
+async function downloadMat(mat: any) {
+  const id = mat.id || mat.materialId;
+  if (!id) { window.open(mat.fileUrl || mat.url, '_blank'); return; }
+  try {
+    const res: any = await apiGetMaterialUrl(id, 120);
+    if (res?.code === 200 && res.data) {
+      window.open(res.data, '_blank');
+    } else {
+      window.open(mat.fileUrl || mat.url, '_blank');
+    }
+  } catch {
+    window.open(mat.fileUrl || mat.url, '_blank');
+  }
+}
 
 async function loadOutline() {
   loading.value = true;
@@ -160,7 +223,11 @@ async function loadOutline() {
     if (res?.code === 200) {
       outline.value = (res.data || []).map((ch: any) => ({
         ...ch,
-        children: ch.children || ch.sections || [],
+        children: (ch.children || ch.sections || []).map((s: any) => ({
+          ...s,
+          // 确保每个小节都有 parentId，用所在章节的 id 兜底
+          parentId: s.parentId || s.chapterId || ch.id,
+        })),
       }));
     }
   } catch {
@@ -219,10 +286,14 @@ async function saveChapter(chapter: any) {
   editingChapterId.value = null;
   if (!title || title === chapter.title) return;
   try {
+    const idx = outline.value.findIndex((c: any) => c.id === chapter.id);
+    const sort = chapter.sort ?? (idx >= 0 ? idx + 1 : 1);
+    // save 接口：传 id 时后端走更新，不传时走新增
     const res: any = await apiAddChapter({
       id: chapter.id,
       courseId: Number(props.courseId),
       title,
+      sort,
     });
     if (res?.code === 200) {
       message.success('章节已更新');
@@ -346,6 +417,37 @@ const editingSection = ref<any>(null);
   border-bottom: 1px solid #f0f0f0;
 }
 .outline-title { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+.header-right { display: flex; align-items: center; gap: 10px; }
+
+.btn-download-mat {
+  background: #fff; color: #18a058; border: 1px solid #18a058;
+  border-radius: 4px; padding: 5px 14px; font-size: 13px;
+  cursor: pointer; transition: all 0.2s; font-weight: 500;
+}
+.btn-download-mat:hover { background: #18a058; color: #fff; }
+
+/* 资料面板 */
+.material-panel {
+  border-top: 1px solid #f0f0f0;
+  padding: 14px 20px;
+  background: #fafafa;
+}
+.mat-loading, .mat-empty { font-size: 13px; color: #999; padding: 8px 0; }
+.mat-list { display: flex; flex-direction: column; gap: 8px; }
+.mat-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; background: #fff;
+  border: 1px solid #e8e8e8; border-radius: 6px;
+}
+.mat-icon { font-size: 16px; flex-shrink: 0; }
+.mat-name { flex: 1; font-size: 13px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mat-tag { font-size: 11px; color: #888; background: #f0f0f0; padding: 2px 8px; border-radius: 10px; flex-shrink: 0; }
+.mat-dl-btn {
+  background: #18a058; color: #fff; border: none;
+  border-radius: 5px; padding: 4px 12px; font-size: 12px;
+  cursor: pointer; flex-shrink: 0; transition: background 0.2s;
+}
+.mat-dl-btn:hover { background: #0e7a3e; }
 
 .btn-green {
   background: #18a058;

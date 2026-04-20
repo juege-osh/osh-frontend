@@ -191,6 +191,11 @@ const onSubmit = () => {
             // 存储用户信息
             const user = useUser()
             user.value = data.value
+            // 单独存权限列表，避免 getinfo 覆盖后丢失
+            const permissions = usePermissions()
+            permissions.value = data.value.permissionList || []
+            // 持久化到 localStorage，刷新后不丢失
+            savePermissions(data.value.permissionList || [])
 
             // 如果有 from 参数，跳转到该页面
             // 例：/login?from=/user → 跳转到 /user

@@ -19,6 +19,7 @@
           :data="courseData"
           :is-paid="isPaid"
           @pay="goToPayPage"
+          @refresh="handleRefreshCourse"
         />
       </template>
     </template>
@@ -47,7 +48,7 @@ const goToPayPage = () => {
   isPayingView.value = true;
 };
 // --- 第二步：发起异步请求 ---
-const { data, pending, error } = await useCourseDetailApi(courseId);
+const { data, pending, error, refresh } = await useCourseDetailApi(courseId);
 
 // ✅ 正确写法（你的 useHttp 已经 transform 过了）
 if (data.value) {
@@ -58,6 +59,11 @@ if (data.value) {
 } else {
   console.error('❌ 接口没数据', data.value);
 }
+
+// 编辑成功后刷新课程数据（不刷整页，保留 permissions 状态）
+const handleRefreshCourse = async () => {
+  await refresh();
+};
 
 // 在支付页面点击“确认支付”：执行解锁逻辑
 const handleConfirmPay = async () => {

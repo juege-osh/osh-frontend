@@ -34,7 +34,7 @@ const { message } = createDiscreteApi(['message'])
 onMounted(async () => {
   try {
     loading.value = true
-    const response = await $fetch(`/book/getById?id=${bookId}`, {
+    const response = await $fetch(`/book/getById?id=${bookId}&forEdit=true`, {
       baseURL: fetchConfig.baseURL,
       headers: {
         ...fetchConfig.headers,
@@ -44,6 +44,8 @@ onMounted(async () => {
     
     if (response.code === 200 && response.data) {
       console.log('✅ 电子书数据加载成功:', response.data)
+      console.log('📸 封面URL（原始相对路径）:', response.data.cover)
+      console.log('📚 章节数量:', response.data.book_details?.length || 0)
       
       // 等待编辑器组件完全挂载
       await nextTick()
