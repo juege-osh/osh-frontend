@@ -95,12 +95,12 @@
                             style="margin-right: 3px; margin-top: 3px;">{{ tag.tagName }}</n-tag>
                     </div>
                     <!-- 负责人 -->
-                    <div v-if="site.maintainers && site.maintainers.length > 0" class="site-responsibles">
+                    <div class="site-responsibles">
                         <n-tag v-for="(resp, index) in site.maintainers" :key="index" size="tiny" type="success"
                             style="margin-right: 3px; margin-top: 3px;">{{ resp.userName }}</n-tag>
                     </div>
                     <!-- 最后检查时间 -->
-                    <div v-if="site.lastCheckTime" class="site-last-check">
+                    <div class="site-last-check">
                         最后检查于：<n-icon size="10" color="#6b7280">
                             <TimeOutline />
                         </n-icon>
@@ -579,7 +579,8 @@ async function handleRefreshAll() {
             })
         }
     } catch (error) {
-        console.error('刷新检查失败:', error)
+        const { message } = createDiscreteApi(["message"])
+        message.error("刷新检查失败")
     } finally {
         checkingAll.value = false
     }
@@ -590,9 +591,11 @@ async function handleRefreshSite(site) {
     try {
         await useSiteInfoRefreshApi(site.id)
     } catch (error) {
-        console.error('刷新检查失败:', error)
+        const { message } = createDiscreteApi(["message"])
+        message.error("检查网站状态失败")
     } finally {
         site.checking = false
+        loadList()
     }
 }
 
