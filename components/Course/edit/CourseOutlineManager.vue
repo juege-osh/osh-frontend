@@ -67,8 +67,8 @@
             v-for="(section, si) in chapter.children || []"
             :key="section.id"
             class="section-row"
-            :class="{ clickable: !editMode }"
-            @click="!editMode && goToLesson(section)"
+            :class="{ clickable: true }"
+            @click="!editMode && goToStudy(section)"
           >
             <span class="section-num">{{ ci + 1 }}.{{ si + 1 }}</span>
             <span class="section-dot" :style="{ background: section.sectionType === 'video' ? '#2080f0' : '#18a058' }"></span>
@@ -160,9 +160,13 @@ function toggleChapter(id: number) {
   collapsedChapters.value = new Set(collapsedChapters.value);
 }
 
-// ===== 跳转学习/编辑页 =====
+// ===== 跳转学习中心（普通用户点击小节） =====
+function goToStudy(section: any) {
+  router.push(`/course_detail/${props.courseId}?sectionId=${section.id}`);
+}
+
+// ===== 跳转编辑页（有编辑权限时点击"编辑内容"按钮） =====
 function goToLesson(section: any) {
-  // 带上 chapterId（parentId），确保小节编辑页能拿到父节点 id
   const chapterId = section.parentId || section.chapterId || '';
   router.push(`/course/lesson/${section.id}?courseId=${props.courseId}&chapterId=${chapterId}`);
 }
@@ -313,8 +317,8 @@ function confirmDeleteChapter(chapter: any) {
     positiveText: '删除', negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        const res: any = await apiDeleteSection(chapter.id);
-        if (res?.code === 200 || res === '删除成功') {
+        const res: any = await apiDeleteSection(chapter.id, Number(props.courseId));
+        if (res?.code === 200) {
           message.success('章节已删除');
           await loadOutline();
         } else {
@@ -384,8 +388,8 @@ function confirmDeleteSection(section: any) {
     positiveText: '删除', negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        const res: any = await apiDeleteSection(section.id);
-        if (res?.code === 200 || res === '删除成功') {
+        const res: any = await apiDeleteSection(section.id, Number(props.courseId));
+        if (res?.code === 200) {
           message.success('小节已删除');
           await loadOutline();
         } else {

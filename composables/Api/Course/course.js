@@ -338,11 +338,12 @@ export async function apiGetMaterialUrl(materialId, minute = 120) {
   });
 }
 
-export async function apiDeleteSection(id) {
-  return $fetch(`/course/section/${id}`, {
-    method: 'DELETE',
+export async function apiDeleteSection(sectionId, courseId) {
+  return $fetch('/course/sectionDelete', {
+    method: 'POST',
     baseURL: fetchConfig.baseURL,
     headers: getAuthHeaders(),
+    body: { sectionId, courseId },
   });
 }
 export async function apiGetCourseDetail(courseId) {

@@ -5,7 +5,8 @@
     </div>
 
     <template v-else-if="courseData">
-      <CourseStudyCenter v-if="isPaid" :data="courseData"> </CourseStudyCenter>
+      <!-- 点击小节后带 sectionId 参数进入学习中心 -->
+      <CourseStudyCenter v-if="!!route.query.sectionId" :data="courseData" />
 
       <CoursePay
         v-else-if="isPayingView"
@@ -14,7 +15,8 @@
         @confirm="handleConfirmPay"
       />
 
-      <template v-else-if="courseData">
+      <!-- 默认：营销详情页（无论是否付费，点卡片都到这里） -->
+      <template v-else>
         <CourseDetailMarketing
           :data="courseData"
           :is-paid="isPaid"
@@ -31,7 +33,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import CoursePay from '@/components/Course/CoursePay.vue';
 const route = useRoute();
@@ -40,8 +42,8 @@ const courseId = route.params.id;
 // --- 第一步：先声明所有响应式变量 ---
 const courseData = ref(null);
 const isPaid = ref(false);
-const isPayingView = ref(false); // 是否在支付页面
-const confirmLoading = ref(false); // ✅ 必须加这一行，否则点击支付会报 undefined 错误
+const isPayingView = ref(false);
+const confirmLoading = ref(false);
 
 // 点击立即学习：跳转到支付视图
 const goToPayPage = () => {

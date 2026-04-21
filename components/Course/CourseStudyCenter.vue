@@ -195,7 +195,20 @@ async function loadOutline() {
           parentId: s.parentId || s.chapterId || ch.id,
         })),
       }));
-      // 默认选中第一个有视频的小节
+
+      // 优先：URL 传入的 sectionId 定位到指定小节
+      const targetId = route.query.sectionId ? String(route.query.sectionId) : null;
+      if (targetId) {
+        for (const ch of outline.value) {
+          const found = (ch.children || []).find(s => String(s.id) === targetId);
+          if (found) {
+            selectSection(found);
+            return;
+          }
+        }
+      }
+
+      // 其次：选第一个有视频的小节
       for (const ch of outline.value) {
         for (const s of ch.children || []) {
           if (s.mediaUrl && !s.mediaUrl.includes('pending')) {
@@ -204,7 +217,7 @@ async function loadOutline() {
           }
         }
       }
-      // 没有视频就选第一个小节
+      // 最后：选第一个小节
       const first = outline.value[0]?.children?.[0];
       if (first) selectSection(first);
     }
