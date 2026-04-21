@@ -67,10 +67,9 @@ export async function useLogout(){
     const permissions = usePermissions()
     permissions.value = []
     message.success("退出登录成功")
-    // 回到首页
-    const route = useRoute()
-    if(route.path != "/"){
-        navigateTo("/",{ replace:true })
+    // 强制跳转首页并刷新，确保内存状态完全清除
+    if (process.client) {
+        window.location.href = '/'
     }
 }
 

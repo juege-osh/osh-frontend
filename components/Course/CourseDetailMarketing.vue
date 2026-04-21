@@ -134,7 +134,7 @@ const loadTags = async () => {
     const list = res?.code === 200 ? (res.data || []) : [];
     tagOptions.value = list.map((item: any) => ({
       label: item.name || item.tagName,
-      value: item.id,
+      value: Number(item.id),  // 统一转数字，和 tagIds 类型一致
     }));
   } catch {}
 };
@@ -142,51 +142,88 @@ const loadTags = async () => {
 async function openEditBasic() {
   await loadTags();
 
-  // 诊断：打印课程原始数据
-  console.log('[EditBasic] props.data:', JSON.stringify({
-    id: props.data?.id,
+  // 🔍 诊断：打印课程完整原始数据
+  console.log('[EditBasic] 🔍 完整 props.data:', props.data);
+  console.log('[EditBasic] 🔍 所有可能的标签字段:', {
     tags: props.data?.tags,
     tagList: props.data?.tagList,
     tagIds: props.data?.tagIds,
-  }));
+    courseTags: props.data?.courseTags,
+    courseTagList: props.data?.courseTagList,
+  });
 
   // 加载课程资料列表
   let materials: any[] = [];
   try {
-    const matRes: any = await $fetch(`/course/${props.data?.id}/materials`, {
+    const matRes: any = await $fetch(`/course/section/materials/${props.data?.id}`, {
       baseURL: fetchConfig.baseURL,
-      headers: getAuthHeaders(),
+      headers: {
+        token: useCookie('token').value || '',
+        appid: fetchConfig.headers.appid,
+      },
     });
-    console.log('[EditBasic] materials res:', JSON.stringify(matRes));
-    if (matRes?.code === 200 && Array.isArray(matRes.data)) {
-      materials = matRes.data.map((m: any) => ({
-        id: m.id || m.materialId,
-        name: m.materialName || m.name || '',
-        url: m.fileUrl || m.url || '',
-        size: m.fileSize ? (m.fileSize / 1024).toFixed(2) + ' MB' : '',
-        type: m.fileType || m.type || '',
-        download_count: m.downloadCount || 0,
-      }));
+    console.log('[EditBasic] 🔍 materials 完整响应:', matRes);
+    
+    // 兼容多种响应格式
+    let rawMaterials = [];
+    if (matRes?.code === 200) {
+      rawMaterials = matRes.data || matRes.rows || [];
+    } else if (Array.isArray(matRes)) {
+      rawMaterials = matRes;
     }
+    
+    console.log('[EditBasic] 🔍 解析后的 rawMaterials:', rawMaterials);
+    
+    materials = rawMaterials.map((m: any) => {
+      console.log('[EditBasic] 🔍 单个资料原始数据:', m);
+      return {
+        id: m.id || m.materialId,
+        name: m.name || m.materialName || m.fileName || '',
+        url: m.url || m.fileUrl || m.downloadUrl || '',
+        size: m.fileSize ? (Number(m.fileSize) / 1024 / 1024).toFixed(2) + ' MB' : (m.size || ''),
+        fileSize: m.fileSize || 0,
+        type: m.fileType || m.type || m.extension || '',
+        download_count: m.downloadCount || m.download_count || 0,
+      };
+    });
+    
+    console.log('[EditBasic] 🔍 最终 materials 数组:', materials);
   } catch (e) {
-    console.error('[EditBasic] load materials error:', e);
+    console.error('[EditBasic] ❌ load materials error:', e);
   }
 
   // 标签 id 列表：兼容多种格式
-  const rawTags = props.data?.tags || props.data?.tagList || props.data?.tagIds || [];
+  const rawTags = props.data?.tags || props.data?.tagList || props.data?.tagIds 
+    || props.data?.courseTags || props.data?.courseTagList || [];
+  
+  console.log('[EditBasic] 🔍 rawTags:', rawTags);
+  
   const tagIds = rawTags.map((t: any) => {
-    if (typeof t === 'object' && t !== null) return t.id ?? t.tagId ?? t.value;
-    return t;
-  }).filter((id: any) => id != null);
+    if (typeof t === 'object' && t !== null) {
+      const id = t.id ?? t.tagId ?? t.value ?? t.tag_id;
+      console.log('[EditBasic] 🔍 标签对象:', t, '=> id:', id);
+      return Number(id);  // 统一转数字
+    }
+    console.log('[EditBasic] 🔍 标签原始值:', t);
+    return Number(t);  // 统一转数字
+  }).filter((id: any) => id != null && !isNaN(id));
 
-  console.log('[EditBasic] resolved tagIds:', tagIds);
+  console.log('[EditBasic] ✅ 最终 resolved tagIds:', tagIds);
 
   editInitData.value = {
     id: props.data?.id,
     title: props.data?.title || '',
     desc: props.data?.intro || props.data?.desc || '',
     cover: coverUrl.value || props.data?.cover || '',
-    coverPath: props.data?.cover || '',
+    // coverPath 提取原始相对路径：从签名URL中去掉域名、/osh/前缀和签名参数
+    coverPath: (() => {
+      const raw = props.data?.cover || '';
+      if (!raw.startsWith('http')) return raw; // 已经是相对路径
+      try {
+        const path = new URL(raw).pathname; // /osh/common/image/...
+        return path.replace(/^\/osh\//, ''); // 去掉 /osh/ 前缀
+      } catch { return raw; }
+    })(),
     tagIds,
     service_period: props.data?.servicePeriod || props.data?.service_period || 12,
     service_content: props.data?.serviceContent || props.data?.service_content || '源码+文档+网站答疑+专属交流微信群',

@@ -185,9 +185,12 @@ async function loadMaterials() {
   if (materials.value.length > 0) return; // 已加载过不重复请求
   materialsLoading.value = true;
   try {
-    const res: any = await $fetch(`/course/${props.courseId}/materials`, {
+    const res: any = await $fetch(`/course/section/materials/${props.courseId}`, {
       baseURL: fetchConfig.baseURL,
-      headers: getAuthHeaders(),
+      headers: {
+        token: useCookie('token').value || '',
+        appid: fetchConfig.headers.appid,
+      },
     });
     if (res?.code === 200 && Array.isArray(res.data)) {
       materials.value = res.data;
@@ -203,18 +206,15 @@ function toggleMaterials() {
 }
 
 async function downloadMat(mat: any) {
-  const id = mat.id || mat.materialId;
-  if (!id) { window.open(mat.fileUrl || mat.url, '_blank'); return; }
-  try {
-    const res: any = await apiGetMaterialUrl(id, 120);
-    if (res?.code === 200 && res.data) {
-      window.open(res.data, '_blank');
-    } else {
-      window.open(mat.fileUrl || mat.url, '_blank');
-    }
-  } catch {
-    window.open(mat.fileUrl || mat.url, '_blank');
-  }
+  const url = mat.url || mat.fileUrl;
+  if (!url) return;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = mat.name || mat.materialName || 'download';
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 async function loadOutline() {
