@@ -12,6 +12,7 @@
 
 <script setup>
 import { NMessageProvider, NDialogProvider, NConfigProvider } from 'naive-ui'
+import { onMounted } from 'vue'
 
 // Leantime-inspired theme
 const themeOverrides = {
@@ -22,6 +23,18 @@ const themeOverrides = {
     borderRadius: '6px',
   }
 }
+
+// 客户端启动时：未登录则清掉残留权限
+onMounted(() => {
+  const token = useCookie('token').value
+    || localStorage.getItem('token')
+    || localStorage.getItem('Token')
+  if (!token) {
+    localStorage.removeItem('__permissions__')
+    const permissions = usePermissions()
+    permissions.value = []
+  }
+})
 </script>
 
 <style>

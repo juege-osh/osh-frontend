@@ -98,7 +98,9 @@
               <tr v-for="(f, i) in materialList" :key="i">
                 <td>{{ f.name }}</td>
                 <td>
-                  <n-text depth="3">{{ f.url }}</n-text>
+                  <n-text depth="3" style="word-break:break-all;font-size:12px">
+                    {{ f.url ? f.url.split('?')[0].split('/').pop() : '-' }}
+                  </n-text>
                 </td>
                 <td>{{ f.size }}</td>
                 <td>{{ f.type }}</td>
@@ -120,16 +122,16 @@
         </div>
         <div class="upload-box">
           <div class="mat-upload-btn" @click="triggerMat" :class="{ loading: matUploading }">
-            {{ matUploading ? '上传中...' : '⬇ 资料下载' }}
+            {{ matUploading ? '上传中...' : '⬆ 上传资料' }}
           </div>
-          <input ref="matInputRef" type="file" style="display:none" @change="handleMatChange" />
+          <input ref="matInputRef" type="file" accept=".zip,.rar,.7z" style="display:none" @change="handleMatChange" />
         </div>
       </div>
     </n-form>
 
     <template #footer>
       <n-space>
-        <n-button type="primary" @click="handlePublish">保存并发布</n-button>
+        <n-button type="primary" :loading="loading" :disabled="loading" @click="handlePublish">保存并发布</n-button>
         <n-button @click="$emit('update:show', false)">取消</n-button>
       </n-space>
     </template>
@@ -185,7 +187,7 @@ const loadInnerTags = async () => {
     const list = res?.code === 200 ? (res.data || []) : (Array.isArray(res) ? res : []);
     innerTagOptions.value = list.map(item => ({
       label: item.name || item.tagName || String(item),
-      value: item.id ?? item,
+      value: Number(item.id ?? item),  // 统一转数字
     }));
   } catch (e) {
     console.error('加载标签失败', e);
@@ -288,6 +290,11 @@ const triggerMat = () => matInputRef.value?.click();
 const handleMatChange = async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
+  if (materialList.value.length >= 1) {
+    message.warning('只能上传一个资料，请先删除现有资料');
+    e.target.value = '';
+    return;
+  }
   const maxSize = 50 * 1024 * 1024; // 50MB
   if (file.size > maxSize) {
     message.warning('文件大小不应超过 50MB');
@@ -297,13 +304,16 @@ const handleMatChange = async (e) => {
   matUploading.value = true;
   try {
     const res = await apiUploadMaterial(file, file.name);
+    console.log('[上传资料] res.data:', res?.data);
     if (res?.code === 200) {
       materialList.value.push({
         id: res.data?.materialId,
-        name: res.data?.materialName || file.name,
-        url: res.data?.fileUrl,
-        size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-        type: res.data?.fileType || file.name.split('.').pop(),
+        name: res.data?.materialName || res.data?.fileName || file.name,
+        url: res.data?.url,               // 完整签名URL，仅用于显示
+        relativePath: res.data?.relativePath, // 相对路径，提交给后端用
+        size: (Number(res.data?.size || file.size) / 1024 / 1024).toFixed(2) + ' MB',
+        fileSize: Number(res.data?.size || file.size), // 字节数
+        type: res.data?.type || res.data?.fileType || file.name.split('.').pop(),
       });
       message.success('资料上传成功');
     } else {
@@ -313,13 +323,22 @@ const handleMatChange = async (e) => {
   finally { matUploading.value = false; e.target.value = ''; }
 };
 
-/** 下载资料（获取临时URL） */
+/** 下载资料（获取临时URL，触发浏览器下载弹窗） */
 const handleDownload = async (mat) => {
-  if (!mat.id) { window.open(mat.url, '_blank'); return; }
+  const download = (url) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = mat.name || 'download';
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+  if (!mat.id) { download(mat.url); return; }
   try {
     const res = await apiGetMaterialUrl(mat.id, 120);
-    window.open(res?.code === 200 ? res.data : mat.url, '_blank');
-  } catch { window.open(mat.url, '_blank'); }
+    download(res?.code === 200 ? res.data : mat.url);
+  } catch { download(mat.url); }
 };
 
 /** 保存并发布 */
@@ -333,17 +352,22 @@ const handlePublish = async () => {
       desc: formValue.desc,
       intro: formValue.desc,
       cover: String(formValue.coverPath || formValue.cover || ''),
-      tagIds: formValue.tagIds,
+      // 后端 bindCourseTags 接收标签名称列表，需要把 id 转回 name
+      tags: formValue.tagIds.map((id) => {
+        const opt = mergedTagOptions.value.find((o) => o.value === id);
+        return opt ? opt.label : String(id);
+      }),
       service_period: formValue.service_period,
       service_content: formValue.service_content,
       price: formValue.price,
       tPrice: formValue.tPrice,
       type: formValue.type,
-      materials: materialList.value.map((m) => ({
-        materialName: m.name,
-        fileUrl: m.url,
-        fileType: m.type,
-      })),
+      material: materialList.value[0] ? {  // 后端只接受单个对象
+        fileName: materialList.value[0].name,
+        fileUrl: materialList.value[0].relativePath || materialList.value[0].url, // 优先用相对路径
+        fileType: materialList.value[0].type,
+        fileSize: materialList.value[0].fileSize,
+      } : null,
     };
     const { data, error } = await useAddCourseApi(submitData);
     if (!error.value && data.value) {

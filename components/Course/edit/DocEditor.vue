@@ -171,27 +171,49 @@ const currentBlockLabel = computed(() => {
 
 // 初始化内容
 onMounted(() => {
-  if (editorRef.value && props.modelValue) {
-    editorRef.value.innerHTML = props.modelValue;
-    localHtml.value = props.modelValue;
-    // 回显时给已有图片绑定缩放
-    editorRef.value.querySelectorAll<HTMLImageElement>('img.doc-img').forEach(bindImgResize);
-  }
   document.addEventListener('click', () => {
     showHeadingMenu.value = false;
     showImgMenu.value = false;
   });
+  // onMounted 时 editorRef 已就绪，直接写入内容并绑定图片
+  if (editorRef.value) {
+    const val = props.modelValue || '';
+    editorRef.value.innerHTML = val;
+    localHtml.value = val;
+    // 用 setTimeout 确保浏览器完成 DOM 渲染后再绑定
+    setTimeout(() => bindAllImages(), 100);
+  }
 });
 
-// 外部 modelValue 变化时同步（仅初始化时）
+// 外部 modelValue 变化时同步（不用 immediate，onMounted 已处理初始值）
 watch(() => props.modelValue, (val) => {
   if (!editorRef.value) return;
   // 只在编辑器没有焦点时同步，避免光标跳动
   if (document.activeElement !== editorRef.value) {
     editorRef.value.innerHTML = val || '';
     localHtml.value = val || '';
+    setTimeout(() => bindAllImages(), 100);
   }
 }, { immediate: false });
+
+// 给编辑器内所有图片补上 doc-img class 并绑定缩放
+function bindAllImages() {
+  if (!editorRef.value) return;
+  const imgs = editorRef.value.querySelectorAll<HTMLImageElement>('img');
+  imgs.forEach((img) => {
+    if (!img.classList.contains('doc-img')) {
+      img.classList.add('doc-img');
+      if (!img.style.width) img.style.width = '400px';
+      img.style.maxWidth = '100%';
+      img.style.height = 'auto';
+      img.style.display = 'block';
+      img.style.margin = '8px 0';
+      img.style.borderRadius = '4px';
+      img.draggable = false;
+    }
+    bindImgResize(img);
+  });
+}
 
 // 输入时同步
 function onInput() {
@@ -347,23 +369,41 @@ function insertImgNode(src: string) {
 // ===== 图片缩放（独立 overlay，不影响 contenteditable）=====
 
 function bindImgResize(img: HTMLImageElement) {
-  if (img.dataset.rb) return;
+  // 移除旧的监听（通过替换节点克隆方式清除所有旧事件）
+  // 用 dataset.rb 标记是否已绑定，重新绑定时先清除标记
   img.dataset.rb = '1';
-  img.addEventListener('dragstart', (e) => e.preventDefault());
+  // 移除旧监听，重新绑定（防止重复）
+  img.removeEventListener('dragstart', preventDrag);
+  img.removeEventListener('mousedown', startResize);
+  img.removeEventListener('mousemove', updateImgCursor);
+  img.addEventListener('dragstart', preventDrag);
   img.addEventListener('mousedown', startResize);
+  img.addEventListener('mousemove', updateImgCursor);
+}
+
+function preventDrag(e: Event) {
+  e.preventDefault();
+}
+
+function updateImgCursor(e: MouseEvent) {
+  const img = e.currentTarget as HTMLImageElement;
+  const rect = img.getBoundingClientRect();
+  const inResizeZone = e.clientX > rect.right - 40 && e.clientY > rect.bottom - 40;
+  img.style.cursor = inResizeZone ? 'se-resize' : 'default';
 }
 
 function startResize(e: MouseEvent) {
   const img = e.currentTarget as HTMLImageElement;
   const rect = img.getBoundingClientRect();
-  // 整个图片区域都可以拖拽缩放（右下角 30px 区域）
-  const inCorner = e.clientX > rect.right - 30 && e.clientY > rect.bottom - 30;
+  // 右下角 40px 区域触发缩放
+  const inCorner = e.clientX > rect.right - 40 && e.clientY > rect.bottom - 40;
   if (!inCorner) return;
   e.preventDefault();
   e.stopPropagation();
 
   const startX = e.clientX;
-  const startW = img.offsetWidth;
+  // offsetWidth 为 0 时用 getBoundingClientRect 的宽度兜底
+  const startW = img.offsetWidth || rect.width || 400;
 
   img.style.outline = '2px solid #18a058';
 
@@ -643,10 +683,16 @@ function onKeydown(e: KeyboardEvent) {
   outline: 2px solid transparent;
   transition: outline-color 0.15s;
   user-select: none;
+  position: relative;
 }
 .rich-editor :deep(img.doc-img:hover) {
   outline-color: #18a058;
-  cursor: se-resize;
+}
+/* 右下角缩放提示角标（伪元素无法直接加在 img 上，用 outline 渐变模拟） */
+.rich-editor :deep(img.doc-img:hover) {
+  outline: 2px solid #18a058;
+  box-shadow: 2px 2px 0 2px #18a058, 0 1px 4px rgba(0,0,0,0.1);
+  cursor: default;
 }
 
 /* 预览区图片 */
