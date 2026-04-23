@@ -59,6 +59,17 @@
           </div>
         </div>
 
+        <div class="form-group">
+          <label class="form-label">权限等级</label>
+          <select v-model.number="bookInfo.level" class="form-input">
+            <option :value="1">1级</option>
+            <option :value="2">2级</option>
+            <option :value="3">3级</option>
+            <option :value="4">4级</option>
+            <option :value="5">5级</option>
+          </select>
+        </div>
+
         <!-- 标签 -->
         <div class="form-group">
           <label class="form-label">标签</label>
@@ -128,6 +139,7 @@
       <!-- 右侧编辑器 -->
       <div class="editor-container">
         <QuillEditor
+          :key="`${currentChapterIndex}-${chapters[currentChapterIndex]?.id || 'new'}-${editorReloadToken}`"
           ref="quillEditorRef"
           v-model:content="currentContent"
           content-type="html"
@@ -146,6 +158,7 @@
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import { ref, watch, onMounted, computed, defineProps, defineEmits } from 'vue'
+import { apiGetBookDetail, apiGetPreviewUrls, apiUploadBookImage } from '~/composables/Api/Book/book'
 
 // ==================== 【书的基础信息】 ====================
 const props = defineProps({
@@ -156,6 +169,21 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['save'])
+const imagePreviewMap = ref({})
+
+const ensureEditableSpacing = (html) => {
+  if (!html) {
+    return '<p><br></p>'
+  }
+  let nextHtml = html.trim()
+  if (/<\/pre>\s*$/i.test(nextHtml)) {
+    nextHtml = `${nextHtml}<p><br></p>`
+  }
+  if (!/(<\/p>|<\/div>|<\/h1>|<\/h2>|<\/h3>|<\/blockquote>)\s*$/i.test(nextHtml)) {
+    nextHtml = `${nextHtml}<p><br></p>`
+  }
+  return nextHtml
+}
 
 const bookInfo = ref({
   id: props.bookId,
@@ -165,6 +193,7 @@ const bookInfo = ref({
   description: '',
   price: 0.00,
   tPrice: 0.00,
+  level: 1,
   tags: []
 })
 
@@ -212,6 +241,7 @@ const currentContent = computed({
 // ==================== 【增强：跨平台快捷键支持 + 图片缩放】 ====================
 const quillEditorRef = ref(null)
 let editorInstance = null
+const editorReloadToken = ref(0)
 
 const handleEditorReady = (editor) => {
   editorInstance = editor
@@ -525,6 +555,98 @@ const toolbarOptions = [
   ['clean']
 ]
 
+const IMG_SRC_REGEX = /<img\b[^>]*?\bsrc=(["'])(.*?)\1[^>]*>/gi
+
+const extractImageSrcs = (html) => {
+  if (!html) return []
+  IMG_SRC_REGEX.lastIndex = 0
+  const srcs = []
+  let match
+  while ((match = IMG_SRC_REGEX.exec(html)) !== null) {
+    if (match[2]) srcs.push(match[2])
+  }
+  return srcs
+}
+
+const replaceImageSrc = (html, oldSrc, newSrc) => {
+  if (!html || oldSrc === newSrc) return html
+  return html.replaceAll(oldSrc, newSrc)
+}
+
+const dataUrlToFile = (dataUrl, fallbackName = 'ebook-image') => {
+  const [meta, base64] = dataUrl.split(',')
+  const mime = meta.match(/data:(.*?);base64/)?.[1] || 'image/png'
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  const ext = mime.split('/')[1] || 'png'
+  return new File([bytes], `${fallbackName}.${ext}`, { type: mime })
+}
+
+const uploadImageAndGetPaths = async (file) => {
+  const response = await apiUploadBookImage(file, { minute: 120 })
+  if (response.code !== 200 || !response.data?.url) {
+    throw new Error(response.msg || '上传失败')
+  }
+  const relativeUrl = response.data.url
+  const previewUrl = response.data.previewUrl || response.data.url
+  imagePreviewMap.value[previewUrl] = relativeUrl
+  return { relativeUrl, previewUrl }
+}
+
+const convertRelativeImagesToPreview = async (html) => {
+  const srcs = extractImageSrcs(html)
+  const relativeSrcs = [...new Set(srcs.filter(src => src && !src.startsWith('http') && !src.startsWith('data:')))]
+  if (relativeSrcs.length === 0) return html
+  const res = await apiGetPreviewUrls(relativeSrcs, 120)
+  if (res.code !== 200 || !res.data) return html
+  let nextHtml = html
+  Object.entries(res.data).forEach(([relativePath, previewUrl]) => {
+    imagePreviewMap.value[previewUrl] = relativePath
+    nextHtml = replaceImageSrc(nextHtml, relativePath, previewUrl)
+  })
+  return nextHtml
+}
+
+const extractRelativePathFromSignedUrl = (url) => {
+  try {
+    const parsed = new URL(url)
+    const pathSegments = parsed.pathname.split('/').filter(Boolean)
+    if (pathSegments.length < 2) return ''
+    return pathSegments.slice(1).join('/')
+  } catch {
+    return ''
+  }
+}
+
+const normalizeChapterContentForSave = async (html, chapterIndex) => {
+  if (!html) return html
+  const srcs = [...new Set(extractImageSrcs(html))]
+  let nextHtml = html
+  for (const src of srcs) {
+    if (!src) continue
+    if (src.startsWith('data:image/')) {
+      const file = dataUrlToFile(src, `chapter-${chapterIndex + 1}-${Date.now()}`)
+      const { relativeUrl } = await uploadImageAndGetPaths(file)
+      nextHtml = replaceImageSrc(nextHtml, src, relativeUrl)
+      continue
+    }
+    if (imagePreviewMap.value[src]) {
+      nextHtml = replaceImageSrc(nextHtml, src, imagePreviewMap.value[src])
+      continue
+    }
+    if (src.startsWith('http')) {
+      const relativePath = extractRelativePathFromSignedUrl(src)
+      if (relativePath) {
+        nextHtml = replaceImageSrc(nextHtml, src, relativePath)
+      }
+    }
+  }
+  return nextHtml
+}
+
 // ==================== 【图片上传处理】 ====================
 const setupImageUpload = (editor) => {
   const toolbar = editor.getModule('toolbar')
@@ -557,27 +679,15 @@ const setupImageUpload = (editor) => {
         formData.append('preview', 'true')  // 添加preview参数
 
         // 上传到后端
-        const response = await $fetch('/upload', {
-          method: 'POST',
-          body: formData,
-          baseURL: fetchConfig.baseURL,
-          headers: {
-            appid: fetchConfig.headers.appid
-          }
-        })
+        const { previewUrl } = await uploadImageAndGetPaths(file)
 
         // 删除"上传中..."文字
         editor.deleteText(range.index, 5)
 
         // 插入图片 - 使用previewUrl
-        if (response.code === 200 && response.data) {
-          const imageUrl = response.data.previewUrl || response.data.url || response.data
-          editor.insertEmbed(range.index, 'image', imageUrl)
-          editor.setSelection(range.index + 1)
-          console.log('✅ 图片上传成功 - 显示URL:', imageUrl, '原始URL:', response.data.url)
-        } else {
-          throw new Error(response.msg || '上传失败')
-        }
+        editor.insertEmbed(range.index, 'image', previewUrl)
+        editor.setSelection(range.index + 1)
+        console.log('✅ 图片上传成功 - 显示URL:', previewUrl)
       } catch (error) {
         console.error('❌ 图片上传失败:', error)
         // 删除"上传中..."文字
@@ -612,19 +722,7 @@ const uploadCover = () => {
     }
 
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('type', 'image')
-      formData.append('preview', 'true')
-
-      const response = await $fetch('/upload', {
-        method: 'POST',
-        body: formData,
-        baseURL: fetchConfig.baseURL,
-        headers: {
-          appid: fetchConfig.headers.appid
-        }
-      })
+      const response = await apiUploadBookImage(file, { minute: 120 })
 
       if (response.code === 200 && response.data) {
         // 保存相对路径url到数据库，显示用previewUrl
@@ -659,6 +757,8 @@ const addChapter = () => {
 
 const switchChapter = (idx) => {
   currentChapterIndex.value = idx
+  chapters.value[idx].content = ensureEditableSpacing(chapters.value[idx].content)
+  editorReloadToken.value += 1
   updateToc()
 }
 
@@ -670,7 +770,7 @@ const deleteChapter = (idx) => {
 }
 
 // ==================== 【保存】 ====================
-const saveToDatabase = () => {
+const saveToDatabase = async () => {
   // 同步当前章节内容
   syncChapterTitle()
   
@@ -681,29 +781,43 @@ const saveToDatabase = () => {
     ch.bookId = props.bookId
   })
 
-  const saveData = {
-    id: bookInfo.value.id,
-    title: bookInfo.value.title,
-    cover: bookInfo.value.cover,  // 保存URL字段
-    desc: bookInfo.value.description,
-    price: bookInfo.value.price,
-    t_price: bookInfo.value.tPrice,
-    tags: bookInfo.value.tags.length > 0 ? bookInfo.value.tags : [],
-    chapters: chapters.value.map(ch => ({
-      id: ch.id,
-      bookId: ch.bookId,
-      title: ch.title,
-      content: ch.content,
-      chapterNo: ch.chapterNo,
-      sortOrder: ch.sortOrder,
-      isFree: ch.isFree
-    }))
-  }
+  const normalizedChapters = chapters.value.map((ch) => ({
+    ...ch
+  }))
 
-  console.log('📦 保存数据:', saveData)
-  console.log('📚 章节数据:', saveData.chapters)
-  
-  emit('save', saveData)
+  try {
+    await Promise.all(
+      normalizedChapters.map(async (ch, index) => {
+        ch.content = await normalizeChapterContentForSave(ch.content, index)
+      })
+    )
+    const saveData = {
+      id: bookInfo.value.id,
+      title: bookInfo.value.title,
+      cover: bookInfo.value.cover,  // 保存URL字段
+      desc: bookInfo.value.description,
+      price: bookInfo.value.price,
+      t_price: bookInfo.value.tPrice,
+    level: bookInfo.value.level,
+      tags: bookInfo.value.tags.length > 0 ? bookInfo.value.tags : [],
+      chapters: normalizedChapters.map(ch => ({
+        id: ch.id,
+        bookId: ch.bookId,
+        title: ch.title,
+        content: ch.content,
+        chapterNo: ch.chapterNo,
+        sortOrder: ch.sortOrder,
+        isFree: ch.isFree
+      }))
+    }
+
+    console.log('📦 保存数据:', saveData)
+    console.log('📚 章节数据:', saveData.chapters)
+    emit('save', saveData)
+  } catch (err) {
+    console.error('❌ 处理章节图片失败:', err)
+    alert('章节图片处理失败: ' + (err.message || '未知错误'))
+  }
 }
 
 // ==================== 监听内容变化 ====================
@@ -734,10 +848,7 @@ defineExpose({
       // 如果是相对路径，调用后端获取临时URL用于显示
       if (!data.cover.startsWith('http')) {
         // 调用后端API获取临时URL
-        $fetch(`/book/getById?id=${props.bookId}`, {
-          baseURL: fetchConfig.baseURL,
-          headers: fetchConfig.headers
-        }).then(res => {
+        apiGetBookDetail(props.bookId).then((res) => {
           if (res.code === 200 && res.data && res.data.cover) {
             bookInfo.value.coverPreview = res.data.cover
             console.log('📸 获取到临时URL:', bookInfo.value.coverPreview)
@@ -751,6 +862,7 @@ defineExpose({
     bookInfo.value.description = data.desc || data.description || ''
     bookInfo.value.price = data.price !== undefined ? Number(data.price) : 0
     bookInfo.value.tPrice = data.t_price !== undefined ? Number(data.t_price) : 0
+    bookInfo.value.level = data.level !== undefined ? Number(data.level) : 1
     
     console.log('📸 设置后的封面 - 保存用:', bookInfo.value.cover)
     
@@ -782,11 +894,18 @@ defineExpose({
         id: ch.id,
         bookId: props.bookId || data.id,
         title: ch.title || `第${index + 1}章`,
-        content: ch.content || `<h2>${ch.title || '第' + (index + 1) + '章'}</h2><p>请开始编辑...</p>`,
+        content: ensureEditableSpacing(ch.content || `<h2>${ch.title || '第' + (index + 1) + '章'}</h2><p>请开始编辑...</p>`),
         chapterNo: ch.chapterNo || ch.chapter_no || (index + 1),
         sortOrder: ch.sortOrder || ch.sort_order || (index + 1),
         isFree: ch.isFree !== undefined ? ch.isFree : (ch.isfree !== undefined ? ch.isfree : 0)
       }))
+      Promise.all(
+        chapters.value.map(async (chapter) => {
+          chapter.content = await convertRelativeImagesToPreview(chapter.content)
+        })
+      ).catch((err) => {
+        console.error('❌ 章节图片回显处理失败:', err)
+      })
       
       console.log('✅ 章节数据已加载:', chapters.value.length, '章')
       console.log('📚 章节详情:', chapters.value.map(ch => ({ 
@@ -802,6 +921,7 @@ defineExpose({
     // 重置当前章节索引并更新目录
     currentChapterIndex.value = 0
     nextTick(() => {
+      editorReloadToken.value += 1
       updateToc()
     })
     
@@ -1161,6 +1281,25 @@ defineExpose({
 }
 :deep(.ql-editor p) {
   margin: 0 0 16px;
+}
+
+:deep(.ql-editor pre),
+:deep(.ql-editor .ql-code-block-container) {
+  display: block;
+  clear: both;
+  margin: 20px 0 18px;
+  background: linear-gradient(180deg, #1f2430 0%, #111827 100%);
+  color: #e2e8f0;
+  border-radius: 18px;
+  padding: 18px 20px;
+  white-space: pre-wrap;
+}
+
+:deep(.ql-editor pre + p),
+:deep(.ql-editor .ql-code-block-container + p),
+:deep(.ql-editor pre + div),
+:deep(.ql-editor .ql-code-block-container + div) {
+  margin-top: 18px;
 }
 
 /* 图片缩放控制面板样式 */

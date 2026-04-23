@@ -24,7 +24,7 @@ export function useListApi(type,query = {}){
 
 // 电子书抽离接口，获取电子书列表
 export function useBookListApi(type,query = {}){
-    return useHttpPost(type + "List",'/book/page',{
+    return useHttpPost(type + "List",'/book/search',{
         body:{
             ...query
         }

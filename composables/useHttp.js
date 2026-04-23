@@ -25,6 +25,21 @@ export const fetchConfig = {
     },
 }
 
+function resolveToken() {
+    // 优先 cookie，兼容已有逻辑
+    let tokenValue = ""
+    try {
+        tokenValue = useCookie("token").value || ""
+    } catch (e) {}
+
+    // 客户端兜底 localStorage
+    if (!tokenValue && process.client) {
+        tokenValue = localStorage.getItem("token") || localStorage.getItem("Token") || ""
+    }
+
+    return tokenValue
+}
+
 function useGetFetchOptions(options = {}){
     options.baseURL = options.baseURL ?? fetchConfig.baseURL
     options.headers = options.headers ?? {
@@ -33,10 +48,11 @@ function useGetFetchOptions(options = {}){
     options.initialCache = options.initialCache ?? false
     options.lazy = options.lazy ?? false
 
-    // 用户登录，默认传token
-    const token = useCookie("token")
-    if(token.value){
-        options.headers.token = token.value
+    // 用户登录默认带鉴权头，兼容不同后端读取方式
+    const tokenValue = resolveToken()
+    if(tokenValue){
+        options.headers.token = tokenValue
+        options.headers.Authorization = `Bearer ${tokenValue}`
     }
 
     return options

@@ -1,7 +1,7 @@
 <template>
     <LoadingGroup :pending="pending" :error="error">
         <div v-if="data" class="book-content-wrapper">
-            <article class="book-article" v-html="data.content"></article>
+            <article class="book-article" v-html="renderedContent"></article>
         </div>
         <div v-else class="error-state">
             <n-result
@@ -22,6 +22,7 @@ import {
     NResult,
     NButton
 } from "naive-ui"
+import { hydrateRelativeImages } from '~/composables/Api/Book/book'
 
 const route = useRoute()
 const { id, book_id } = route.params
@@ -34,6 +35,8 @@ const {
     pending
 } = await useBookDetailApi(book_id, id)
 
+const renderedContent = ref('')
+
 // 监听数据变化，输出调试信息
 watch(() => data.value, (newData) => {
     console.log('📄 章节内容数据:', newData)
@@ -41,6 +44,14 @@ watch(() => data.value, (newData) => {
         console.log('✅ 章节标题:', newData.title)
         console.log('✅ 章节内容长度:', newData.content?.length || 0)
         console.log('✅ 内容预览:', newData.content?.substring(0, 100))
+        hydrateRelativeImages(newData.content || '', 120)
+          .then((html) => {
+            renderedContent.value = html
+          })
+          .catch((err) => {
+            console.error('hydrate chapter images failed', err)
+            renderedContent.value = newData.content || ''
+          })
     }
 }, { immediate: true })
 
@@ -60,35 +71,42 @@ definePageMeta({
 
 <style scoped>
 .book-content-wrapper {
-    min-height: 400px;
+    min-height: calc(100vh - 140px);
 }
 
 .book-article {
-    padding: 2rem;
-    background: white;
-    border-radius: 8px;
-    line-height: 1.8;
-    font-size: 16px;
-    color: #333;
+    padding: 2.6rem clamp(1.3rem, 2.5vw, 2.9rem) 3.4rem;
+    background:
+      radial-gradient(circle at top right, rgba(250, 204, 21, 0.16), transparent 26%),
+      radial-gradient(circle at left center, rgba(96, 165, 250, 0.08), transparent 22%),
+      linear-gradient(180deg, #fffefb 0%, #fbfdff 100%);
+    border-radius: 30px;
+    line-height: 1.95;
+    font-size: 17px;
+    color: #1f2937;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.86),
+      0 24px 56px rgba(15,23,42,0.05);
+    overflow-wrap: anywhere;
 }
 
 /* 标题样式 */
 .book-article :deep(h1) {
-    font-size: 32px;
+    font-size: 36px;
     font-weight: 700;
-    color: #1a1a1a;
+    color: #10213a;
     margin: 2rem 0 1.5rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid #18a058;
+    padding-bottom: 0.8rem;
+    border-bottom: 2px solid rgba(16, 33, 58, 0.14);
 }
 
 .book-article :deep(h2) {
-    font-size: 26px;
+    font-size: 28px;
     font-weight: 600;
-    color: #1a1a1a;
+    color: #10213a;
     margin: 1.75rem 0 1rem;
-    padding-left: 0.75rem;
-    border-left: 4px solid #18a058;
+    padding-left: 0.9rem;
+    border-left: 4px solid #f97316;
 }
 
 .book-article :deep(h3) {
@@ -109,6 +127,7 @@ definePageMeta({
 .book-article :deep(p) {
     margin: 1rem 0;
     text-align: justify;
+    word-break: break-word;
 }
 
 /* 列表样式 */
@@ -136,9 +155,9 @@ definePageMeta({
     max-width: 100% !important;
     height: auto !important;
     display: block;
-    margin: 1.5rem auto;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin: 1.8rem auto;
+    border-radius: 18px;
+    box-shadow: 0 18px 40px rgba(15,23,42,0.14);
 }
 
 /* 链接样式 */
@@ -155,22 +174,25 @@ definePageMeta({
 
 /* 代码样式 */
 .book-article :deep(code) {
-    background: #f5f7fa;
+    background: rgba(15, 23, 42, 0.06);
     padding: 3px 8px;
-    border-radius: 4px;
-    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    border-radius: 8px;
+    font-family: 'SFMono-Regular', 'Consolas', 'Monaco', 'Courier New', monospace;
     font-size: 14px;
     color: #d03050;
 }
 
 .book-article :deep(pre) {
-    background: #282c34;
-    color: #abb2bf;
-    padding: 1.5rem;
-    border-radius: 8px;
+    display: block;
+    clear: both;
+    background: linear-gradient(180deg, #1f232b 0%, #141820 100%);
+    color: #d8dee9;
+    padding: 1.4rem 1.45rem;
+    border-radius: 22px;
     overflow-x: auto;
-    margin: 1.5rem 0;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    white-space: pre-wrap;
+    margin: 1.75rem 0;
+    box-shadow: 0 20px 38px rgba(15,23,42,0.16);
 }
 
 .book-article :deep(pre code) {
@@ -178,6 +200,19 @@ definePageMeta({
     padding: 0;
     color: inherit;
     font-size: 14px;
+    white-space: inherit;
+    word-break: break-word;
+}
+
+.book-article :deep(pre + p),
+.book-article :deep(pre + div),
+.book-article :deep(pre + h1),
+.book-article :deep(pre + h2),
+.book-article :deep(pre + h3),
+.book-article :deep(pre + ul),
+.book-article :deep(pre + ol),
+.book-article :deep(pre + blockquote) {
+    margin-top: 1.6rem;
 }
 
 /* 引用样式 */
@@ -243,7 +278,7 @@ definePageMeta({
 
 @media (max-width: 768px) {
     .book-article {
-        padding: 1.5rem 1rem;
+        padding: 1.6rem 1rem;
         font-size: 15px;
     }
     

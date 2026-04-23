@@ -1,157 +1,327 @@
 <template>
-    <div class="list-page">
-        <n-breadcrumb class="breadcrumb">
-            <n-breadcrumb-item>
-                <nuxt-link to="/">首页</nuxt-link>
-            </n-breadcrumb-item>
-            <n-breadcrumb-item>{{ title }}</n-breadcrumb-item>
-        </n-breadcrumb>
+  <div v-if="type === 'book'" class="book-page">
+    <n-breadcrumb class="breadcrumb">
+      <n-breadcrumb-item>
+        <nuxt-link to="/">首页</nuxt-link>
+      </n-breadcrumb-item>
+      <n-breadcrumb-item>电子书</n-breadcrumb-item>
+    </n-breadcrumb>
 
-        <BookSearch v-if="type == 'book'" @search="handleSearch" @singlesearch="handleSingleSearch"/>
+    <BookSearch :can-create-book="canCreateBook" @search="handleBookSearch" />
 
-        <LoadingGroup :pending="pending" :error="error" :is-empty="rows.length === 0">
-            <template #loading>
-                <LoadingBookSkeleton v-if="type == 'book'"/>
-                <LoadingCourseSkeleton v-else/>
-            </template>
-            
-            <div class="list-grid">
-                <!-- 条件1：如果 a 有数据，就显示筛选的 a -->
-                <template v-if="w">
-                    <BookList v-if="type == 'book'" v-for="(item, index) in a" :key="item.id || index" :item="item" />
-                    <CourseList v-else v-for="(item, index) in a" :key="item.id || index" :item="item" />
-                </template>
+    <section class="book-results-shell">
+      <div class="results-head">
+        <div>
+          <p class="results-label">Query Result</p>
+          <h3>共找到 {{ total }} 本电子书</h3>
+        </div>
+        <div class="results-side">
+          <span>第 {{ page }} / {{ totalPages }} 页</span>
+        </div>
+      </div>
 
-                <!-- 条件2：否则显示默认的 rows -->
-                <template v-else>
-                    <BookList v-if="type == 'book'" v-for="(item, index) in rows" :key="item.id || index" :item="item" />
-                    <CourseList v-else v-for="(item, index) in rows" :key="item.id || index" :item="item" />
-                </template>
-            </div>
+      <LoadingGroup :pending="pending" :error="error" :is-empty="!pending && rows.length === 0">
+        <template #loading>
+          <div class="book-grid">
+            <div v-for="index in 6" :key="index" class="book-skeleton"></div>
+          </div>
+        </template>
 
-            <div class="pagination-container">
-                <n-pagination size="large" :page="page" :item-count="total" :page-size="limit" :on-update:page="handlePageChange"/>
-            </div>
-        </LoadingGroup>
-    </div>
+        <div class="book-grid">
+          <BookList
+            v-for="item in rows"
+            :key="item.id"
+            :item="item"
+            @refresh="refreshBookList"
+          />
+        </div>
+
+        <div class="pagination-container">
+          <n-pagination
+            :page="page"
+            :item-count="total"
+            :page-size="pageSize"
+            @update:page="handleBookPageChange"
+          />
+        </div>
+      </LoadingGroup>
+    </section>
+  </div>
+
+  <div v-else class="list-page">
+    <n-breadcrumb class="breadcrumb">
+      <n-breadcrumb-item>
+        <nuxt-link to="/">首页</nuxt-link>
+      </n-breadcrumb-item>
+      <n-breadcrumb-item>{{ title }}</n-breadcrumb-item>
+    </n-breadcrumb>
+
+    <LoadingGroup :pending="pending" :error="error" :is-empty="rows.length === 0">
+      <div class="list-grid">
+        <CourseList v-for="(item, index) in rows" :key="item.id || index" :item="item" />
+      </div>
+
+      <div class="pagination-container">
+        <n-pagination
+          size="large"
+          :page="page"
+          :item-count="total"
+          :page-size="limit"
+          :on-update:page="handlePageChange"
+        />
+      </div>
+    </LoadingGroup>
+  </div>
 </template>
 
 <script setup>
-import {
-    NPagination,
-    NBreadcrumb,
-    NBreadcrumbItem
-} from "naive-ui"
+import { computed, reactive, ref } from 'vue'
+import { NBreadcrumb, NBreadcrumbItem, NPagination } from 'naive-ui'
+import { apiSearchBooks } from '~/composables/Api/Book/book'
 
 const route = useRoute()
-const { type } = route.params
+const type = computed(() => route.params.type)
 const title = route.meta.title
+const currentPage = computed(() => Number(route.params.page || 1))
+const pageSize = 12
 
-// 定义初始搜索参数，对应后端要求的 body 结构
-let initialFilters = {
-    title: "",
-    tagNameList: []
+const { hasPermission } = usePermission()
+const canCreateBook = computed(() => hasPermission('book:create'))
+
+const bookQuery = reactive({
+  title: '',
+  tagNameList: [],
+  level: null,
+  sortType: 'default',
+})
+
+let rows = ref([])
+let total = ref(0)
+let pending = ref(false)
+let error = ref(null)
+const page = ref(currentPage.value)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
+
+let limit = ref(pageSize)
+let handlePageChange = (nextPage) => {
+  navigateTo({
+    params: {
+      ...route.params,
+      page: nextPage,
+    },
+    query: {
+      ...route.query,
+    },
+  })
 }
 
-const {
-    page,
-    limit,
-    total,
-    handlePageChange,
-    rows,
-    pending,
-    error,
-    refresh,
-} = await usePage(({ pageNum, pageSize, ...otherParams }) => {
-    let query = {
-        pageNum, 
-        pageSize,
-        ...otherParams
-    }
+if (type.value !== 'book') {
+  const pageState = await usePage(({ pageNum, pageSize: size, ...otherParams }) => {
+    return useBookListApi(type.value, {
+      pageNum,
+      pageSize: size,
+      ...otherParams,
+    })
+  }, {
+    title: '',
+    tagNameList: [],
+  })
 
-    if(type == "group" || type == "flashsale"){
-        query.usable = 1
-    }
-
-    return useBookListApi(type, query)
-}, initialFilters)
-
-// 获取电子书的标签
-async function handleSearch(queryParams){
-    initialFilters.title = queryParams.keyword || '';
-    initialFilters.tagNameList = Object.values(queryParams.tag || {});
-
-    const query = {
-        pageNum: 1, 
-        pageSize: 12, 
-        ...initialFilters
-    }
-    await useBookListApi("book", query)
+  rows = pageState.rows
+  total = pageState.total
+  pending = pageState.pending
+  error = pageState.error
+  limit = pageState.limit
+  handlePageChange = pageState.handlePageChange
 }
 
-const a = ref()
-const w = ref(false)
+if (type.value === 'book') {
+  await refreshBookList()
+}
 
-async function handleSingleSearch(sort) {
-    console.log("当前选中的 sort =", sort);
+watch(currentPage, async (value) => {
+  page.value = value
+  if (type.value === 'book') {
+    await refreshBookList()
+  }
+})
 
-    if (sort.a == "免费课程") {
-        // 使用相对路径，让 useHttp 自动处理 baseURL
-        const { data } = await useFetch('/book/getFilterBookList?filter=free', {
-            method: 'GET',
-            key: 'book-filter'
-        })
-        a.value = data.value?.data?.records;
-        w.value = !w.value;
-    } else {
-        w.value = false;
-    }
+async function refreshBookList() {
+  if (type.value !== 'book') return
+  pending.value = true
+  error.value = null
+
+  try {
+    const response = await apiSearchBooks({
+      pageNum: page.value,
+      pageSize,
+      title: bookQuery.title,
+      tagNameList: bookQuery.tagNameList,
+      level: bookQuery.level,
+    })
+
+    const payload = response?.data || response || {}
+    let list = payload.rows || payload.records || []
+
+    list = sortBooks(list, bookQuery.sortType)
+
+    rows.value = list
+    total.value = payload.total || list.length
+  } catch (err) {
+    console.error('load books failed', err)
+    error.value = err
+    rows.value = []
+    total.value = 0
+  } finally {
+    pending.value = false
+  }
+}
+
+function handleBookSearch(nextQuery) {
+  bookQuery.title = nextQuery.title || ''
+  bookQuery.tagNameList = nextQuery.tagNameList || []
+  bookQuery.level = nextQuery.level ?? null
+  bookQuery.sortType = nextQuery.sortType || 'default'
+  if (page.value !== 1) {
+    handleBookPageChange(1)
+    return
+  }
+  refreshBookList()
+}
+
+function handleBookPageChange(nextPage) {
+  navigateTo({
+    params: {
+      ...route.params,
+      page: nextPage,
+    },
+    query: {
+      ...route.query,
+    },
+  })
+}
+
+function sortBooks(list, sortType) {
+  const nextList = [...list]
+  if (sortType === 'latest') {
+    return nextList.sort((a, b) => new Date(b.createTime || 0) - new Date(a.createTime || 0))
+  }
+  if (sortType === 'popular') {
+    return nextList.sort((a, b) => Number(b.purchase_count || b.purchaseCount || b.sub_count || 0) - Number(a.purchase_count || a.purchaseCount || a.sub_count || 0))
+  }
+  if (sortType === 'priceAsc') {
+    return nextList.sort((a, b) => Number(a.price || 0) - Number(b.price || 0))
+  }
+  if (sortType === 'priceDesc') {
+    return nextList.sort((a, b) => Number(b.price || 0) - Number(a.price || 0))
+  }
+  return nextList
 }
 
 definePageMeta({
-    middleware: ["list"]
+  middleware: ['list'],
 })
 </script>
 
 <style scoped>
+.book-page,
 .list-page {
-    padding: var(--space-lg) 0;
+  padding: 24px 0 56px;
 }
 
 .breadcrumb {
-    margin-bottom: var(--space-xl);
+  margin-bottom: 18px;
+}
+
+.book-results-shell {
+  margin-top: 24px;
+  padding: 28px;
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.96) 100%);
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.08);
+}
+
+.results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.results-label {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: #0f766e;
+  text-transform: uppercase;
+}
+
+.results-head h3 {
+  margin: 0;
+  font-size: 28px;
+  color: #10213a;
+}
+
+.results-side {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.book-skeleton {
+  min-height: 280px;
+  border-radius: 28px;
+  background: linear-gradient(90deg, rgba(226, 232, 240, 0.8), rgba(241, 245, 249, 1), rgba(226, 232, 240, 0.8));
+  background-size: 240% 100%;
+  animation: shimmer 1.4s linear infinite;
 }
 
 .list-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--space-lg);
-    margin-bottom: var(--space-xl);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
 }
 
 .pagination-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: var(--space-xl);
-    margin-bottom: var(--space-2xl);
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
 }
 
-@media (max-width: 1200px) {
-    .list-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }
 
-@media (max-width: 992px) {
-    .list-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
+@media (max-width: 960px) {
+  .book-results-shell {
+    padding: 20px;
+    border-radius: 24px;
+  }
 
-@media (max-width: 640px) {
-    .list-grid {
-        grid-template-columns: 1fr;
-    }
+  .results-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .book-grid,
+  .list-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

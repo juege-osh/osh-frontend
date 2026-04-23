@@ -1,12 +1,16 @@
 <template>
-  <div class="ebook-container">
-    <h2 class="ebook-title">新增电子书</h2>
+  <div class="editor-page">
+    <section class="hero">
+      <p class="hero-label">Create Ebook</p>
+      <h1>新增电子书</h1>
+      <p>封面、章节、图文内容与权限等级一次性编辑完成，正文图片会统一上传到 OSS。</p>
+    </section>
 
     <BookEditor ref="editorRef" @save="handleSave" />
 
     <div class="action-buttons">
-      <n-button @click="goBack" class="back-btn">返回</n-button>
-      <n-button type="primary" @click="submitContent" class="submit-btn" :loading="saving">
+      <n-button class="ghost-btn" @click="goBack">返回列表</n-button>
+      <n-button type="primary" class="submit-btn" :loading="saving" @click="submitContent">
         保存电子书
       </n-button>
     </div>
@@ -14,88 +18,117 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { NButton, createDiscreteApi } from 'naive-ui'
+import { apiCreateBook } from '~/composables/Api/Book/book'
 
 useHead({ title: '新增电子书' })
 
+const { message } = createDiscreteApi(['message'])
+const { hasPermission } = usePermission()
+const canCreate = computed(() => hasPermission('book:create'))
+
 const editorRef = ref(null)
 const saving = ref(false)
-const { message } = createDiscreteApi(['message'])
 
-// 提交内容
-const submitContent = () => {
+onMounted(() => {
+  if (!canCreate.value) {
+    message.error('没有新增电子书权限')
+    navigateTo('/list/book/1')
+  }
+})
+
+function submitContent() {
   editorRef.value?.saveToDatabase()
 }
 
-// 处理保存
-const handleSave = async (data) => {
-  console.log('✅ 准备保存数据：', data)
+async function handleSave(payload) {
   saving.value = true
-  
   try {
-    const response = await $fetch('/book/create', {
-      method: 'POST',
-      body: data,
-      baseURL: fetchConfig.baseURL,
-      headers: {
-        appid: fetchConfig.headers.appid
-      }
-    })
-    
-    if (response.code === 200) {
-      message.success('创建成功')
-      const newBookId = response.data?.id || response.data
-      setTimeout(() => {
-        if (newBookId) {
-          navigateTo(`/detail/book/${newBookId}`)
-        } else {
-          navigateTo('/list/book/1')
-        }
-      }, 1000)
-    } else {
-      message.error(response.msg || '创建失败')
+    const response = await apiCreateBook(payload)
+    if (response?.code && response.code !== 200) {
+      throw new Error(response.msg || '创建失败')
     }
-  } catch (err) {
-    console.error('创建失败:', err)
-    message.error('创建失败: ' + (err.message || '未知错误'))
+
+    const newBookId = response?.data
+    message.success('电子书创建成功')
+    navigateTo(newBookId ? `/detail/book/${newBookId}` : '/list/book/1')
+  } catch (error) {
+    console.error('create book failed', error)
+    message.error(error?.data?.msg || error?.message || '创建失败')
   } finally {
     saving.value = false
   }
 }
 
-// 返回
-const goBack = () => {
+function goBack() {
   navigateTo('/list/book/1')
 }
 </script>
 
 <style scoped>
-.ebook-container {
-  padding: 16px;
-  max-width: 1400px;
-  margin: 0 auto;
+.editor-page {
+  padding: 24px 0 48px;
 }
 
-.ebook-title {
-  font-size: 20px;
-  font-weight: bold;
-  margin-bottom: 16px;
-  text-align: center;
+.hero {
+  margin-bottom: 20px;
+  padding: 28px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 195, 113, 0.32), transparent 28%),
+    linear-gradient(135deg, #10213a 0%, #16345b 50%, #0f766e 100%);
+  color: #fff;
+  box-shadow: 0 26px 60px rgba(15, 23, 42, 0.22);
+}
+
+.hero-label {
+  margin: 0 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 42px);
+}
+
+.hero p:last-child {
+  margin: 12px 0 0;
+  max-width: 680px;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .action-buttons {
   display: flex;
   justify-content: center;
   gap: 16px;
-  margin: 20px auto 0;
-  max-width: 400px;
+  margin-top: 22px;
 }
 
-.back-btn,
+.ghost-btn,
 .submit-btn {
-  flex: 1;
-  padding: 10px 20px;
-  font-size: 16px;
+  min-width: 180px;
+  height: 46px;
+  border-radius: 16px;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .ghost-btn,
+  .submit-btn {
+    width: 100%;
+  }
 }
 </style>

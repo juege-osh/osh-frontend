@@ -2,6 +2,7 @@
  * 答疑模块 API
  * 后端 baseURL: /api/qna
  */
+import { fetchConfig } from '~/composables/useHttp'
 
 const QNA_BASE = fetchConfig.baseURL.replace('/pc', '/api/qna');
 

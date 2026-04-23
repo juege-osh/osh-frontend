@@ -5,7 +5,7 @@
 export function usePermission() {
   const permissions = usePermissions();
 
-  const permissionList = computed(() => permissions.value || []);
+  const permissionList = computed(() => normalizePermissions(permissions.value));
 
   function hasPermission(code) {
     if (!code) return true;
@@ -20,4 +20,33 @@ export function usePermission() {
   }
 
   return { hasPermission, hasAnyPermission, permissionList };
+}
+
+function normalizePermissions(rawPermissions) {
+  const result = new Set();
+
+  collectPermissions(rawPermissions, result);
+
+  return [...result];
+}
+
+function collectPermissions(value, bucket) {
+  if (!value) return;
+
+  if (typeof value === 'string') {
+    bucket.add(value);
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectPermissions(item, bucket));
+    return;
+  }
+
+  if (typeof value === 'object') {
+    Object.entries(value).forEach(([key, child]) => {
+      if (key) bucket.add(key);
+      collectPermissions(child, bucket);
+    });
+  }
 }

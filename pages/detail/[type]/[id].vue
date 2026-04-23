@@ -1,5 +1,6 @@
 <template>
     <LoadingGroup :pending="pending" :error="error">
+        <template v-if="data">
 
         <section class="py-4" v-if="data.isbuy && ((data.type != 'media' && type=='course') || type == 'live')">
             <ClientOnly>
@@ -74,13 +75,20 @@
                         {{ btn }}
                     </n-button>
                     
-                    <!-- 编辑按钮 - 仅电子书显示 -->
-                    <n-button v-if="type == 'book'" size="large" secondary @click="handleEdit" class="edit-btn">
-                        <template #icon>
-                            <n-icon><CreateOutline /></n-icon>
+                    <!-- 编辑删除按钮 - 仅电子书显示，使用 ClientOnly 避免 SSR 问题 -->
+                    <ClientOnly>
+                        <template v-if="type == 'book'">
+                            <n-button v-if="canEditBook" size="large" secondary @click="handleEdit" class="edit-btn">
+                                <template #icon>
+                                    <n-icon><CreateOutline /></n-icon>
+                                </template>
+                                编辑电子书
+                            </n-button>
+                            <n-button v-if="canDeleteBook" size="large" tertiary type="error" @click="handleDelete" class="edit-btn">
+                                删除电子书
+                            </n-button>
                         </template>
-                        编辑电子书
-                    </n-button>
+                    </ClientOnly>
                 </div>
             </div>
         </section>
@@ -93,7 +101,7 @@
                     <UiTab class="border-b">
                         <UiTabItem :active="tab == item.value" v-for="(item,index) in tabs" :key="index" @click="changeTab(item.value)">{{ item.label }}</UiTabItem>
                     </UiTab>
-                    <div v-if="tab == 'content'" class="content" v-html="(data.type == 'media' && data.isbuy) ? data.content : data.try"></div>
+                    <div v-if="tab == 'content'" class="content" v-html="detailContent"></div>
 
                     <DetailMenu v-else>
                         <DetailMenuItem v-for="(item,index) in menus"
@@ -103,11 +111,13 @@
                     </DetailMenu>
 
                 </section>
+                <BookQuestionPanel v-if="type == 'book' && data?.id" :book-id="data.id" class="book-qna-block" />
             </n-grid-item>
             <n-grid-item :span="6">
                 <HotCourseList/>
             </n-grid-item>
         </n-grid>
+        </template>
     </LoadingGroup>
 </template>
 <script setup>
@@ -120,9 +130,18 @@
         createDiscreteApi,
     } from "naive-ui"
     import { CreateOutline, PeopleOutline, BookOutline, EyeOutline } from '@vicons/ionicons5'
+    import { fetchConfig } from '~/composables/useHttp'
+    import { usePermission } from '~/composables/usePermission'
     
     const route = useRoute()
     const { id,type } = route.params
+    
+    // 使用权限系统，和课程模块保持一致
+    const { hasPermission } = usePermission()
+    
+    // 电子书管理权限判断：需要 book:update 和 book:delete 权限
+    const canEditBook = computed(() => hasPermission('book:update'))
+    const canDeleteBook = computed(() => hasPermission('book:delete'))
 
     useInitHead()
 
@@ -154,19 +173,27 @@
 
     const subTitle = computed(()=>{
         let pre = ""
-        if(type === "course"){
+        if(type === "course" && data.value){
             pre = `【${o[data.value.type]}】`
         }
-        return `${pre}${data.value.sub_count}人学过`
+        return `${pre}${data.value?.sub_count || 0}人学过`
     })
 
     const btn = computed(()=>{
-        if(data.value.group){
+        if(data.value?.group){
             return "立即拼团"
-        } else if(data.value.flashsale){
+        } else if(data.value?.flashsale){
             return "立即秒杀"
         }
         return "立即学习"
+    })
+
+    const detailContent = computed(() => {
+        if (!data.value) return ''
+        if (type === 'book') {
+            return data.value.try || data.value.desc || '<p>暂无内容介绍</p>'
+        }
+        return (data.value.type == 'media' && data.value.isbuy) ? data.value.content : data.value.try
     })
 
     // 购买学习
@@ -230,7 +257,10 @@
     }
 
     // 菜单
-    const menus = computed(()=> (type == 'book' ? data.value.book_details : data.value.column_courses ) || [])
+    const menus = computed(()=> {
+        if (!data.value) return []
+        return (type == 'book' ? data.value.book_details : data.value.column_courses ) || []
+    })
 
     // 点击菜单
     const learn = (item)=>{
@@ -258,7 +288,7 @@
     const freeId = computed(()=>{
         let fid = 0
         if(type == 'book' && data.value){
-            let item = data.value.book_details.find(o=>o.isfree == 1)
+            let item = (data.value.book_details || []).find(o => Number(o.isFree ?? o.isfree) === 1)
             if(item){
                 fid = item.id
             }
@@ -269,6 +299,48 @@
     // 编辑电子书
     const handleEdit = () => {
         navigateTo(`/book/edit/${id}`)
+    }
+
+    const getAuthHeaders = () => {
+        let tokenValue = ''
+        if (process.client) {
+            tokenValue = localStorage.getItem('token') || localStorage.getItem('Token') || ''
+            if (!tokenValue) {
+                tokenValue = useCookie('token').value || ''
+            }
+        }
+        return {
+            appid: fetchConfig.headers.appid,
+            token: tokenValue,
+            Authorization: tokenValue ? `Bearer ${tokenValue}` : ''
+        }
+    }
+
+    const handleDelete = async () => {
+        const { dialog, message } = createDiscreteApi(['dialog', 'message'])
+        dialog.warning({
+            title: '删除确认',
+            content: '确定删除该电子书吗？此操作不可恢复。',
+            positiveText: '删除',
+            negativeText: '取消',
+            onPositiveClick: async () => {
+                try {
+                    const res = await $fetch(`/book/delete?id=${id}`, {
+                        method: 'DELETE',
+                        baseURL: fetchConfig.baseURL,
+                        headers: getAuthHeaders()
+                    })
+                    if (res.code === 200) {
+                        message.success('删除成功')
+                        navigateTo('/list/book/1')
+                    } else {
+                        message.error(res.msg || '删除失败')
+                    }
+                } catch (err) {
+                    message.error(err.message || '删除失败')
+                }
+            }
+        })
     }
 
     // 获取query
@@ -567,7 +639,11 @@
     }
     
     .edit-btn {
-        min-width: 120px;
+      min-width: 120px;
+    }
+
+    .book-qna-block {
+      margin-top: 24px;
     }
 
     .detail-bottom {
