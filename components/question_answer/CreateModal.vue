@@ -2,7 +2,7 @@
   <n-modal
     :show="show"
     preset="card"
-    title="我要提问"
+    :title="title"
     style="width: 800px"
     :segmented="{ content: 'soft', footer: 'soft' }"
     @update:show="$emit('update:show', $event)"
@@ -27,6 +27,7 @@
           placeholder="请选择资源类型（可不选）"
           :options="resourceTypeOptions"
           clearable
+          :disabled="lockResource"
         />
       </n-form-item>
 
@@ -36,18 +37,27 @@
           placeholder="请输入资源编号"
           :min="1"
           style="width: 100%"
+          :disabled="lockResource"
         />
       </n-form-item>
 
       <n-form-item label="问题内容" required>
-        <n-input
-          v-model:value="formValue.content"
-          type="textarea"
-          placeholder="详细描述你的问题，包括报错信息、环境等...&#10;&#10;提示：清晰的问题描述能帮助你更快获得解答"
-          :autosize="{ minRows: 4, maxRows: 8 }"
-          maxlength="200"
-          show-count
-        />
+        <div style="width: 100%">
+          <n-input
+            v-model:value="formValue.content"
+            type="textarea"
+            placeholder="详细描述你的问题，包括报错信息、环境等...&#10;&#10;提示：清晰的问题描述能帮助你更快获得解答"
+            :autosize="{ minRows: 4, maxRows: 8 }"
+            maxlength="200"
+            show-count
+          />
+          <div
+            style="margin-top: 8px; font-size: 12px;"
+            :style="{ color: contentLength >= 10 ? '#18a058' : '#d03050' }"
+          >
+            {{ contentHint }}
+          </div>
+        </div>
       </n-form-item>
 
       <n-form-item label="标签">
@@ -112,13 +122,30 @@
 <script setup>
 import { reactive, ref, computed, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
-import { apiCreateQuestion, apiPublishQuestion, apiGetQnaTags } from '~/composables/Api/QuestionAnswer/qna.js';
+import { apiCreateQuestion, apiGetQnaTags } from '~/composables/Api/QuestionAnswer/qna.js';
 import {
   NModal, NForm, NFormItem, NInput, NInputNumber, NSelect, NRadioGroup, NRadio,
   NSpace, NButton, NTag, NText,
 } from 'naive-ui';
-
-const props = defineProps({ show: Boolean });
+const props = defineProps({
+  show: Boolean,
+  presetResourceType: {
+    type: String,
+    default: '',
+  },
+  presetResourceNo: {
+    type: [Number, String],
+    default: null,
+  },
+  lockResource: {
+    type: Boolean,
+    default: false,
+  },
+  title: {
+    type: String,
+    default: '我要提问',
+  },
+})
 const emit = defineEmits(['update:show', 'success']);
 
 const { message } = createDiscreteApi(['message']);
@@ -146,12 +173,33 @@ const canSubmit = computed(() => {
   return formValue.content.trim().length >= 10;
 });
 
+const contentLength = computed(() => formValue.content.trim().length)
+
+const contentHint = computed(() => {
+  if (contentLength.value >= 10) {
+    return '内容长度已满足发布条件'
+  }
+  return `问题内容至少需要10个字符，当前还差${10 - contentLength.value}个字符`
+})
+
 // 监听弹窗打开，加载标签
 watch(() => props.show, async (newVal) => {
   if (newVal && suggestTags.value.length === 0) {
     await loadTags();
   }
+  if (newVal) {
+    applyResourcePreset()
+  }
 });
+
+watch(
+  () => [props.presetResourceType, props.presetResourceNo, props.lockResource],
+  () => {
+    if (props.show) {
+      applyResourcePreset()
+    }
+  }
+)
 
 // 加载推荐标签
 async function loadTags() {
@@ -210,6 +258,13 @@ function resetForm() {
   formValue.isPaidOnly = 0;
   formValue.tags = [];
   newTag.value = '';
+  applyResourcePreset()
+}
+
+function applyResourcePreset() {
+  if (!props.presetResourceType && !props.presetResourceNo) return
+  formValue.resourceType = props.presetResourceType || null
+  formValue.resourceNo = props.presetResourceNo ? Number(props.presetResourceNo) : null
 }
 
 // 立即发布（改为：创建问题）

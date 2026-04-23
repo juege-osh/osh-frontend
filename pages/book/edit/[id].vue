@@ -1,147 +1,165 @@
 <template>
-  <div class="ebook-container">
-    <h2 class="ebook-title">编辑电子书</h2>
+  <div class="editor-page">
+    <section class="hero">
+      <p class="hero-label">Edit Ebook</p>
+      <h1>编辑电子书</h1>
+      <p>这里会回显原始章节和 OSS 图片预览地址，保存时自动同步章节增删改与权限等级。</p>
+    </section>
 
     <LoadingGroup :pending="loading" :error="error">
       <BookEditor ref="editorRef" :book-id="bookId" @save="handleSave" />
-
-      <div class="action-buttons">
-        <n-button @click="goBack" class="back-btn">返回</n-button>
-        <n-button type="primary" @click="submitContent" class="submit-btn" :loading="saving">
-          保存电子书
-        </n-button>
-      </div>
     </LoadingGroup>
+
+    <div class="action-buttons">
+      <n-button class="ghost-btn" @click="goBack">返回详情</n-button>
+      <n-button type="primary" class="submit-btn" :loading="saving" @click="submitContent">
+        保存电子书
+      </n-button>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { NButton, createDiscreteApi } from 'naive-ui'
+import { apiGetBookDetail, apiUpdateBook } from '~/composables/Api/Book/book'
 
 const route = useRoute()
-const bookId = parseInt(route.params.id)
+const bookId = Number(route.params.id)
 
 useHead({ title: '编辑电子书' })
+
+const { message } = createDiscreteApi(['message'])
+const { hasPermission } = usePermission()
+const canUpdate = computed(() => hasPermission('book:update'))
 
 const editorRef = ref(null)
 const loading = ref(true)
 const error = ref(null)
 const saving = ref(false)
-const { message } = createDiscreteApi(['message'])
+const pendingBookData = ref(null)
 
-// 加载电子书数据
+function tryLoadEditorData() {
+  if (!editorRef.value || !pendingBookData.value) return false
+  editorRef.value.loadBookData(pendingBookData.value)
+  pendingBookData.value = null
+  return true
+}
+
 onMounted(async () => {
+  if (!canUpdate.value) {
+    message.error('没有编辑电子书权限')
+    navigateTo('/list/book/1')
+    return
+  }
+
   try {
-    loading.value = true
-    const response = await $fetch(`/book/getById?id=${bookId}&forEdit=true`, {
-      baseURL: fetchConfig.baseURL,
-      headers: {
-        ...fetchConfig.headers,
-        token: localStorage.getItem('Token') || '',
-      }
-    })
-    
-    if (response.code === 200 && response.data) {
-      console.log('✅ 电子书数据加载成功:', response.data)
-      console.log('📸 封面URL（原始相对路径）:', response.data.cover)
-      console.log('📚 章节数量:', response.data.book_details?.length || 0)
-      
-      // 等待编辑器组件完全挂载
-      await nextTick()
-      
-      // 将数据传递给编辑器组件
-      if (editorRef.value && editorRef.value.loadBookData) {
-        editorRef.value.loadBookData(response.data)
-      } else {
-        console.warn('⚠️ 编辑器组件未就绪，延迟加载数据')
-        // 如果编辑器还未就绪，延迟500ms再试
-        setTimeout(() => {
-          if (editorRef.value && editorRef.value.loadBookData) {
-            editorRef.value.loadBookData(response.data)
-          }
-        }, 500)
-      }
-    } else {
+    const response = await apiGetBookDetail(bookId, { forEdit: true })
+    if (response?.code && response.code !== 200) {
       throw new Error(response.msg || '加载失败')
     }
+
+    pendingBookData.value = response?.data || response
+    await nextTick()
+    tryLoadEditorData()
   } catch (err) {
-    console.error('❌ 加载电子书数据失败:', err)
+    console.error('load book detail failed', err)
     error.value = err
-    message.error('加载失败: ' + (err.message || '未知错误'))
+    message.error(err?.data?.msg || err?.message || '加载失败')
   } finally {
     loading.value = false
   }
 })
 
-// 提交内容
-const submitContent = () => {
+watch(editorRef, () => {
+  tryLoadEditorData()
+}, { flush: 'post' })
+
+function submitContent() {
   editorRef.value?.saveToDatabase()
 }
 
-// 处理保存
-const handleSave = async (data) => {
-  console.log('✅ 准备保存数据：', data)
+async function handleSave(payload) {
   saving.value = true
-  
   try {
-    const response = await $fetch('/book/update', {
-      method: 'POST',
-      body: data,
-      baseURL: fetchConfig.baseURL,
-      headers: {
-        appid: fetchConfig.headers.appid
-      }
-    })
-    
-    if (response.code === 200) {
-      message.success('保存成功')
-      setTimeout(() => {
-        navigateTo(`/detail/book/${bookId}`)
-      }, 1000)
-    } else {
-      message.error(response.msg || '保存失败')
+    const response = await apiUpdateBook(payload)
+    if (response?.code && response.code !== 200) {
+      throw new Error(response.msg || '保存失败')
     }
+
+    message.success('电子书已更新')
+    navigateTo(`/detail/book/${bookId}`)
   } catch (err) {
-    console.error('保存失败:', err)
-    message.error('保存失败: ' + (err.message || '未知错误'))
+    console.error('update book failed', err)
+    message.error(err?.data?.msg || err?.message || '保存失败')
   } finally {
     saving.value = false
   }
 }
 
-// 返回
-const goBack = () => {
+function goBack() {
   navigateTo(`/detail/book/${bookId}`)
 }
 </script>
 
 <style scoped>
-.ebook-container {
-  padding: 16px;
-  max-width: 1400px;
-  margin: 0 auto;
+.editor-page {
+  padding: 24px 0 48px;
 }
 
-.ebook-title {
-  font-size: 20px;
-  font-weight: bold;
-  margin-bottom: 16px;
-  text-align: center;
+.hero {
+  margin-bottom: 20px;
+  padding: 28px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(99, 102, 241, 0.32), transparent 28%),
+    linear-gradient(135deg, #0f172a 0%, #1d4ed8 48%, #0f766e 100%);
+  color: #fff;
+  box-shadow: 0 26px 60px rgba(15, 23, 42, 0.2);
+}
+
+.hero-label {
+  margin: 0 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 42px);
+}
+
+.hero p:last-child {
+  margin: 12px 0 0;
+  max-width: 680px;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .action-buttons {
   display: flex;
   justify-content: center;
   gap: 16px;
-  margin: 20px auto 0;
-  max-width: 400px;
+  margin-top: 22px;
 }
 
-.back-btn,
+.ghost-btn,
 .submit-btn {
-  flex: 1;
-  padding: 10px 20px;
-  font-size: 16px;
+  min-width: 180px;
+  height: 46px;
+  border-radius: 16px;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
 }
 </style>

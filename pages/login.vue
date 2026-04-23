@@ -179,23 +179,29 @@ const onSubmit = () => {
 
         // nav ui 的创建api
         const { message } = createDiscreteApi(["message"])
-        if(data.value!=null)
-            message.success(type.value === "login"?"登录成功":"注册成功" )
-        else
-            message.error(type.value === "reg"? "注册失败":"登录失败")
+        const result = data.value
+        if(result != null) {
+            message.success(type.value === "login" ? "登录成功" : "注册成功")
+        } else {
+            message.error(type.value === "reg" ? "注册失败" : "登录失败")
+        }
 
         if (type.value === "login") {
+            if (!result?.token) {
+                message.error("登录失败，请检查账号状态后重试")
+                return
+            }
             // Nuxt 提供的 cookie 管理工具
             const token = useCookie("token")
-            token.value = data.value.token
+            token.value = result.token
             // 存储用户信息
             const user = useUser()
-            user.value = data.value
+            user.value = result
             // 单独存权限列表，避免 getinfo 覆盖后丢失
             const permissions = usePermissions()
-            permissions.value = data.value.permissionList || []
+            permissions.value = result.permissionList || []
             // 持久化到 localStorage，刷新后不丢失
-            savePermissions(data.value.permissionList || [])
+            savePermissions(result.permissionList || [])
 
             // 如果有 from 参数，跳转到该页面
             // 例：/login?from=/user → 跳转到 /user

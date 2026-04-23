@@ -102,6 +102,10 @@
             <span class="title-icon">💬</span>
             {{ (question.answers || []).length }} 个回答
           </h2>
+          <div v-if="acceptedAnswer" class="accepted-summary">
+            <span class="accepted-summary-badge">✓ 已采纳</span>
+            <span>最佳回答已固定展示在最前面</span>
+          </div>
         </div>
 
         <div v-if="!question.answers || question.answers.length === 0" class="no-answer">
@@ -114,7 +118,7 @@
 
         <div v-else class="answer-list">
           <div
-            v-for="ans in question.answers"
+            v-for="ans in sortedAnswers"
             :key="ans.id"
             class="answer-card"
             :class="{ 'is-best': ans.isBest === 1 }"
@@ -127,7 +131,10 @@
               <div class="ans-user-info">
                 <div class="ans-avatar">{{ (ans.userName || '?')[0] }}</div>
                 <div class="ans-user-detail">
-                  <span class="ans-username">{{ ans.userName || '匿名用户' }}</span>
+                  <div class="ans-username-row">
+                    <span class="ans-username">{{ ans.userName || '匿名用户' }}</span>
+                    <span v-if="ans.isBest === 1" class="accepted-chip">已采纳</span>
+                  </div>
                   <span class="ans-time">{{ ans.createTime }}</span>
                 </div>
               </div>
@@ -391,6 +398,19 @@ const isQuestionOwner = computed(() => {
   }
   // 后端没有返回足够信息时，只要登录就显示（接口本身会做权限校验）
   return isLoggedIn.value;
+});
+
+const acceptedAnswer = computed(() => {
+  return (question.value?.answers || []).find((item) => Number(item.isBest) === 1) || null;
+});
+
+const sortedAnswers = computed(() => {
+  const list = [...(question.value?.answers || [])];
+  return list.sort((a, b) => {
+    const bestDiff = Number(b.isBest || 0) - Number(a.isBest || 0);
+    if (bestDiff !== 0) return bestDiff;
+    return Number(b.voteCount || 0) - Number(a.voteCount || 0);
+  });
 });
 
 onMounted(loadDetail);
@@ -883,6 +903,28 @@ async function doDelete() {
   margin-bottom: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
+.accepted-summary {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(24, 160, 88, 0.12), rgba(250, 204, 21, 0.12));
+  color: #166534;
+  font-size: 13px;
+  font-weight: 600;
+}
+.accepted-summary-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #18a058;
+  color: #fff;
+  font-size: 12px;
+}
 .section-title {
   font-size: 20px;
   font-weight: 700;
@@ -916,8 +958,11 @@ async function doDelete() {
 }
 .answer-card.is-best {
   border-color: #18a058;
-  background: linear-gradient(180deg, #f0fdf4 0%, #fff 80px);
+  background:
+    radial-gradient(circle at top right, rgba(250, 204, 21, 0.22), transparent 28%),
+    linear-gradient(180deg, #f0fdf4 0%, #fff 80px);
   border-width: 2px;
+  box-shadow: 0 12px 30px rgba(24, 160, 88, 0.14);
 }
 .best-ribbon {
   position: absolute;
@@ -954,7 +999,24 @@ async function doDelete() {
   flex-shrink: 0;
 }
 .ans-user-detail { display: flex; flex-direction: column; gap: 4px; }
+.ans-username-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .ans-username { font-weight: 600; color: #333; font-size: 15px; }
+.accepted-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(24, 160, 88, 0.12);
+  border: 1px solid rgba(24, 160, 88, 0.28);
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 700;
+}
 .ans-time { font-size: 13px; color: #999; }
 .ans-actions { display: flex; gap: 10px; }
 .btn-vote {
