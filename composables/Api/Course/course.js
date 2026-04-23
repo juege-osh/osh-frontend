@@ -12,24 +12,21 @@ const APP_ID = 'bd9d01ecc75dbbaaefce';
  */
 export const getAuthHeaders = () => {
   let tokenValue = '';
+  try {
+    tokenValue = useCookie('token').value || '';
+  } catch {}
   if (process.client) {
-    // 按照你 fetchConfig 的逻辑取值
-    tokenValue = localStorage.getItem('token') || localStorage.getItem('Token');
-    if (!tokenValue) {
-      tokenValue = useCookie('token').value;
-    }
+    tokenValue = localStorage.getItem('token') || localStorage.getItem('Token') || tokenValue;
   }
 
-  return {
-    // 1. 若依后端最标准、最常用的 Key
-    Authorization: 'Bearer ' + tokenValue,
-
-    // 2. 备用 Key（有些魔改版会读这个）
-    token: tokenValue,
-
-    // 3. 你的 appid
-    appid: 'bd9d01ecc75dbbaaefce',
+  const headers = {
+    appid: APP_ID,
   };
+  if (tokenValue) {
+    headers.Authorization = 'Bearer ' + tokenValue;
+    headers.token = tokenValue;
+  }
+  return headers;
 };
 
 // 封面上传配置
@@ -49,7 +46,11 @@ export const getMaterialUploadConfig = () => ({
 export function useCourseSearchApi(body) {
   return useHttpPost('CourseSearch', '/course/search', {
     body, // 这里改用 body，对应后端的 @RequestBody
+    headers: getAuthHeaders(),
     lazy: true,
+    immediate: false,
+    // 课程页会在筛选变更后手动 refresh，这里禁用 useFetch 的响应式自动重拉，避免一次点击触发两次请求。
+    watch: false,
   });
 }
 
