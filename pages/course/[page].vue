@@ -72,7 +72,7 @@
     <CourseEditModal v-model:show="showCreateModal" :tag-options="tagOptions" @success="handleRefresh" />
   </div>
 </template><script setup>
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import CourseEditModal from '~/components/Course/CourseEditModal.vue';
 import CourseFilter from '~/components/Course/CourseFilter.vue';
@@ -109,30 +109,33 @@ const {
 } = await useCourseSearchApi(queryParams);
 const courseList = ref([]);
 
-// 3. 映射列表数据
-watch(
-  () => resData.value,
-  async (newVal) => {
-    if (newVal) {
-      const actualData = newVal?.data?.rows ? newVal.data : newVal;
-      const rows = actualData?.rows || [];
+const syncCourseList = (payload) => {
+  if (!payload) {
+    courseList.value = [];
+    return;
+  }
 
-      // 先映射基础数据
-      const list = rows.map((item) => ({
-        ...item,
-        // collectionFlag=1 表示已收藏
-        isFavorite: item.collectionFlag === 1,
-        favoriteCount: item.collectionCount || 0,
-        buyCount: item.salesCount || 0,
-        cover: item.cover || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg',
-        ratingScore: item.ratingScore || 5,
-      }));
+  const actualData = payload?.data?.rows ? payload.data : payload;
+  const rows = actualData?.rows || [];
+  courseList.value = rows.map((item) => ({
+    ...item,
+    // collectionFlag=1 表示已收藏
+    isFavorite: item.collectionFlag === 1,
+    favoriteCount: item.collectionCount || 0,
+    buyCount: item.salesCount || 0,
+    cover: item.cover || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg',
+    ratingScore: item.ratingScore || 5,
+  }));
+};
 
-      courseList.value = list;
-    }
-  },
-  { immediate: true }
-);
+const loadCourses = async () => {
+  await refresh();
+  syncCourseList(resData.value);
+};
+
+onMounted(() => {
+  loadCourses();
+});
 
 // 4. 映射总条数
 const totalCount = computed(() => {
@@ -189,7 +192,7 @@ async function handleBatchDelete() {
           selectedIds.value.clear();
           selectMode.value = false;
           queryParams.pageNum = 1;
-          refresh();
+          await loadCourses();
         } else {
           message.error(res?.msg || '删除失败');
         }
@@ -232,13 +235,13 @@ if (process.client) loadTags();
 
 const handleSearch = () => {
   queryParams.pageNum = 1;
-  refresh();
+  loadCourses();
 };
 
 const handleRefresh = (page) => {
   // 这里的 page 是 n-pagination 传回来的页码
   queryParams.pageNum = page || 1;
-  refresh();
+  loadCourses();
 };
 
 const handleDetail = (id) => {

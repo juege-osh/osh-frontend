@@ -5,7 +5,7 @@
 export function usePermission() {
   const permissions = usePermissions();
 
-  const permissionList = computed(() => permissions.value || []);
+  const permissionList = computed(() => Array.isArray(permissions.value) ? permissions.value : []);
 
   function hasPermission(code) {
     if (!code) return true;
