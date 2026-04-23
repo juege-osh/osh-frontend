@@ -95,7 +95,7 @@ const queryParams = reactive({
   pageSize: 10,
   isFree: null,
   isFollowing: false,
-  collectionFlag: null, // 「我关注的」筛选
+  collectionFlag: null, // 「我收藏的」筛选
   sortType: 'all',
   courseNo: '',
 });
@@ -117,16 +117,24 @@ watch(
       const actualData = newVal?.data?.rows ? newVal.data : newVal;
       const rows = actualData?.rows || [];
 
-      // 先映射基础数据
-      const list = rows.map((item) => ({
-        ...item,
-        // collectionFlag=1 表示已收藏
-        isFavorite: item.collectionFlag === 1,
-        favoriteCount: item.collectionCount || 0,
-        buyCount: item.salesCount || 0,
-        cover: item.cover || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg',
-        ratingScore: item.ratingScore || 5,
-      }));
+      // 先映射基础数据，merge 已有的收藏状态（避免乐观更新被覆盖）
+      const prevMap = new Map(courseList.value.map((c) => [c.id, c]));
+      const list = rows.map((item) => {
+        const prev = prevMap.get(item.id);
+        // 如果本地已有该课程且用户手动操作过（isFavorite 与接口返回不一致），保留本地状态
+        const isFavorite = prev != null
+          ? prev.isFavorite
+          : item.collectionFlag === 1;
+        return {
+          ...item,
+          isFavorite,
+          collectionFlag: isFavorite ? 1 : 0,
+          favoriteCount: prev != null ? prev.favoriteCount : (item.collectionCount || 0),
+          buyCount: item.salesCount || 0,
+          cover: item.cover || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg',
+          ratingScore: item.ratingScore || 5,
+        };
+      });
 
       courseList.value = list;
     }
@@ -143,7 +151,7 @@ const totalCount = computed(() => {
   return actualData?.total || 0;
 });
 
-// 「我关注的」前端过滤：只显示 collectionFlag=1 的课程
+// 「我收藏的」前端过滤：只显示 collectionFlag=1 的课程
 const displayList = computed(() => {
   if (!queryParams.isFollowing) return courseList.value;
   return courseList.value.filter((item) => item.collectionFlag === 1 || item.isFavorite);

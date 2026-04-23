@@ -136,6 +136,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
+import { fetchConfig } from '~/composables/useHttp';
 
 const props = defineProps<{
   modelValue: string;
@@ -308,17 +309,88 @@ function onPaste(e: ClipboardEvent) {
   // 其他粘贴走默认行为
 }
 
-// 将 File 对象读取为 DataURL 并插入（不走服务器，直接 base64 存储）
-function insertFileAsImage(file: File) {
-  return new Promise<void>((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      if (dataUrl) insertImgNode(dataUrl);
-      resolve();
-    };
-    reader.readAsDataURL(file);
-  });
+// 将 File 对象上传到服务器，获取临时访问链接后插入图片
+async function insertFileAsImage(file: File) {
+  // 先插入占位图（loading 状态），避免用户等待时无反馈
+  const editor = editorRef.value;
+  if (!editor) return;
+
+  // 创建占位 img，src 用 base64 透明像素，显示 loading 样式
+  const placeholder = document.createElement('img');
+  placeholder.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7kuIrkvKDkuK3igKY8L3RleHQ+PC9zdmc+';
+  placeholder.style.cssText = 'width:400px;max-width:100%;height:auto;display:block;margin:8px 0;border-radius:4px;opacity:0.6;';
+  placeholder.className = 'doc-img';
+  placeholder.draggable = false;
+  const br = document.createElement('br');
+
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0) {
+    const range = sel.getRangeAt(0);
+    if (editor.contains(range.commonAncestorContainer)) {
+      range.deleteContents();
+      range.insertNode(br);
+      range.insertNode(placeholder);
+      range.setStartAfter(br);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      editor.appendChild(placeholder);
+      editor.appendChild(br);
+    }
+  } else {
+    editor.appendChild(placeholder);
+    editor.appendChild(br);
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // 获取 token（与 getAuthHeaders 保持一致）
+    const token = useCookie('token');
+    const tokenValue = token.value || (process.client ? localStorage.getItem('token') || '' : '');
+
+    const response = await $fetch('/course/cover/upload', {
+      method: 'POST',
+      body: formData,
+      baseURL: fetchConfig.baseURL,
+      headers: {
+        appid: fetchConfig.headers.appid,
+        token: tokenValue,
+      },
+    }) as any;
+
+    if (response?.code === 200 && response?.data) {
+      // 用临时访问链接替换占位图
+      // /course/cover/upload 返回 data.url（完整临时链接）和 data.relativePath（相对路径）
+      const d = response.data;
+      const previewUrl = d?.url || d?.fileUrl
+        || (d?.relativePath ? `${fetchConfig.baseURL.replace('/pc', '')}${d.relativePath}` : null)
+        || (typeof d === 'string' ? d : '');
+      if (!previewUrl) throw new Error('未获取到图片链接');
+      placeholder.src = previewUrl;
+      placeholder.style.opacity = '1';
+      // 将相对路径存到 data-src，方便后续识别
+      if (d?.relativePath) {
+        placeholder.dataset.src = d.relativePath;
+      }
+      bindImgResize(placeholder);
+      syncContent();
+    } else {
+      throw new Error(response?.msg || '上传失败');
+    }
+  } catch (err: any) {
+    // 上传失败：移除占位图，提示用户
+    placeholder.parentNode?.removeChild(placeholder);
+    br.parentNode?.removeChild(br);
+    syncContent();
+    if (process.client) {
+      const { createDiscreteApi } = await import('naive-ui');
+      const { message } = createDiscreteApi(['message']);
+      message.error('图片上传失败：' + (err?.message || '未知错误'));
+    }
+  }
 }
 
 // 核心：直接操作 DOM 插入 img 节点，不走 execCmd

@@ -21,14 +21,14 @@
         @update:value="handleSearch"
       />
 
-      <!-- 我关注的 -->
+      <!-- 我收藏的 -->
       <button
         class="follow-btn"
         :class="{ active: modelValue.isFollowing }"
         @click="toggleFollowing"
       >
         <span class="heart-icon">{{ modelValue.isFollowing ? '♥' : '♡' }}</span>
-        我关注的
+        我收藏的
       </button>
       <!-- 搜索关键字 - 更明显 -->
       <div class="search-wrap">
@@ -141,7 +141,7 @@ const handleSearch = () => {
   flex: 1;
 }
 
-/* 我关注的按钮 */
+/* 我收藏的按钮 */
 .follow-btn {
   display: flex;
   align-items: center;
