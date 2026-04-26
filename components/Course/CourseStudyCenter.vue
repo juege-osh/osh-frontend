@@ -47,40 +47,21 @@
             </span>
           </div>
           <button class="btn-qa" @click="showQaPanel = !showQaPanel">
-            💬 {{ showQaPanel ? '收起问题' : '有疑问？' }}
+            💬 {{ showQaPanel ? '收起提问区' : '有疑问？去提问' }}
           </button>
         </div>
 
-        <!-- 问题面板（折叠式，在视频下方） -->
-        <div v-if="showQaPanel" class="qa-panel">
-          <div class="qa-panel-header">
-            <span class="qa-panel-title">问题列表</span>
-            <button class="qa-close" @click="showQaPanel = false">✕</button>
+        <!-- 提问区（折叠式，在视频下方） -->
+        <Transition name="qa-slide">
+          <div v-if="showQaPanel && currentSection.id" class="qa-panel-wrap">
+            <ClientOnly>
+              <CourseQuestionPanel
+                :section-id="currentSection.id"
+                :course-id="courseId"
+              />
+            </ClientOnly>
           </div>
-          <div v-if="qaLoading" class="qa-loading">加载中...</div>
-          <div v-else-if="qaList.length === 0" class="qa-empty">暂无问题，快来提第一个问题吧</div>
-          <div v-else class="qa-list">
-            <div
-              v-for="q in qaList"
-              :key="q.id"
-              class="qa-item"
-              @click="toggleQa(q.id)"
-            >
-              <div class="qa-item-header">
-                <span class="qa-q-icon">Q</span>
-                <span class="qa-q-text">{{ q.content }}</span>
-                <span class="qa-toggle">{{ expandedQa.has(q.id) ? '▲' : '▼' }}</span>
-              </div>
-              <div v-if="expandedQa.has(q.id)" class="qa-answers">
-                <div v-if="!q.answers || q.answers.length === 0" class="qa-no-answer">暂无回答</div>
-                <div v-for="a in q.answers" :key="a.id" class="qa-answer-item">
-                  <span class="qa-a-icon">A</span>
-                  <span class="qa-a-text">{{ a.content }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </Transition>
       </div>
 
       <!-- 右侧：章节目录 + 资料 -->
@@ -151,6 +132,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { fetchConfig } from '~/composables/useHttp';
 import { getAuthHeaders, apiGetMaterialUrl } from '~/composables/Api/Course/course';
+import CourseQuestionPanel from '~/components/Course/CourseQuestionPanel.vue';
 
 const props = defineProps({
   data: { type: Object, required: true },
@@ -229,8 +211,6 @@ function selectSection(section) {
   currentSection.value = section;
   currentVideoUrl.value = section.mediaUrl && !section.mediaUrl.includes('pending')
     ? section.mediaUrl : '';
-  // 加载该小节的问题
-  loadQa(section.id);
 }
 
 function onVideoEnded() {
@@ -276,34 +256,8 @@ async function downloadMat(mat) {
   } catch { window.open(mat.fileUrl || mat.url, '_blank'); }
 }
 
-// ===== 问题列表 =====
+// ===== 问题面板开关 =====
 const showQaPanel = ref(false);
-const qaLoading = ref(false);
-const qaList = ref([]);
-const expandedQa = ref(new Set());
-
-async function loadQa(sectionId) {
-  if (!sectionId) return;
-  qaLoading.value = true;
-  qaList.value = [];
-  try {
-    const res = await $fetch(`/course/section/questions/${courseId.value}/${sectionId}`, {
-      baseURL: fetchConfig.baseURL,
-      headers: getAuthHeaders(),
-    });
-    if (res?.code === 200) {
-      qaList.value = res.data?.rows || res.data?.list || res.data || [];
-    }
-  } catch {}
-  finally { qaLoading.value = false; }
-}
-
-function toggleQa(id) {
-  const s = new Set(expandedQa.value);
-  if (s.has(id)) s.delete(id);
-  else s.add(id);
-  expandedQa.value = s;
-}
 
 // ===== 工具 =====
 function fmtDuration(sec) {
@@ -413,56 +367,30 @@ onMounted(loadOutline);
 }
 .btn-qa:hover { background: #e07800; }
 
-/* 问题面板 */
-.qa-panel {
-  background: #1a1a1a;
-  border-bottom: 1px solid #2a2a2a;
-  max-height: 320px;
-  overflow-y: auto;
+/* 问题面板包裹 */
+.qa-panel-wrap {
+  padding: 0 20px 20px;
+  background: #0f0f0f;
 }
-.qa-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 20px;
-  border-bottom: 1px solid #2a2a2a;
-  position: sticky;
-  top: 0;
-  background: #1a1a1a;
-  z-index: 1;
+
+/* 提问区展开动画 */
+.qa-slide-enter-active,
+.qa-slide-leave-active {
+  transition: all 0.28s ease;
+  overflow: hidden;
 }
-.qa-panel-title { font-size: 14px; font-weight: 600; color: #eee; }
-.qa-close { background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 0 4px; }
-.qa-close:hover { color: #ccc; }
-.qa-loading, .qa-empty { padding: 20px; font-size: 13px; color: #666; text-align: center; }
-.qa-list { padding: 8px 0; }
-.qa-item { border-bottom: 1px solid #222; }
-.qa-item:last-child { border-bottom: none; }
-.qa-item-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 20px;
-  cursor: pointer;
-  transition: background 0.15s;
+.qa-slide-enter-from,
+.qa-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+  max-height: 0;
 }
-.qa-item-header:hover { background: #222; }
-.qa-q-icon {
-  width: 20px; height: 20px; border-radius: 50%;
-  background: #ff8c00; color: #fff; font-size: 11px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+.qa-slide-enter-to,
+.qa-slide-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 1000px;
 }
-.qa-q-text { flex: 1; font-size: 13px; color: #ccc; line-height: 1.5; }
-.qa-toggle { font-size: 10px; color: #555; flex-shrink: 0; margin-top: 4px; }
-.qa-answers { padding: 0 20px 12px 50px; }
-.qa-no-answer { font-size: 12px; color: #555; }
-.qa-answer-item { display: flex; gap: 8px; margin-top: 8px; }
-.qa-a-icon {
-  width: 20px; height: 20px; border-radius: 50%;
-  background: #18a058; color: #fff; font-size: 11px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.qa-a-text { font-size: 13px; color: #aaa; line-height: 1.5; }
 
 /* ===== 右侧侧边栏 ===== */
 .sidebar-col {

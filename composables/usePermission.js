@@ -45,7 +45,7 @@ function collectPermissions(value, bucket) {
 
   if (typeof value === 'object') {
     Object.entries(value).forEach(([key, child]) => {
-      if (key) bucket.add(key);
+      // 只递归处理子节点，不把分组 key（如 "course"、"book"）当权限码加入
       collectPermissions(child, bucket);
     });
   }
