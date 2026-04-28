@@ -7,7 +7,7 @@
 自动化后的流程：
 
 1. 拉取最新前端代码。
-2. 使用 Node.js 18 安装依赖。
+2. 使用 Node.js 18 安装依赖，并通过 `--legacy-peer-deps` 兼容当前 Nuxt 3 与编辑器依赖的 peer dependency 冲突。
 3. 执行 `npm run generate`。
 4. 校验 `.output/public/index.html` 是否存在。
 5. 使用 SSH 连接服务器。
@@ -186,9 +186,19 @@ ssh -i /Users/rengang/.ssh/osh_github_actions_deploy_key -p 58753 root@43.242.20
 先本地执行：
 
 ```bash
-npm ci
+npm ci --legacy-peer-deps
 npm run generate
 ```
 
 如果本地也失败，优先修复前端构建问题，再重新推送 `release/20260328`。
 
+
+### 8.4 npm ci 报 ERESOLVE
+
+当前项目使用 `nuxt@3.6.5`，而 `@umoteam/umo-editor-nuxt@0.1.2` 声明了 `nuxt >=4.0.0` 的 peer dependency。为了不在部署流程里强行升级 Nuxt，workflow 使用：
+
+```bash
+npm ci --legacy-peer-deps
+```
+
+如果未来升级到 Nuxt 4，并确认编辑器依赖完全兼容，可以再改回标准的 `npm ci`。
