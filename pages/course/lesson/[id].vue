@@ -97,15 +97,6 @@
           </div>
           <input ref="videoInputRef" type="file" accept="video/*" style="display:none" @change="onVideoFileChange" />
         </div>
-
-        <!-- 课程小节提问区 -->
-        <ClientOnly>
-          <CourseQuestionPanel
-            v-if="sectionId"
-            :section-id="sectionId"
-            :course-id="courseId"
-          />
-        </ClientOnly>
       </div>
 
       <!-- 右侧：文档编辑器 -->
@@ -134,11 +125,10 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { createDiscreteApi } from 'naive-ui';
+import { createDiscreteApi, NSwitch } from 'naive-ui';
 import { fetchConfig } from '~/composables/useHttp';
 import { getAuthHeaders, apiUploadVideo } from '~/composables/Api/Course/course';
 import DocEditor from '~/components/Course/edit/DocEditor.vue';
-import CourseQuestionPanel from '~/components/Course/CourseQuestionPanel.vue';
 
 const route = useRoute();
 const router = useRouter();

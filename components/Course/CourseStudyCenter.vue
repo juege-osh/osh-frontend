@@ -109,13 +109,17 @@
                   v-for="(section, si) in chapter.children || []"
                   :key="section.id"
                   class="section-item"
-                  :class="{ active: currentSection.id === section.id }"
+                  :class="{
+                    active: currentSection.id === section.id,
+                    locked: accessLevel === 'TRIAL' && section.freeFlag !== 1
+                  }"
                   @click="selectSection(section)"
                 >
                   <span class="sec-num">{{ ci + 1 }}.{{ si + 1 }}</span>
                   <span class="sec-dot" :class="section.sectionType === 'video' ? 'dot-video' : 'dot-text'" />
                   <span class="sec-name">{{ section.title }}</span>
                   <span v-if="section.freeFlag === 1" class="sec-free">免费</span>
+                  <span v-else-if="accessLevel === 'TRIAL'" class="sec-lock">🔒</span>
                   <span v-if="currentSection.id === section.id" class="sec-playing">▶</span>
                 </div>
               </div>
@@ -124,6 +128,12 @@
         </div>
       </div>
     </div>
+    <!-- 锁定提示 -->
+    <Transition name="fade">
+      <div v-if="lockedTipVisible" class="locked-toast">
+        🔒 该章节需要购买课程后才能观看
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -136,6 +146,13 @@ import CourseQuestionPanel from '~/components/Course/CourseQuestionPanel.vue';
 
 const props = defineProps({
   data: { type: Object, required: true },
+});
+
+// accessLevel: FULL=全部可看，TRIAL=仅试看，从课程详情数据里取
+const accessLevel = computed(() => {
+  const level = props.data?.accessLevel || 'TRIAL';
+  console.log('[CourseStudyCenter] accessLevel:', level, '| data.accessLevel:', props.data?.accessLevel);
+  return level;
 });
 
 const route = useRoute();
@@ -190,27 +207,47 @@ async function loadOutline() {
         }
       }
 
-      // 其次：选第一个有视频的小节
+      // 其次：选第一个有视频的小节（FULL 模式选任意，TRIAL 模式优先选免费节）
       for (const ch of outline.value) {
         for (const s of ch.children || []) {
           if (s.mediaUrl && !s.mediaUrl.includes('pending')) {
+            if (accessLevel.value === 'FULL' || s.freeFlag === 1) {
+              selectSection(s);
+              return;
+            }
+          }
+        }
+      }
+      // 最后：选第一个免费小节（TRIAL 模式兜底）
+      for (const ch of outline.value) {
+        for (const s of ch.children || []) {
+          if (accessLevel.value === 'FULL' || s.freeFlag === 1) {
             selectSection(s);
             return;
           }
         }
       }
-      // 最后：选第一个小节
-      const first = outline.value[0]?.children?.[0];
-      if (first) selectSection(first);
     }
   } catch {}
   finally { outlineLoading.value = false; }
 }
 
 function selectSection(section) {
+  // TRIAL 模式下，非免费章节拦截
+  if (accessLevel.value === 'TRIAL' && section.freeFlag !== 1) {
+    showLockedTip();
+    return;
+  }
   currentSection.value = section;
   currentVideoUrl.value = section.mediaUrl && !section.mediaUrl.includes('pending')
     ? section.mediaUrl : '';
+}
+
+// 锁定提示弹窗
+const lockedTipVisible = ref(false);
+function showLockedTip() {
+  lockedTipVisible.value = true;
+  setTimeout(() => { lockedTipVisible.value = false; }, 3000);
 }
 
 function onVideoEnded() {
@@ -489,6 +526,11 @@ onMounted(loadOutline);
   transition: background 0.15s;
   border-bottom: 1px solid #1a1a1a;
 }
+.section-item.locked {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.section-item.locked:hover { background: transparent; }
 .section-item:last-child { border-bottom: none; }
 .section-item:hover { background: #1a1a1a; }
 .section-item.active { background: #0d2818; border-left: 3px solid #18a058; padding-left: 21px; }
@@ -499,5 +541,22 @@ onMounted(loadOutline);
 .sec-name { flex: 1; font-size: 13px; color: #bbb; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .section-item.active .sec-name { color: #18a058; font-weight: 500; }
 .sec-free { font-size: 10px; color: #18a058; border: 1px solid #18a058; padding: 1px 4px; border-radius: 3px; flex-shrink: 0; }
+.sec-lock { font-size: 12px; flex-shrink: 0; opacity: 0.6; }
 .sec-playing { font-size: 10px; color: #18a058; flex-shrink: 0; }
+
+/* 锁定提示 toast */
+.locked-toast {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 9999;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
 </style>

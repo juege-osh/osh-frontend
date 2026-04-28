@@ -61,8 +61,16 @@
         />
       </n-form-item>
 
-      <n-form-item label="课程价格">
-        <n-space>
+      <n-form-item label="资源类型">
+        <n-select
+          v-model:value="formValue.resourceType"
+          :options="resourceTypeOptions"
+          placeholder="请选择资源类型"
+          style="width: 200px"
+        />
+      </n-form-item>
+
+      <n-form-item label="课程价格">        <n-space>
           <n-input-number
             v-model:value="formValue.price"
             :min="0"
@@ -216,6 +224,7 @@ watch(() => props.show, (val) => {
       formValue.price = props.initData.price || 0;
       formValue.tPrice = props.initData.tPrice || 0;
       formValue.type = props.initData.type || 'media';
+      formValue.resourceType = props.initData.resourceType || 'FREE';
       // 回显资料列表
       materialList.value = Array.isArray(props.initData.materials) ? [...props.initData.materials] : [];
     } else {
@@ -231,6 +240,7 @@ watch(() => props.show, (val) => {
       formValue.price = 0;
       formValue.tPrice = 0;
       formValue.type = 'media';
+      formValue.resourceType = 'FREE';
       materialList.value = [];
     }
   }
@@ -248,7 +258,18 @@ const formValue = reactive({
   price: 0,
   tPrice: 0,
   type: 'media',
+  resourceType: 'FREE',  // 默认免费
 });
+
+// 资源类型选项（与后端 CourseResourceEnum 保持一致）
+const resourceTypeOptions = [
+  { label: '免费', value: 'FREE' },
+  { label: '仅现金', value: 'CASH_ONLY' },
+  { label: '现金&积分', value: 'CASH_POINT' },
+  { label: 'VIP免费', value: 'VIP' },
+  { label: '小班免费', value: 'SAMLL_CLASS' },
+  { label: '内部免费', value: 'INTERNAL' },
+];
 
 const materialList = ref([]);
 
@@ -345,14 +366,19 @@ const handleDownload = async (mat) => {
 const handlePublish = async () => {
   if (!formValue.title) { message.error('请输入课程标题'); return; }
   loading.value = true;
+
+  // 根据 resourceType 自动推导 freeType
+  // FREE → 0(完全免费), 其他付费类型 → 3(不免费)
+  const resourceType = formValue.resourceType || 'FREE';
+  const freeType = resourceType === 'FREE' ? 0 : 3;
+
   try {
     const submitData = {
-      id: formValue.id || undefined,  // 有 id 时后端走更新
+      id: formValue.id || undefined,
       title: formValue.title,
       desc: formValue.desc,
       intro: formValue.desc,
       cover: String(formValue.coverPath || formValue.cover || ''),
-      // 后端 bindCourseTags 接收标签名称列表，需要把 id 转回 name
       tags: formValue.tagIds.map((id) => {
         const opt = mergedTagOptions.value.find((o) => o.value === id);
         return opt ? opt.label : String(id);
@@ -362,9 +388,11 @@ const handlePublish = async () => {
       price: formValue.price,
       tPrice: formValue.tPrice,
       type: formValue.type,
-      material: materialList.value[0] ? {  // 后端只接受单个对象
+      resourceType,
+      freeType,
+      material: materialList.value[0] ? {
         fileName: materialList.value[0].name,
-        fileUrl: materialList.value[0].relativePath || materialList.value[0].url, // 优先用相对路径
+        fileUrl: materialList.value[0].relativePath || materialList.value[0].url,
         fileType: materialList.value[0].type,
         fileSize: materialList.value[0].fileSize,
       } : null,
