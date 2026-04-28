@@ -1,114 +1,198 @@
 # 前端 GitHub Actions 自动部署教程
 
-## 1. 自动化目标
+这份教程给第一次使用 GitHub Actions 的人看。你只要按步骤配置一次，以后前端代码推送到 `release/20260328` 分支后，GitHub 会自动构建前端并发布到服务器。
 
-当前前端部署流程已经自动化为：推送 `release/20260328` 分支后，GitHub Actions 自动构建静态文件，并同步到服务器 Nginx 目录。
+## 1. 这套自动部署会做什么
 
-自动化后的流程：
+以前手动部署前端一般要做这些事：本地打包、连接服务器、上传 `.output/public` 到 Nginx 目录。现在这些事交给 GitHub Actions 自动做。
 
-1. 拉取最新前端代码。
-2. 使用 Node.js 18 安装依赖，并通过 `--legacy-peer-deps` 兼容当前 Nuxt 3 与编辑器依赖的 peer dependency 冲突。
-3. 执行 `npm run generate`。
-4. 校验 `.output/public/index.html` 是否存在。
-5. 使用 SSH 连接服务器。
-6. 使用 `rsync --delete` 将 `.output/public/` 同步到 `/www/nginx/html/`。
-7. 保留服务器上的 `.user.ini` 文件。
+自动部署流程如下：
 
-## 2. Workflow 文件
+1. GitHub 拉取 `release/20260328` 分支的最新代码。
+2. 安装 Node.js 18。
+3. 执行 `npm ci --legacy-peer-deps` 安装依赖。
+4. 执行 `npm run generate` 生成静态网站。
+5. 检查 `.output/public/index.html` 是否存在。
+6. 用 SSH 登录服务器。
+7. 把 `.output/public/` 同步到服务器 `/www/nginx/html/`。
+8. 保留服务器上的 `.user.ini`，避免误删服务器特殊配置。
 
-前端 workflow 文件位置：
+对应 workflow 文件在：
 
 ```text
 .github/workflows/deploy-release.yml
 ```
 
-触发方式：
+## 2. 第一次使用前必须准备什么
 
-```yaml
-on:
-  push:
-    branches:
-      - release/20260328
-  workflow_dispatch:
-```
+你需要准备 3 样东西：
 
-含义：
-
-- 推送到 `release/20260328` 时自动部署。
-- 也可以在 GitHub 页面手动点击 `Run workflow` 部署。
-
-## 3. GitHub Secrets 配置
-
-前端仓库必须配置这个 Secret：
-
-| 名称 | 说明 |
+| 要准备的东西 | 说明 |
 | --- | --- |
-| `DEPLOY_SSH_PRIVATE_KEY` | GitHub Actions 连接服务器使用的 SSH 私钥 |
+| GitHub 仓库权限 | 你需要能进入仓库的 `Settings` 页面添加 Secret。 |
+| 服务器 SSH 私钥 | GitHub Actions 用它登录服务器。 |
+| release 分支 | 当前自动部署监听的是 `release/20260328`。 |
 
-私钥内容在本机：
+服务器公钥我已经配置过，服务器允许这把部署 key 登录。你只需要把私钥放进 GitHub Secret。
 
-```bash
-/Users/rengang/.ssh/osh_github_actions_deploy_key
-```
+## 3. 配置 GitHub Secret
 
-复制私钥到剪贴板：
+Secret 是 GitHub 保存敏感信息的地方。SSH 私钥不能写在代码里，必须放到 Secret。
+
+### 3.1 复制私钥
+
+在本机终端执行：
 
 ```bash
 pbcopy < /Users/rengang/.ssh/osh_github_actions_deploy_key
 ```
 
-GitHub 配置路径：
+执行后不会输出内容，这是正常的。私钥已经复制到剪贴板。
+
+注意：不要把私钥发到聊天、文档、Issue 或代码里。
+
+### 3.2 在 GitHub 页面添加 Secret
+
+打开前端仓库：
 
 ```text
-前端仓库 -> Settings -> Secrets and variables -> Actions -> New repository secret
+https://github.com/juege-osh/osh-frontend
 ```
 
-## 4. 默认部署参数
+按下面路径点击：
 
-workflow 已内置默认参数：
+```text
+Settings -> Secrets and variables -> Actions -> New repository secret
+```
 
-| 参数 | 默认值 |
+填写：
+
+| 输入框 | 填什么 |
 | --- | --- |
-| 服务器 | `43.242.200.25` |
+| Name | `DEPLOY_SSH_PRIVATE_KEY` |
+| Secret | 粘贴刚才复制的私钥 |
+
+最后点击 `Add secret` 保存。
+
+## 4. 怎么触发自动部署
+
+有两种方式。
+
+### 4.1 推送代码自动部署
+
+只要你把代码推送到：
+
+```text
+release/20260328
+```
+
+GitHub Actions 就会自动运行。
+
+### 4.2 手动点击部署
+
+如果你只是想重新部署一次，不想改代码，可以手动点。
+
+操作路径：
+
+```text
+前端仓库 -> Actions -> Deploy Frontend Release -> Run workflow
+```
+
+选择分支：
+
+```text
+release/20260328
+```
+
+然后点击绿色按钮 `Run workflow`。
+
+## 5. 怎么判断部署成功
+
+进入前端仓库的 `Actions` 页面，点开最新的一条 `Deploy Frontend Release`。
+
+如果看到绿色对勾，说明成功。
+
+成功时一般会看到这些步骤都通过：
+
+| 步骤 | 成功说明 |
+| --- | --- |
+| `Install dependencies` | 依赖安装成功。 |
+| `Build static site` | 前端打包成功。 |
+| `Validate build output` | `.output/public/index.html` 存在。 |
+| `Configure SSH` | SSH key 写入成功。 |
+| `Ensure remote directory exists` | 能连上服务器。 |
+| `Upload frontend files` | 文件上传成功。 |
+
+部署成功后浏览器访问：
+
+```text
+http://43.242.200.25/
+```
+
+如果页面正常打开，说明前端已经部署成功。
+
+## 6. 常用服务器信息
+
+workflow 已经内置下面这些默认值，正常不用改：
+
+| 配置 | 默认值 |
+| --- | --- |
+| 服务器 IP | `43.242.200.25` |
 | SSH 用户 | `root` |
 | SSH 端口 | `58753` |
 | 前端部署目录 | `/www/nginx/html` |
 | Node.js 版本 | `18` |
 
-如果以后服务器信息变化，可以在 GitHub Variables 中覆盖：
+如果以后服务器换了，不要改代码，优先在 GitHub Variables 里覆盖：
 
 | Variable | 用途 |
 | --- | --- |
-| `DEPLOY_HOST` | 覆盖服务器 IP 或域名 |
-| `DEPLOY_USER` | 覆盖 SSH 用户 |
-| `DEPLOY_PORT` | 覆盖 SSH 端口 |
-| `FRONTEND_DEPLOY_PATH` | 覆盖前端部署目录 |
+| `DEPLOY_HOST` | 覆盖服务器 IP 或域名。 |
+| `DEPLOY_USER` | 覆盖 SSH 用户。 |
+| `DEPLOY_PORT` | 覆盖 SSH 端口。 |
+| `FRONTEND_DEPLOY_PATH` | 覆盖前端部署目录。 |
 
-## 5. 手动触发部署
+配置位置：
 
-1. 打开 GitHub 前端仓库。
-2. 进入 `Actions`。
-3. 选择 `Deploy Frontend Release`。
-4. 点击 `Run workflow`。
-5. 分支选择 `release/20260328`。
-6. 点击确认执行。
+```text
+Settings -> Secrets and variables -> Actions -> Variables
+```
 
-## 6. 本地等价测试命令
+## 7. 本地手动测试命令
 
-本地构建：
+如果 GitHub Actions 失败，可以先在本地跑一遍。
+
+进入前端项目：
 
 ```bash
 cd /Users/rengang/chuangye/osh-projects/osh-frontend
+```
+
+安装依赖：
+
+```bash
+npm ci --legacy-peer-deps
+```
+
+打包：
+
+```bash
 npm run generate
 ```
 
-校验构建产物：
+检查产物：
 
 ```bash
 test -d .output/public && test -f .output/public/index.html
 ```
 
-模拟上传但不真正覆盖服务器：
+如果这三步本地都成功，说明前端代码本身可以打包。
+
+## 8. 本地手动上传前端
+
+正常不需要手动上传，只有排查问题时才用。
+
+先模拟上传，不真正改服务器文件：
 
 ```bash
 rsync -azn --delete --exclude='.user.ini' \
@@ -117,7 +201,7 @@ rsync -azn --delete --exclude='.user.ini' \
   root@43.242.200.25:/www/nginx/html/
 ```
 
-真实上传：
+确认没问题后，真实上传：
 
 ```bash
 rsync -az --delete --exclude='.user.ini' \
@@ -126,79 +210,72 @@ rsync -az --delete --exclude='.user.ini' \
   root@43.242.200.25:/www/nginx/html/
 ```
 
-## 7. 部署后验证
+## 9. 部署后验证命令
 
-检查 Nginx 容器：
+检查 Nginx 容器是否运行：
 
 ```bash
 ssh -i /Users/rengang/.ssh/osh_github_actions_deploy_key -p 58753 root@43.242.200.25 \
   "cd /opt/docker-apps && docker-compose ps nginx"
 ```
 
-检查前端 HTTP：
+检查前端 HTTP 是否正常：
 
 ```bash
 curl -I http://43.242.200.25/
 ```
 
-预期结果：
+成功时能看到类似：
 
 ```text
 HTTP/1.1 200 OK
 Server: nginx
 ```
 
-## 8. 故障排查
+## 10. 常见问题
 
-### 8.1 SSH 失败
+### 10.1 卡在 Ensure remote directory exists
 
-检查 GitHub Secret 是否配置完整：
+这个步骤失败，一般是 GitHub 不能 SSH 登录服务器。
 
-```text
-DEPLOY_SSH_PRIVATE_KEY
-```
+优先检查：
 
-检查服务器是否启用公钥登录：
+| 检查项 | 怎么处理 |
+| --- | --- |
+| `DEPLOY_SSH_PRIVATE_KEY` 是否存在 | 去 GitHub 仓库 `Settings -> Secrets and variables -> Actions` 看。 |
+| Secret 名字是否写错 | 必须完全等于 `DEPLOY_SSH_PRIVATE_KEY`。 |
+| Secret 内容是否完整 | 重新执行 `pbcopy < /Users/rengang/.ssh/osh_github_actions_deploy_key`，再覆盖保存。 |
+| 服务器端口是否正确 | 当前是 `58753`。 |
+
+### 10.2 npm ci 报 ERESOLVE
+
+当前项目使用 `nuxt@3.6.5`，而 `@umoteam/umo-editor-nuxt@0.1.2` 声明了 `nuxt >=4.0.0` 的 peer dependency。
+
+所以部署脚本使用：
 
 ```bash
-ssh -p 58753 root@43.242.200.25 "sshd -T | grep pubkeyauthentication"
+npm ci --legacy-peer-deps
 ```
 
-预期：
+不要随便改成 `npm ci`，否则 GitHub Actions 会安装依赖失败。
 
-```text
-pubkeyauthentication yes
-```
+### 10.3 前端页面没有更新
 
-### 8.2 前端页面没更新
+先看 Actions 里的 `Upload frontend files` 是否成功。
 
-检查 Actions 日志里的 `Upload frontend files` 是否成功。
-
-检查服务器目录修改时间：
+再看服务器文件时间：
 
 ```bash
 ssh -i /Users/rengang/.ssh/osh_github_actions_deploy_key -p 58753 root@43.242.200.25 \
   "ls -lah /www/nginx/html | head"
 ```
 
-### 8.3 构建失败
+如果文件时间没变，说明上传没有成功。
 
-先本地执行：
+### 10.4 Actions 是黄色圆圈
 
-```bash
-npm ci --legacy-peer-deps
-npm run generate
-```
+黄色圆圈表示还在运行，不是失败。等它变成绿色对勾或红色叉。
 
-如果本地也失败，优先修复前端构建问题，再重新推送 `release/20260328`。
+### 10.5 Actions 是红色叉
 
-
-### 8.4 npm ci 报 ERESOLVE
-
-当前项目使用 `nuxt@3.6.5`，而 `@umoteam/umo-editor-nuxt@0.1.2` 声明了 `nuxt >=4.0.0` 的 peer dependency。为了不在部署流程里强行升级 Nuxt，workflow 使用：
-
-```bash
-npm ci --legacy-peer-deps
-```
-
-如果未来升级到 Nuxt 4，并确认编辑器依赖完全兼容，可以再改回标准的 `npm ci`。
+红色叉表示失败。点进去看哪个步骤红了，再按上面的常见问题排查。
