@@ -77,7 +77,7 @@
             <div class="section-right">
               <template v-if="!editMode">
                 <span v-if="section.freeFlag === 1" class="free-label">免费</span>
-                <span v-else style="color:#ccc;font-size:13px">🔒</span>
+                <span v-else-if="accessLevel !== 'FULL'" style="color:#ccc;font-size:13px">🔒</span>
               </template>
               <template v-else>
                 <span class="action-link primary" @click.stop="goToLesson(section)">编辑内容</span>
@@ -143,7 +143,7 @@ import SectionEditModal from '~/components/Course/edit/SectionEditModal.vue';
 
 const vFocus = { mounted: (el: HTMLElement) => el.focus() };
 
-const props = defineProps<{ courseId: string; editMode: boolean }>();
+const props = defineProps<{ courseId: string; editMode: boolean; accessLevel?: string }>();
 const { message, dialog } = createDiscreteApi(['message', 'dialog']);
 const router = useRouter();
 
@@ -162,6 +162,11 @@ function toggleChapter(id: number) {
 
 // ===== 跳转学习中心（普通用户点击小节） =====
 function goToStudy(section: any) {
+  // TRIAL 模式下点击锁定章节，给提示而不是跳转
+  if (props.accessLevel !== 'FULL' && section.freeFlag !== 1) {
+    message.warning('该章节需要购买课程后才能观看');
+    return;
+  }
   router.push(`/course_detail/${props.courseId}?sectionId=${section.id}`);
 }
 
