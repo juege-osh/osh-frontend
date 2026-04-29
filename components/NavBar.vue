@@ -23,13 +23,7 @@
 
       <div class="user-section">
         <nuxt-link class="login-link" to="/login" v-if="!user">
-          <button class="btn-login">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <circle cx="9" cy="6" r="3" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M3 15c0-3 2.5-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-            <span>登录</span>
-          </button>
+          <button class="btn-login">登录 / 注册</button>
         </nuxt-link>
         
         <n-dropdown v-else :options="userOptions" @select="handleSelect" placement="bottom-end">
@@ -58,7 +52,7 @@ import {
   NAvatar,
   createDiscreteApi,
 } from 'naive-ui';
-import { h } from 'vue';
+import { h, computed, onMounted } from 'vue';
 
 const user = useUser();
 const route = useRoute();
@@ -123,6 +117,11 @@ const SiteIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', f
   h('path', { d: 'M3 9h12M9 3c-2 2-2 8 0 12M9 3c2 2 2 8 0 12', stroke: 'currentColor', 'stroke-width': '1.5' })
 ]);
 
+const PlanIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', fill: 'none' }, [
+  h('rect', { x: '2', y: '3', width: '14', height: '12', rx: '2', stroke: 'currentColor', 'stroke-width': '1.5' }),
+  h('path', { d: 'M6 7h6M6 10h4M9 3v2', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' }),
+]);
+
 const menus = [
   { name: '首页', path: '/', iconComponent: HomeIcon },
   { name: '课程', path: '/course/1', match: [{ name: 'course-page' }], iconComponent: CourseIcon },
@@ -135,7 +134,7 @@ const menus = [
   { name: '实用网站', path: '/usefull/list', match: [{ name: 'usefull-list' }], iconComponent: LinkIcon },
   { name: '工具', path: '/tool', match: [{ name: 'tool' }], iconComponent: ToolIcon },
   { name: '信息差', path: '/info_gap/1', match: [{ name: 'info_gap-page' }], iconComponent: InfoIcon },
-  { name: '内部网站', path: '/site', iconComponent: SiteIcon }
+  { name: '内部网站', path: '/site', iconComponent: SiteIcon },
 ];
 
 function handleOpen(path) {
@@ -210,11 +209,11 @@ const handleSelect = (k)=>{
 .container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 16px;
   height: 60px;
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 8px;
 }
 
 /* Brand Section */
@@ -257,24 +256,26 @@ const handleSelect = (k)=>{
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 0 16px;
+  gap: 1px;
+  padding: 0 8px;
+  overflow: hidden;
 }
 
 .nav-item {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: 4px;
+  padding: 7px 8px;
   border-radius: 6px;
   color: #94a3b8;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-item:hover {
@@ -306,12 +307,16 @@ const handleSelect = (k)=>{
 }
 
 .nav-text {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 /* User Section */
 .user-section {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
 }
 
 .login-link {
@@ -319,24 +324,22 @@ const handleSelect = (k)=>{
 }
 
 .btn-login {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: #6366f1;
-  color: white;
-  border: none;
+  padding: 8px 18px;
+  background: transparent;
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .btn-login:hover {
-  background: #5558e3;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  color: #ffffff;
+  border-color: rgba(148, 163, 184, 0.5);
+  background: rgba(148, 163, 184, 0.08);
 }
 
 .user-btn {

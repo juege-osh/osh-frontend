@@ -23,13 +23,13 @@
 .main-content {
     flex: 1;
     width: 100%;
-    padding: var(--space-xl) 0;
+    padding: 0;
 }
 
 .content-wrapper {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 var(--space-lg);
+    width: 100%;
+    margin: 0;
+    padding: 0;
 }
 
 /* Responsive */
