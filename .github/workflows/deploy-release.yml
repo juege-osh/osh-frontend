@@ -44,19 +44,33 @@ jobs:
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          # 写入私钥，保留原始换行
+          echo "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          # 扫描服务器 host key，重试 3 次
+          for i in 1 2 3; do
+            ssh-keyscan -p "$DEPLOY_PORT" -T 15 "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && break
+            echo "ssh-keyscan attempt $i failed, retrying..."
+            sleep 3
+          done
+          # 验证 known_hosts 非空
+          test -s ~/.ssh/known_hosts || { echo "ERROR: known_hosts is empty, ssh-keyscan failed"; exit 1; }
+          # 验证私钥可用
+          ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null || { echo "ERROR: private key is invalid"; exit 1; }
 
       - name: Ensure remote directory exists
         run: |
-          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" \
+          ssh -i ~/.ssh/deploy_key \
+            -o BatchMode=yes \
+            -o ConnectTimeout=30 \
+            -o StrictHostKeyChecking=no \
+            -p "$DEPLOY_PORT" \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "mkdir -p '$DEPLOY_PATH'"
 
       - name: Upload frontend files
         run: |
           rsync -az --delete --exclude='.user.ini' \
-            -e "ssh -i ~/.ssh/deploy_key -p $DEPLOY_PORT" \
+            -e "ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=30 -o StrictHostKeyChecking=no -p $DEPLOY_PORT" \
             .output/public/ \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
