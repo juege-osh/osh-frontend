@@ -38,6 +38,7 @@
       :key="outlineKey"
       :course-id="String(courseId)"
       :edit-mode="editMode"
+      :access-level="data.accessLevel || 'TRIAL'"
     />
 
     <!-- 编辑基础信息弹窗 -->
