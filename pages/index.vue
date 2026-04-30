@@ -469,7 +469,7 @@ useHead({
 })
 
 // ===== 功能轮播数据 =====
-const carouselItems = [
+const carouselItems = ref([
   {
     emoji: '📝',
     iconBg: 'linear-gradient(135deg, #f59e0b, #ef4444)',
@@ -569,7 +569,7 @@ const carouselItems = [
     btnText: '进入内部站',
     path: '/site',
   },
-]
+])
 
 const carouselIndex = ref(0)
 let carouselTimer = null
@@ -613,7 +613,7 @@ function getCardBg(index) {
 
 function startCarousel() {
   carouselTimer = setInterval(() => {
-    carouselIndex.value = (carouselIndex.value + 1) % carouselItems.length
+    carouselIndex.value = (carouselIndex.value + 1) % carouselItems.value.length
   }, 4000)
 }
 
@@ -626,11 +626,11 @@ function resumeCarousel() {
 }
 
 function nextSlide() {
-  carouselIndex.value = (carouselIndex.value + 1) % carouselItems.length
+  carouselIndex.value = (carouselIndex.value + 1) % carouselItems.value.length
 }
 
 function prevSlide() {
-  carouselIndex.value = (carouselIndex.value - 1 + carouselItems.length) % carouselItems.length
+  carouselIndex.value = (carouselIndex.value - 1 + carouselItems.value.length) % carouselItems.value.length
 }
 
 function goToSlide(i) {
@@ -639,6 +639,14 @@ function goToSlide(i) {
 
 onMounted(() => {
   startCarousel()
+  // 内部网站权限控制：无权限则移除轮播项
+  const permissions = usePermissions()
+  if (permissions.value.innerSite == undefined) {
+    const index = carouselItems.value.findIndex(item => item.path === '/site')
+    if (index !== -1) {
+      carouselItems.value.splice(index, 1)
+    }
+  }
 })
 
 onUnmounted(() => {
