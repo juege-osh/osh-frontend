@@ -24,7 +24,11 @@
       <h4 class="card-title">{{ item.title }}</h4>
       <div class="card-stats">
         <div class="price-area">
-          <span v-if="Number(item.price) > 0" class="price-paid">¥{{ item.price }}</span>
+          <!-- 已购买：显示已购买标签 -->
+          <span v-if="item.buyFlag === 1" class="price-bought">已购买</span>
+          <!-- 未购买付费课：显示价格 -->
+          <span v-else-if="Number(item.price) > 0" class="price-paid">¥{{ item.price }}</span>
+          <!-- 免费课 -->
           <span v-else class="price-free">免费</span>
         </div>
         <div class="stats-right">
@@ -133,6 +137,7 @@ const handleCardClick = () => {
 .card-stats { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 .price-paid { color: #d03050; font-weight: 700; font-size: 14px; }
 .price-free { color: #18a058; font-weight: 700; font-size: 14px; }
+.price-bought { color: #18a058; font-weight: 700; font-size: 14px; }
 .stats-right { display: flex; align-items: center; gap: 8px; }
 .learn-count { font-size: 11px; color: #999; }
 .fav-count { font-size: 11px; color: #999; display: flex; align-items: center; gap: 2px; }

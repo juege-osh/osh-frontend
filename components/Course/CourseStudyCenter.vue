@@ -46,9 +46,16 @@
               ⏱ {{ fmtDuration(currentSection.duration) }}
             </span>
           </div>
-          <button class="btn-qa" @click="showQaPanel = !showQaPanel">
-            💬 {{ showQaPanel ? '收起提问区' : '有疑问？去提问' }}
-          </button>
+          <div class="vi-right">
+            <button class="btn-qa" @click="showQaPanel = !showQaPanel">
+              💬 {{ showQaPanel ? '收起提问区' : '有疑问？去提问' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 文档展示区（有内容时直接展开，无需点击） -->
+        <div v-if="currentSection.textContent" class="doc-panel-wrap">
+          <div class="doc-panel-content" v-html="currentSection.textContent" />
         </div>
 
         <!-- 提问区（折叠式，在视频下方） -->
@@ -397,12 +404,51 @@ onMounted(loadOutline);
 .vi-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .vi-title { font-size: 15px; font-weight: 600; color: #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vi-duration { font-size: 12px; color: #666; flex-shrink: 0; }
+.vi-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .btn-qa {
   background: #ff8c00; color: #fff; border: none;
   border-radius: 5px; padding: 7px 16px; font-size: 13px;
   cursor: pointer; font-weight: 500; flex-shrink: 0; transition: background 0.2s;
 }
 .btn-qa:hover { background: #e07800; }
+
+/* 文档展示面板 */
+.doc-panel-wrap {
+  background: #1a1a1a;
+  border-bottom: 1px solid #2a2a2a;
+  flex-shrink: 0;
+  max-height: 480px;
+  overflow-y: auto;
+}
+.doc-panel-content {
+  padding: 20px 24px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #ccc;
+}
+/* 文档内容样式 */
+.doc-panel-content :deep(h1) { font-size: 20px; font-weight: 700; color: #eee; margin: 16px 0 8px; border-bottom: 1px solid #2a2a2a; padding-bottom: 6px; }
+.doc-panel-content :deep(h2) { font-size: 17px; font-weight: 600; color: #eee; margin: 14px 0 6px; }
+.doc-panel-content :deep(h3) { font-size: 15px; font-weight: 600; color: #18a058; margin: 12px 0 5px; }
+.doc-panel-content :deep(h4) { font-size: 14px; font-weight: 600; color: #ddd; margin: 10px 0 4px; }
+.doc-panel-content :deep(p) { margin: 6px 0; }
+.doc-panel-content :deep(blockquote) { border-left: 3px solid #18a058; margin: 8px 0; padding: 6px 12px; background: #0d2818; color: #aaa; border-radius: 0 4px 4px 0; }
+.doc-panel-content :deep(pre) { background: #111; color: #d4d4d4; padding: 12px 16px; border-radius: 6px; overflow-x: auto; margin: 8px 0; font-family: monospace; font-size: 13px; border: 1px solid #2a2a2a; }
+.doc-panel-content :deep(code) { background: #111; color: #18a058; padding: 1px 5px; border-radius: 3px; font-family: monospace; font-size: 13px; }
+.doc-panel-content :deep(a) { color: #18a058; text-decoration: underline; }
+.doc-panel-content :deep(hr) { border: none; border-top: 1px solid #2a2a2a; margin: 12px 0; }
+.doc-panel-content :deep(ul) { padding-left: 20px; }
+.doc-panel-content :deep(ol) { padding-left: 20px; }
+.doc-panel-content :deep(li) { margin: 3px 0; }
+.doc-panel-content :deep(img) { max-width: 100%; height: auto; border-radius: 4px; margin: 8px 0; display: block; }
+.doc-panel-content :deep(table) { border-collapse: collapse; width: 100%; margin: 8px 0; }
+.doc-panel-content :deep(th), .doc-panel-content :deep(td) { border: 1px solid #2a2a2a; padding: 8px 12px; font-size: 13px; }
+.doc-panel-content :deep(th) { background: #222; color: #eee; font-weight: 600; }
+
+/* 文档面板动画 */
+.doc-slide-enter-active, .doc-slide-leave-active { transition: all 0.25s ease; overflow: hidden; }
+.doc-slide-enter-from, .doc-slide-leave-to { opacity: 0; max-height: 0; }
+.doc-slide-enter-to, .doc-slide-leave-from { opacity: 1; max-height: 480px; }
 
 /* 问题面板包裹 */
 .qa-panel-wrap {

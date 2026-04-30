@@ -211,6 +211,19 @@ async function openEditBasic() {
 
   console.log('[EditBasic] ✅ 最终 resolved tagIds:', tagIds);
 
+  // 补全 tagOptions：把课程已有标签中不在 tagOptions 里的也加进去（防止手动新增的标签找不到 label 显示数字）
+  const existingTagIds = new Set(tagOptions.value.map((o: any) => o.value));
+  for (const t of rawTags) {
+    if (typeof t === 'object' && t !== null) {
+      const id = Number(t.id ?? t.tagId ?? t.value ?? t.tag_id);
+      const name = t.name || t.tagName || t.label || '';
+      if (id && name && !existingTagIds.has(id)) {
+        tagOptions.value.push({ label: name, value: id });
+        existingTagIds.add(id);
+      }
+    }
+  }
+
   editInitData.value = {
     id: props.data?.id,
     title: props.data?.title || '',
@@ -231,6 +244,7 @@ async function openEditBasic() {
     price: props.data?.price || 0,
     tPrice: props.data?.tPrice || props.data?.t_price || 0,
     type: props.data?.type || 'media',
+    resourceType: props.data?.resourceType || 'FREE',
     materials,
   };
   showEditBasic.value = true;
