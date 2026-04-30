@@ -364,6 +364,10 @@ async function handleSave() {
     });
     if (res?.code === 200) {
       message.success('保存成功 ✓');
+      // 保存成功后跳转回课程详情页
+      setTimeout(() => {
+        router.push(`/course_detail/${courseId}`);
+      }, 800);
     } else {
       message.error(res?.msg || '保存失败');
     }
