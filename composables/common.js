@@ -12,6 +12,7 @@ export function useCouponListApi(){
     return useHttpGet("CouponList","/coupon/list")
 }
 
+
 // 通用列表
 export function useListApi(type,query = {}){
     let q = useQueryToString(query)
@@ -20,10 +21,31 @@ export function useListApi(type,query = {}){
     })
 }
 
+
+// 电子书抽离接口，获取电子书列表
+export function useBookListApi(type,query = {}){
+    return useHttpPost(type + "List",'/book/search',{
+        body:{
+            ...query
+        }
+    })
+}
+
 // 查看课程/专栏详情
 export function useReadDetailApi(type,query = {}){
     let q = useQueryToString(query)
     return useHttpGet("readDetail",`/${type}/read${q}`,{
+        lazy:true
+    })
+}
+
+
+
+
+// 电子书详情 本来是 /read， 后端改成了 /getById
+export function usegetByIdDetailApi(type,query = {}){
+    let q = useQueryToString(query)
+    return useHttpGet("readDetail",`/${type}/getById${q}`,{
         lazy:true
     })
 }

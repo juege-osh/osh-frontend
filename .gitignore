@@ -1,1 +1,40 @@
 node_modules/
+*copy.vue
+dist
+node_modules/
+*copy.vue
+dist/
+
+# 缓存与临时文件 (合并自双方)
+.nuxt/
+.output/
+.vscode/
+.idea/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 配置文件
+tsconfig.json
+server/tsconfig.jsonnode_modules/
+*copy.vue
+dist/
+
+# 远程新增的忽略
+.nuxt/
+.output/
+.vscode/
+.idea/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 你的专属忽略（开发期间不提交）
+composables/useHttp.js
+nuxt.config.ts
+
+# 配置文件
+tsconfig.json
+server/tsconfig.json

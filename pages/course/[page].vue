@@ -1,0 +1,392 @@
+<template>
+  <div class="course-container">
+    <CourseFilter
+      v-model:modelValue="queryParams"
+      :tag-options="tagOptions"
+      :type-options="typeOptions"
+      @search="handleSearch"
+    />
+
+    <!-- 多选操作栏：只有有增删权限时才显示这一行，ClientOnly 避免 SSR 权限判断失效 -->
+    <ClientOnly>
+      <div v-if="canCreate || canDelete" class="batch-bar">
+        <div class="batch-left">
+          <button v-if="canDelete" class="btn-select-mode" :class="{ active: selectMode }" @click="toggleSelectMode">
+            {{ selectMode ? '退出选择' : '☑ 选择删除' }}
+          </button>
+          <template v-if="selectedIds.size > 0">
+            <span class="batch-tip">已选 {{ selectedIds.size }} 门课程</span>
+            <button class="btn-batch-cancel" @click="selectedIds.clear(); selectMode = false">取消</button>
+            <button class="btn-batch-delete" @click="handleBatchDelete">🗑 删除选中</button>
+          </template>
+        </div>
+        <button v-if="canCreate" class="btn-create-course" @click="showCreateModal = true">
+          + 新增课程
+        </button>
+      </div>
+    </ClientOnly>
+
+    <div class="list-main-section">
+      <Transition name="fade">
+        <div v-if="pending" class="loading-overlay">
+          <n-spin size="large" />
+        </div>
+      </Transition>
+
+      <ClientOnly>
+        <div class="grid-content-box">
+          <n-grid
+            v-if="displayList && displayList.length > 0"
+            :x-gap="16"
+            :y-gap="16"
+            :cols="5"
+          >
+            <n-gi v-for="item in displayList" :key="item.id">
+              <CourseCard
+                :item="item"
+                :selectable="selectMode"
+                :selected="selectedIds.has(item.id)"
+                @click="handleDetail(item.id)"
+                @favorite="handleDoCollect"
+                @select="toggleSelect"
+              />
+            </n-gi>
+          </n-grid>
+
+          <div v-else-if="!pending" class="empty-placeholder">
+            <n-empty :description="queryParams.isFollowing ? '暂无收藏的课程' : '暂无课程数据'" />
+          </div>
+        </div>
+      </ClientOnly>
+
+      <div class="pagination-footer">
+        <n-pagination
+          v-model:page="queryParams.pageNum"
+          :item-count="totalCount"
+          :page-size="queryParams.pageSize"
+          @update:page="handleRefresh"
+        />
+      </div>
+    </div>
+
+    <CourseEditModal v-model:show="showCreateModal" :tag-options="tagOptions" @success="handleRefresh" />
+  </div>
+</template><script setup>
+import { ref, reactive, computed, onMounted } from 'vue';
+import { createDiscreteApi } from 'naive-ui';
+import CourseEditModal from '~/components/Course/CourseEditModal.vue';
+import CourseFilter from '~/components/Course/CourseFilter.vue';
+import CourseCard from '~/components/Course/CourseCard.vue';
+import { NGrid, NGi, NPagination } from 'naive-ui';
+import { fetchConfig } from '~/composables/useHttp';
+import { apiCollectCourse, apiRemoveCollect, apiGetCoverUrls, getAuthHeaders } from '~/composables/Api/Course/course';
+
+const { hasPermission, permissionList } = usePermission();
+
+// 响应式权限判断，确保 user 数据加载后自动更新
+const canCreate = computed(() => permissionList.value.includes('course:create'));
+const canDelete = computed(() => permissionList.value.includes('course:delete'));
+
+// 1. 核心修复：在查询参数中增加新的两个字段，并给默认排序赋值
+const queryParams = reactive({
+  keyword: '',
+  tags: [],
+  pageNum: 1,
+  pageSize: 10,
+  isFree: null,
+  isFollowing: false,
+  collectionFlag: null, // 「我收藏的」筛选
+  sortType: 'all',
+  resourceType: null,  // 课程资源类型筛选（FREE/VIP/CASH_ONLY 等）
+  courseNo: '',
+});
+
+// 2. 核心接口调用
+// 建议：确保 queryParams 的变化能被 refresh 捕捉
+const {
+  data: resData,
+  pending,
+  refresh,
+} = await useCourseSearchApi(queryParams);
+const courseList = ref([]);
+
+const syncCourseList = (payload) => {
+  if (!payload) {
+    courseList.value = [];
+    return;
+  }
+
+  const actualData = payload?.data?.rows ? payload.data : payload;
+  const rows = actualData?.rows || [];
+  // 保留本地乐观更新的收藏态，避免刷新结果把用户刚点的状态覆盖掉。
+  const prevMap = new Map(courseList.value.map((c) => [c.id, c]));
+  courseList.value = rows.map((item) => {
+    const prev = prevMap.get(item.id);
+    const isFavorite = prev != null ? prev.isFavorite : item.collectionFlag === 1;
+    return {
+      ...item,
+      isFavorite,
+      collectionFlag: isFavorite ? 1 : 0,
+      favoriteCount: prev != null ? prev.favoriteCount : (item.collectionCount || 0),
+      buyCount: item.salesCount || 0,
+      cover: item.cover || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg',
+      ratingScore: item.ratingScore || 5,
+    };
+  });
+};
+
+const loadCourses = async () => {
+  await refresh();
+  syncCourseList(resData.value);
+};
+
+onMounted(() => {
+  loadCourses();
+});
+
+// 4. 映射总条数
+const totalCount = computed(() => {
+  const actualData =
+    resData.value?.data?.total !== undefined
+      ? resData.value.data
+      : resData.value;
+  return actualData?.total || 0;
+});
+
+// 「我收藏的」前端过滤：只显示 collectionFlag=1 的课程
+const displayList = computed(() => {
+  if (!queryParams.isFollowing) return courseList.value;
+  return courseList.value.filter((item) => item.collectionFlag === 1 || item.isFavorite);
+});
+
+// 5. 弹窗控制
+const showCreateModal = ref(false);
+
+// 多选删除
+const selectMode = ref(false);
+const selectedIds = ref(new Set());
+
+function toggleSelectMode() {
+  selectMode.value = !selectMode.value;
+  if (!selectMode.value) selectedIds.value.clear();
+}
+
+function toggleSelect(id) {
+  const s = new Set(selectedIds.value);
+  if (s.has(id)) s.delete(id);
+  else s.add(id);
+  selectedIds.value = s;
+}
+
+async function handleBatchDelete() {
+  const { message, dialog } = createDiscreteApi(['message', 'dialog']);
+  dialog.warning({
+    title: '确认删除',
+    content: `确定删除选中的 ${selectedIds.value.size} 门课程？此操作不可恢复，将同时删除课程的章节、资料等所有数据。`,
+    positiveText: '确认删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const ids = Array.from(selectedIds.value);
+        const res = await $fetch('/course/delete', {
+          method: 'POST',
+          baseURL: fetchConfig.baseURL,
+          headers: getAuthHeaders(),
+          body: { ids },
+        });
+        if (res?.code === 200) {
+          message.success(`已删除 ${ids.length} 门课程`);
+          selectedIds.value.clear();
+          selectMode.value = false;
+          queryParams.pageNum = 1;
+          await loadCourses();
+        } else {
+          message.error(res?.msg || '删除失败');
+        }
+      } catch (e) {
+        message.error('删除失败，请重试');
+      }
+    },
+  });
+}
+
+const typeOptions = [
+  { label: '视频课', value: 'media' },
+  { label: '直播课', value: 'live' },
+  { label: '图文课', value: 'text' },
+];
+
+// 标签列表
+const tagOptions = ref([]);
+const loadTags = async () => {
+  try {
+    const res = await $fetch('/course/tags', {
+      baseURL: fetchConfig.baseURL,
+      headers: {
+        token: process.client ? (localStorage.getItem('token') || localStorage.getItem('Token') || '') : '',
+        appid: 'bd9d01ecc75dbbaaefce',
+      },
+    });
+    const list = res?.code === 200 ? (res.data || []) : (Array.isArray(res) ? res : []);
+    tagOptions.value = list.map(item => ({
+      label: item.name || item.tagName || String(item),
+      value: item.id ?? item,
+    }));
+  } catch (e) {
+    console.error('加载标签失败', e);
+  }
+};
+if (process.client) loadTags();
+
+// --- 逻辑函数 ---
+
+const handleSearch = () => {
+  queryParams.pageNum = 1;
+  loadCourses();
+};
+
+const handleRefresh = (page) => {
+  // 这里的 page 是 n-pagination 传回来的页码
+  queryParams.pageNum = page || 1;
+  loadCourses();
+};
+
+const handleDetail = (id) => {
+  // 确保路径和你的 pages 目录结构一致
+  navigateTo(`/course_detail/${id}`);
+};
+
+const handleDoCollect = async (courseId) => {
+  const { message } = createDiscreteApi(['message']);
+  const course = courseList.value.find((c) => c.id === courseId);
+  if (!course) return;
+
+  const wasCollected = course.isFavorite;
+  // 乐观更新
+  course.isFavorite = !wasCollected;
+  course.collectionFlag = wasCollected ? 0 : 1;
+  course.favoriteCount = wasCollected
+    ? Math.max(0, (course.favoriteCount || 0) - 1)
+    : (course.favoriteCount || 0) + 1;
+  course.collectionCount = course.favoriteCount;
+
+  try {
+    const res = wasCollected
+      ? await apiRemoveCollect(courseId)
+      : await apiCollectCourse(courseId);
+
+    if (res?.code === 200) {
+      message.success(wasCollected ? '已取消收藏' : '收藏成功');
+    } else {
+      // 回滚
+      course.isFavorite = wasCollected;
+      course.collectionFlag = wasCollected ? 1 : 0;
+      course.favoriteCount = wasCollected
+        ? (course.favoriteCount || 0) + 1
+        : Math.max(0, (course.favoriteCount || 0) - 1);
+      course.collectionCount = course.favoriteCount;
+      message.error(res?.msg || '操作失败');
+    }
+  } catch {
+    course.isFavorite = wasCollected;
+    message.error('请求失败');
+  }
+};
+</script>
+<style scoped>
+.course-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* 多选操作栏 */
+.batch-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  min-height: 36px;
+}
+.batch-left { display: flex; align-items: center; gap: 10px; }
+.batch-tip { font-size: 14px; color: #d03050; font-weight: 600; }
+
+/* 统一按钮样式 */
+.btn-select-mode,
+.btn-batch-cancel,
+.btn-batch-delete,
+.btn-create-course {
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-select-mode {
+  background: #fff; color: #666; border: 1px solid #d9d9d9;
+}
+.btn-select-mode:hover, .btn-select-mode.active {
+  border-color: #d03050; color: #d03050; background: #fff2f0;
+}
+.btn-batch-cancel {
+  background: #fff; color: #666; border: 1px solid #d9d9d9;
+}
+.btn-batch-cancel:hover { border-color: #999; color: #333; }
+.btn-batch-delete {
+  background: #d03050; color: #fff; border: 1px solid #d03050;
+}
+.btn-batch-delete:hover { background: #a0203a; border-color: #a0203a; }
+.btn-create-course {
+  background: #fff; color: #18a058; border: 1px solid #18a058;
+}
+.btn-create-course:hover { background: #18a058; color: #fff; }
+
+.list-main-section {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 上方箭头距离控制 */
+.status-bar {
+  padding: 10px 0;
+  font-size: 13px;
+  color: #ff4d4f; /* 对应你截图里的红色字体 */
+}
+
+/* ✨ 解决分页器看不到的核心：限制内容区总高度 */
+.grid-content-box {
+  min-height: 200px;
+  margin-bottom: 12px;
+}
+
+.pagination-footer {
+  display: flex;
+  justify-content: center;
+  padding-bottom: 16px;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

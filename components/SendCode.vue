@@ -1,5 +1,5 @@
 <template>
-    <n-button type="primary" ghost :disabled="time > 0 || !phone" :loading="loading" @click="send">
+    <n-button type="primary" ghost :disabled="time > 0 || !email || !username || !password || !repassword" :loading="loading" @click="send">
         {{ text }}
     </n-button>
 </template>
@@ -9,7 +9,7 @@ import {
     createDiscreteApi
 } from "naive-ui"
 
-const props = defineProps(["phone"])
+const props = defineProps(["email","username","password","repassword"])
 const time = ref(0)
 const timer = ref(null)
 const loading = ref(false)
@@ -21,23 +21,36 @@ const text = computed(()=>{
     if(time.value > 0){
         return `${time.value} s`
     }
-    return "发送验证码"
+    if(!props.email){
+        return "请输入邮箱"
+    }
+    if(!props.username){
+        return "请输入用户名"
+    }
+    if(!props.password){
+        return "请输入密码"
+    }
+    if(!props.repassword){
+        return "请输入确认密码"
+    }
+    return "发送uniqueid到邮箱"
 })
 
 // 发送验证码
 const send = async ()=>{
+
     loading.value = true
 
     let {
         data,
         error
-    } = await useGetCaptchaApi(props.phone)
+    } = await useGetCaptchaApi(props.email,props.username,props.password,props.repassword)
 
     loading.value = false
 
     if(error.value) return
 
-    time.value = 60
+    time.value = 38
     if(timer.value) clearInterval(timer.value)
     timer.value = setInterval(() => {
         time.value--
@@ -46,7 +59,8 @@ const send = async ()=>{
         }
     }, 1000);
 
-    const msg = data.value == "ok" ? "发送成功" : `当前是演示模式，你的验证码是:${data.value}`
+
+    const msg = data.value == "ok" ? "发送成功" : `${data.value}`
     const { message } = createDiscreteApi(["message"])
     message.success(msg)
 }

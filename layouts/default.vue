@@ -1,32 +1,52 @@
 <template>
-    <div class="body">
+    <div class="app-layout">
         <NavBar/>
-        <main class="container">
-            <slot/>
+        <main class="main-content">
+            <div class="content-wrapper">
+                <slot/>
+            </div>
         </main>
         <PageFooter/>
     </div>
 </template>
-<style>
-/* 替换所有 @apply 语法，保留原有 min-width 配置 */
-.body {
+
+<style scoped>
+/* Leantime-inspired Layout */
+.app-layout {
     min-width: 1000px;
-    /* 替换 @apply bg-gray-100 */
-    background-color: #f3f4f6;
-    /* 替换 @apply flex flex-col */
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
-    /* 替换 @apply min-h-screen */
-    min-height: 100vh;
+    background: #f8fafc;
 }
 
-/* 可选：给 container 补充基础样式，保证内容布局合理 */
-.container {
+.main-content {
+    flex: 1;
     width: 100%;
-    max-width: 1280px;
+    padding: var(--space-xl) 0;
+}
+
+.content-wrapper {
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 20px;
-    flex: 1; /* 让主内容区域自动填充剩余高度，footer 固定在底部 */
-    box-sizing: border-box;
+    padding: 0 var(--space-lg);
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .content-wrapper {
+        max-width: 100%;
+        padding: 0 var(--space-md);
+    }
+}
+
+@media (max-width: 768px) {
+    .app-layout {
+        min-width: auto;
+    }
+    
+    .main-content {
+        padding: var(--space-lg) 0;
+    }
 }
 </style>

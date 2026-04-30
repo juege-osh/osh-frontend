@@ -21,9 +21,14 @@
         NButton,
         NScrollbar
     } from "naive-ui"
-    const {
-        data
-    } = await useCouponListApi()
+    
+    // 临时注释优惠券API调用
+    // const {
+    //     data
+    // } = await useCouponListApi()
+    
+    // 使用空数据代替
+    const data = ref([])
 </script>
 
 <style scoped>

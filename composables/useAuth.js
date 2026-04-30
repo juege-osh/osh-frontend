@@ -1,6 +1,38 @@
 import { createDiscreteApi } from "naive-ui";
+           
+const { message } = createDiscreteApi(["message"])
 
 export const useUser = ()=> useState("user",()=>null)
+
+// 权限列表：优先从 localStorage 读，保证刷新后不丢失
+export const usePermissions = () => {
+  const state = useState("permissions", () => {
+    if (process.client) {
+      try {
+        const stored = localStorage.getItem('__permissions__')
+        return stored ? JSON.parse(stored) : []
+      } catch { return [] }
+    }
+    return []
+  })
+  return state
+}
+
+// 保存权限到 localStorage
+export const savePermissions = (list) => {
+  if (process.client) {
+    try {
+      localStorage.setItem('__permissions__', JSON.stringify(list || []))
+    } catch {}
+  }
+}
+
+// 清除权限
+export const clearPermissions = () => {
+  if (process.client) {
+    localStorage.removeItem('__permissions__')
+  }
+}
 
 // 更新用户信息
 export async function useRefreshUserInfo(){
@@ -14,8 +46,11 @@ export async function useRefreshUserInfo(){
         } = await useGetinfoApi()
 
         if(data.value){
-            
-            user.value = data.value
+            // 合并数据，保留 permissionList 等登录时存的字段
+            user.value = {
+                ...user.value,
+                ...data.value,
+            }
         }
     }
 }
@@ -27,12 +62,14 @@ export async function useLogout(){
     user.value = null
     const token = useCookie("token")
     token.value = null
-    const { message } = createDiscreteApi(["message"])
+    // 清除权限缓存
+    clearPermissions()
+    const permissions = usePermissions()
+    permissions.value = []
     message.success("退出登录成功")
-    // 回到首页
-    const route = useRoute()
-    if(route.path != "/"){
-        navigateTo("/",{ replace:true })
+    // 强制跳转首页并刷新，确保内存状态完全清除
+    if (process.client) {
+        window.location.href = '/'
     }
 }
 
@@ -41,19 +78,18 @@ export function useHasAuth(callback = null){
     const route = useRoute()
     const token = useCookie("token")
     const user = useUser()
-    const { message } = createDiscreteApi(["message"])
     // 未登录
     if(!token.value){
         message.error("请先登录")
         return navigateTo("/login?from="+route.fullPath)
     }
 
-    // 未绑定手机号
-    const phone = user.value?.phone
-    if(!phone && route.name != 'bindphone'){
-        message.error("请先绑定手机号")
-        return navigateTo("/bindphone?from="+route.fullPath)
-    }
+    // 未绑定手机号 
+    // const phone = user.value?.phone
+    // if(!phone && route.name != 'bindphone'){
+    //     message.error("请先绑定手机号")
+    //     return navigateTo("/bindphone?from="+route.fullPath)
+    // }
 
     if(callback && typeof callback === "function"){
         callback()
@@ -90,7 +126,7 @@ export function useHandleSupportPost(){
 
             item.issupport = !item.issupport
 
-            const { message } = createDiscreteApi(["message"])
+
             message.success(msg + '成功')
         })
     }

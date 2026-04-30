@@ -1,11 +1,43 @@
 import {
     createDiscreteApi
 } from "naive-ui"
+
+// 自动检测环境并设置API地址
+function getBaseURL() {
+    // 服务端渲染时使用默认地址
+    if (process.server) {
+        return "http://localhost:8081/pc"
+    }
+    
+    // 客户端根据hostname判断
+    const hostname = window.location.hostname
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return "http://localhost:8081/pc"
+    } else {
+        return "http://43.242.200.25:8081/pc"
+    }
+}
+
 export const fetchConfig = {
-    baseURL:"http://demonuxtapi.dishait.cn/pc",
+    baseURL: getBaseURL(),
     headers:{
         appid:"bd9d01ecc75dbbaaefce"
     },
+}
+
+function resolveToken() {
+    // 优先 cookie，兼容已有逻辑
+    let tokenValue = ""
+    try {
+        tokenValue = useCookie("token").value || ""
+    } catch (e) {}
+
+    // 客户端兜底 localStorage
+    if (!tokenValue && process.client) {
+        tokenValue = localStorage.getItem("token") || localStorage.getItem("Token") || ""
+    }
+
+    return tokenValue
 }
 
 function useGetFetchOptions(options = {}){
@@ -16,10 +48,11 @@ function useGetFetchOptions(options = {}){
     options.initialCache = options.initialCache ?? false
     options.lazy = options.lazy ?? false
 
-    // 用户登录，默认传token
-    const token = useCookie("token")
-    if(token.value){
-        options.headers.token = token.value
+    // 用户登录默认带鉴权头，兼容不同后端读取方式
+    const tokenValue = resolveToken()
+    if(tokenValue){
+        options.headers.token = tokenValue
+        options.headers.Authorization = `Bearer ${tokenValue}`
     }
 
     return options
@@ -28,10 +61,10 @@ function useGetFetchOptions(options = {}){
 export async function useHttp(key,url,options = {}){
     options = useGetFetchOptions(options)
     options.key = key
-
     if(options.$){
         const data = ref(null)
         const error = ref(null)
+        console.log(options)
         return await $fetch(url,options).then(res=>{
             data.value = res.data
             return {
