@@ -95,9 +95,7 @@
             <label class="vt-radio"><input type="radio" v-model="form.videoType" value="m3u8" /> M3U8 (HLS)</label>
             <label class="vt-radio"><input type="radio" v-model="form.videoType" value="webm" /> WebM</label>
           </div>
-          <input ref="videoInputRef" type="file" accept="video/*" style="display:none" @
-                 
-                 ="onVideoFileChange" />
+          <input ref="videoInputRef" type="file" accept="video/*" style="display:none" @change="onVideoFileChange" />
         </div>
       </div>
 
