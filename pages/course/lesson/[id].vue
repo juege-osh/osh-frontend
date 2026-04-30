@@ -95,9 +95,7 @@
             <label class="vt-radio"><input type="radio" v-model="form.videoType" value="m3u8" /> M3U8 (HLS)</label>
             <label class="vt-radio"><input type="radio" v-model="form.videoType" value="webm" /> WebM</label>
           </div>
-          <input ref="videoInputRef" type="file" accept="video/*" style="display:none" @
-                 
-                 ="onVideoFileChange" />
+          <input ref="videoInputRef" type="file" accept="video/*" style="display:none" @change="onVideoFileChange" />
         </div>
       </div>
 
@@ -366,6 +364,10 @@ async function handleSave() {
     });
     if (res?.code === 200) {
       message.success('保存成功 ✓');
+      // 保存成功后跳转回课程详情页
+      setTimeout(() => {
+        router.push(`/course_detail/${courseId}`);
+      }, 800);
     } else {
       message.error(res?.msg || '保存失败');
     }
