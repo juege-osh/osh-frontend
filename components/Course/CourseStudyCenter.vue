@@ -27,6 +27,8 @@
             ref="videoEl"
             :src="currentVideoUrl"
             controls
+            controlsList="nodownload"
+            oncontextmenu="return false"
             class="video-el"
             @ended="onVideoEnded"
           />
