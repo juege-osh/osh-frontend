@@ -38,18 +38,22 @@ function detectLegacyFormat(raw = ''): CourseDocFormat {
   const content = raw.trim()
   if (!content) return 'rich'
 
-  const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(content)
-  if (looksLikeHtml) return 'rich'
-
+  // 先检测 Markdown 特征（优先级高于 HTML 检测，避免 Markdown 里的 <img> 被误判为 rich）
   const looksLikeMarkdown =
     /^#{1,6}\s+/m.test(content) ||
     /```[\s\S]*```/m.test(content) ||
     /^\s*[-*+]\s+/m.test(content) ||
     /^\s*\d+\.\s+/m.test(content) ||
     /^\s*>\s+/m.test(content) ||
-    /\[[^\]]+\]\([^)]+\)/.test(content)
+    /\[[^\]]+\]\([^)]+\)/.test(content) ||
+    /^!\[.*?\]\(.*?\)/m.test(content)
 
-  return looksLikeMarkdown ? 'markdown' : 'rich'
+  if (looksLikeMarkdown) return 'markdown'
+
+  const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(content)
+  if (looksLikeHtml) return 'rich'
+
+  return 'rich'
 }
 
 export function parseCourseDoc(raw = '') {

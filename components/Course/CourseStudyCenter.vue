@@ -57,7 +57,7 @@
 
         <!-- 文档展示区（有内容时直接展开，无需点击） -->
         <div v-if="renderedDocContent" class="doc-panel-wrap">
-          <div class="doc-panel-content" v-html="renderedDocContent" />
+          <div ref="docPanelRef" class="doc-panel-content" v-html="renderedDocContent" />
         </div>
 
         <!-- 提问区（折叠式，在视频下方） -->
@@ -147,7 +147,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { fetchConfig } from '~/composables/useHttp';
 import { getAuthHeaders, apiGetMaterialUrl } from '~/composables/Api/Course/course';
@@ -172,7 +172,91 @@ const courseId = computed(() => props.data?.id || route.params.id);
 const currentSection = ref({});
 const currentVideoUrl = ref('');
 const videoEl = ref(null);
-const renderedDocContent = computed(() => renderCourseDoc(currentSection.value?.textContent || ''));
+const docPanelRef = ref(null);
+const renderedDocContent = ref('');
+
+// 渲染文档内容并刷新其中的图片临时 URL（照搬编辑器的 resolveImgUrls 逻辑）
+async function renderAndRefreshDoc(textContent) {
+  if (!textContent) {
+    renderedDocContent.value = '';
+    return;
+  }
+
+  // 先渲染出 HTML 立即显示
+  renderedDocContent.value = renderCourseDoc(textContent);
+
+  // 等 v-html 渲染到真实 DOM 后再操作
+  await nextTick();
+
+  const container = docPanelRef.value;
+  if (!container) return;
+
+  const imgs = container.querySelectorAll('img');
+  if (!imgs.length) return;
+
+  const pathsToResolve = [];
+  imgs.forEach((img) => {
+    const dataSrc = img.dataset.src || '';
+    const src = img.getAttribute('src') || '';
+    // 优先用 data-src（相对路径），其次用 src（相对路径或过期临时 URL），排除 base64
+    const pathToUse = (dataSrc && !dataSrc.startsWith('data:')) ? dataSrc
+      : (!src.startsWith('data:') ? src : '');
+    if (pathToUse && !pathsToResolve.includes(pathToUse)) {
+      pathsToResolve.push(pathToUse);
+    }
+  });
+
+  if (!pathsToResolve.length) return;
+
+  try {
+    const token = useCookie('token');
+    const tokenValue = token.value || (process.client ? localStorage.getItem('token') || '' : '');
+
+    const response = await $fetch('/course/content/image-urls', {
+      method: 'POST',
+      body: { paths: pathsToResolve, minute: 1440 },
+      baseURL: fetchConfig.baseURL,
+      headers: {
+        appid: fetchConfig.headers.appid,
+        token: tokenValue,
+      },
+    });
+
+    if (response?.code === 200 && response?.data) {
+      // 后端返回的 Map key 是 fileKey（相对路径），value 是新临时 URL
+      const urlMap = response.data;
+
+      imgs.forEach((img) => {
+        const dataSrc = img.dataset.src || '';
+        const src = img.getAttribute('src') || '';
+
+        // 先尝试用 data-src 匹配
+        if (dataSrc && !dataSrc.startsWith('data:') && urlMap[dataSrc]) {
+          img.src = urlMap[dataSrc];
+          return;
+        }
+        // 再尝试用 src 匹配（src 本身是相对路径）
+        if (src && !src.startsWith('data:') && !src.startsWith('http') && urlMap[src]) {
+          img.src = urlMap[src];
+          img.dataset.src = src;
+          return;
+        }
+        // 旧数据：src 是过期临时 URL，后端提取了 fileKey 作为 key，src 包含 fileKey
+        if (src.startsWith('http')) {
+          for (const [fileKey, newUrl] of Object.entries(urlMap)) {
+            if (src.includes(fileKey)) {
+              img.src = newUrl;
+              img.dataset.src = fileKey;
+              break;
+            }
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('[CourseStudyCenter] 批量获取图片临时 URL 失败', err);
+  }
+}
 
 // ===== 大纲 =====
 const outline = ref([]);
@@ -252,6 +336,8 @@ function selectSection(section) {
   currentSection.value = section;
   currentVideoUrl.value = section.mediaUrl && !section.mediaUrl.includes('pending')
     ? section.mediaUrl : '';
+  // 渲染文档内容并刷新图片临时 URL
+  renderAndRefreshDoc(section.textContent || '');
 }
 
 // 锁定提示弹窗
