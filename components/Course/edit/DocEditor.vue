@@ -281,8 +281,11 @@ onMounted(() => {
     const val = props.modelValue || '';
     editorRef.value.innerHTML = val;
     localHtml.value = val;
-    // 用 setTimeout 确保浏览器完成 DOM 渲染后再绑定
-    setTimeout(() => bindAllImages(), 100);
+    // 用 setTimeout 确保浏览器完成 DOM 渲染后再绑定，然后把相对路径换成临时 URL
+    setTimeout(async () => {
+      bindAllImages();
+      await resolveImgUrls();
+    }, 100);
   }
 });
 
@@ -293,7 +296,10 @@ watch(() => props.modelValue, (val) => {
   if (document.activeElement !== editorRef.value) {
     editorRef.value.innerHTML = val || '';
     localHtml.value = val || '';
-    setTimeout(() => bindAllImages(), 100);
+    setTimeout(async () => {
+      bindAllImages();
+      await resolveImgUrls();
+    }, 100);
   }
 }, { immediate: false });
 
@@ -319,9 +325,8 @@ function bindAllImages() {
 // 输入时同步
 function onInput() {
   if (!editorRef.value) return;
-  const html = editorRef.value.innerHTML;
-  localHtml.value = html;
-  emit('update:modelValue', html);
+  // syncContent 会序列化相对路径并更新 localHtml
+  syncContent();
   updateStates();
 }
 
@@ -666,12 +671,102 @@ function startResize(e: MouseEvent) {
 }
 
 // 同步编辑器内容到 modelValue
+// 序列化时把 img[data-src]（相对路径）写回 src，确保存入数据库的是相对路径而非临时 URL
 function syncContent() {
   if (!editorRef.value) return;
-  const html = editorRef.value.innerHTML;
-  localHtml.value = html;
+
+  // 克隆 DOM，避免直接修改编辑器内容
+  const clone = editorRef.value.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll<HTMLImageElement>('img[data-src]').forEach((img) => {
+    img.src = img.dataset.src!;
+  });
+
+  const html = clone.innerHTML;
+  localHtml.value = editorRef.value.innerHTML; // 预览区保持临时 URL
   emit('update:modelValue', html);
   updateStates();
+}
+
+// 加载内容后，把 img[src] 中的相对路径批量换成临时 URL 用于显示
+// 同时把相对路径存到 data-src，方便 syncContent 序列化时还原
+// 兼容旧数据：src 是过期临时 URL 的情况，后端会自动提取 fileKey 重新签名
+// 后端返回的 Map key 统一是 fileKey（相对路径）
+async function resolveImgUrls() {
+  if (!editorRef.value) return;
+  const imgs = editorRef.value.querySelectorAll<HTMLImageElement>('img');
+  if (!imgs.length) return;
+
+  // 收集所有需要刷新的路径（相对路径 或 完整临时 URL），排除 base64 占位图
+  const pathsToResolve: string[] = [];
+  imgs.forEach((img) => {
+    const dataSrc = img.dataset.src || '';
+    const src = img.getAttribute('src') || '';
+
+    // 优先用 data-src（相对路径），其次用 src（可能是相对路径或过期临时 URL）
+    const pathToUse = (dataSrc && !dataSrc.startsWith('data:')) ? dataSrc
+      : (!src.startsWith('data:') ? src : '');
+
+    if (pathToUse && !pathsToResolve.includes(pathToUse)) {
+      pathsToResolve.push(pathToUse);
+    }
+  });
+
+  if (!pathsToResolve.length) return;
+
+  try {
+    const token = useCookie('token');
+    const tokenValue = token.value || (process.client ? localStorage.getItem('token') || '' : '');
+
+    const response = await $fetch('/course/content/image-urls', {
+      method: 'POST',
+      body: { paths: pathsToResolve, minute: 1440 },
+      baseURL: fetchConfig.baseURL,
+      headers: {
+        appid: fetchConfig.headers.appid,
+        token: tokenValue,
+      },
+    }) as any;
+
+    if (response?.code === 200 && response?.data) {
+      // 后端返回的 Map key 是 fileKey（相对路径），value 是新临时 URL
+      const urlMap: Record<string, string> = response.data;
+
+      imgs.forEach((img) => {
+        const dataSrc = img.dataset.src || '';
+        const src = img.getAttribute('src') || '';
+
+        // 先尝试用 data-src 匹配（已是相对路径）
+        if (dataSrc && !dataSrc.startsWith('data:') && urlMap[dataSrc]) {
+          img.src = urlMap[dataSrc];
+          return;
+        }
+
+        // 再尝试用 src 匹配（src 本身是相对路径的情况）
+        if (src && !src.startsWith('data:') && !src.startsWith('http') && urlMap[src]) {
+          img.src = urlMap[src];
+          img.dataset.src = src; // 记录相对路径
+          return;
+        }
+
+        // 旧数据：src 是过期临时 URL，后端提取了 fileKey 作为 key
+        // 遍历 urlMap 找到对应的 fileKey（src 包含 fileKey）
+        if (src.startsWith('http')) {
+          for (const [fileKey, newUrl] of Object.entries(urlMap)) {
+            if (src.includes(fileKey)) {
+              img.src = newUrl;
+              img.dataset.src = fileKey; // 补上相对路径，下次保存后数据库就存相对路径了
+              break;
+            }
+          }
+        }
+      });
+
+      // 更新预览区
+      localHtml.value = editorRef.value!.innerHTML;
+    }
+  } catch (err) {
+    console.warn('[DocEditor] 批量获取图片临时 URL 失败', err);
+  }
 }
 
 // 设置字体大小

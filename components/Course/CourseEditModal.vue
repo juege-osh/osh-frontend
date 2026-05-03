@@ -252,9 +252,10 @@ const resourceTypeOptions = [
 ];
 
 // 弹窗打开时加载标签，并回显数据
-watch(() => props.show, (val) => {
+watch(() => props.show, async (val) => {
   if (val) {
-    if (mergedTagOptions.value.length === 0) loadInnerTags();
+    // 先加载标签，确保 options 有数据再回显 tagIds，避免显示数字
+    if (mergedTagOptions.value.length === 0) await loadInnerTags();
     // 有 initData 时回显（编辑模式），否则重置（新增模式）
     if (props.initData) {
       console.log('[CourseEditModal] initData:', JSON.stringify({

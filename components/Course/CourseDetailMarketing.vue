@@ -229,13 +229,12 @@ async function openEditBasic() {
     title: props.data?.title || '',
     desc: props.data?.intro || props.data?.desc || '',
     cover: coverUrl.value || props.data?.cover || '',
-    // coverPath 提取原始相对路径：从签名URL中去掉域名、/osh/前缀和签名参数
     coverPath: (() => {
       const raw = props.data?.cover || '';
-      if (!raw.startsWith('http')) return raw; // 已经是相对路径
+      if (!raw.startsWith('http')) return raw;
       try {
-        const path = new URL(raw).pathname; // /osh/common/image/...
-        return path.replace(/^\/osh\//, ''); // 去掉 /osh/ 前缀
+        const path = new URL(raw).pathname;
+        return path.replace(/^\/osh\//, '');
       } catch { return raw; }
     })(),
     tagIds,
