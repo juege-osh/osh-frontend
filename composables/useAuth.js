@@ -34,6 +34,40 @@ export const clearPermissions = () => {
   }
 }
 
+export const clearAuthState = () => {
+  const user = useUser()
+  user.value = null
+
+  const token = useCookie("token")
+  token.value = null
+
+  if (process.client) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('Token')
+  }
+
+  clearPermissions()
+  const permissions = usePermissions()
+  permissions.value = []
+}
+
+let authExpiredHandling = false
+
+export const handleAuthExpired = (redirectTo = null, tip = "登录已过期，请重新登录") => {
+  if (!process.client) return
+  // 并发请求同时失效时，只处理一次，避免重复弹错和重复跳转。
+  if (authExpiredHandling) return
+  authExpiredHandling = true
+
+  clearAuthState()
+  message.error(tip)
+
+  const currentPath = window.location.pathname + window.location.search
+  const target = redirectTo || `/login?from=${encodeURIComponent(currentPath)}`
+
+  window.location.href = target
+}
+
 // 更新用户信息
 export async function useRefreshUserInfo(){
     const token = useCookie("token")
@@ -58,14 +92,7 @@ export async function useRefreshUserInfo(){
 // 退出登录
 export async function useLogout(){
     await useLogoutApi()
-    const user = useUser()
-    user.value = null
-    const token = useCookie("token")
-    token.value = null
-    // 清除权限缓存
-    clearPermissions()
-    const permissions = usePermissions()
-    permissions.value = []
+    clearAuthState()
     message.success("退出登录成功")
     // 强制跳转首页并刷新，确保内存状态完全清除
     if (process.client) {

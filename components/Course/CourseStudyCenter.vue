@@ -56,8 +56,8 @@
         </div>
 
         <!-- 文档展示区（有内容时直接展开，无需点击） -->
-        <div v-if="currentSection.textContent" class="doc-panel-wrap">
-          <div class="doc-panel-content" v-html="currentSection.textContent" />
+        <div v-if="renderedDocContent" class="doc-panel-wrap">
+          <div class="doc-panel-content" v-html="renderedDocContent" />
         </div>
 
         <!-- 提问区（折叠式，在视频下方） -->
@@ -152,6 +152,7 @@ import { useRoute } from 'vue-router';
 import { fetchConfig } from '~/composables/useHttp';
 import { getAuthHeaders, apiGetMaterialUrl } from '~/composables/Api/Course/course';
 import CourseQuestionPanel from '~/components/Course/CourseQuestionPanel.vue';
+import { renderCourseDoc } from '~/composables/useCourseDoc';
 
 const props = defineProps({
   data: { type: Object, required: true },
@@ -171,6 +172,7 @@ const courseId = computed(() => props.data?.id || route.params.id);
 const currentSection = ref({});
 const currentVideoUrl = ref('');
 const videoEl = ref(null);
+const renderedDocContent = computed(() => renderCourseDoc(currentSection.value?.textContent || ''));
 
 // ===== 大纲 =====
 const outline = ref([]);
