@@ -142,6 +142,11 @@
       </div>
 
       <div class="toolbar-right">
+        <div class="format-tabs">
+          <span class="format-tab" :class="{ active: editFormat === 'rich' }" @click="switchFormat('rich')">富文本</span>
+          <span class="format-tab" :class="{ active: editFormat === 'markdown' }" @click="switchFormat('markdown')">Markdown</span>
+          <span class="format-tab" :class="{ active: editFormat === 'html' }" @click="switchFormat('html')">HTML</span>
+        </div>
         <div class="view-tabs">
           <span class="view-tab" :class="{ active: viewMode === 'edit' }" @click="viewMode = 'edit'">编辑</span>
           <span class="view-tab" :class="{ active: viewMode === 'preview' }" @click="viewMode = 'preview'">预览</span>
@@ -159,7 +164,7 @@
     >
       <!-- 富文本编辑区 -->
       <div
-        v-show="viewMode !== 'preview'"
+        v-show="viewMode !== 'preview' && editFormat === 'rich'"
         ref="editorRef"
         class="rich-editor"
         contenteditable="true"
@@ -170,6 +175,15 @@
         @keyup="updateStates"
         @focus="updateStates"
         @paste="onPaste"
+      />
+
+      <textarea
+        v-show="viewMode !== 'preview' && editFormat !== 'rich'"
+        ref="plainEditorRef"
+        v-model="plainText"
+        class="plain-editor"
+        :placeholder="plainPlaceholder"
+        @input="onPlainInput"
       />
 
       <!-- 图片浮动工具栏 -->
@@ -214,6 +228,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { fetchConfig } from '~/composables/useHttp';
+import { parseCourseDoc, renderCourseDoc, serializeCourseDoc, htmlToMarkdown, type CourseDocFormat } from '~/composables/useCourseDoc';
 
 const props = defineProps<{
   modelValue: string;
@@ -236,6 +251,10 @@ const formatBrushStyles = ref<any>(null);
 const currentColor = ref('#333333');
 const currentBgColor = ref('#ffff00');
 const localHtml = ref('');
+const plainText = ref('');
+const plainEditorRef = ref<HTMLTextAreaElement | null>(null);
+// editFormat 决定实际保存格式，viewMode 只控制编辑区/预览区的展示方式。
+const editFormat = ref<CourseDocFormat>('rich');
 const isComposing = ref(false);
 
 const fontSizes = [
@@ -257,7 +276,17 @@ const states = ref({
 });
 
 const charCount = computed(() => {
-  return editorRef.value?.innerText?.length || 0;
+  if (editFormat.value === 'rich') {
+    return editorRef.value?.innerText?.length || 0;
+  }
+  return plainText.value.length || 0;
+});
+
+const plainPlaceholder = computed(() => {
+  if (editFormat.value === 'markdown') {
+    return '支持 Markdown 语法：# 标题、- 列表、``` 代码块、> 引用、[链接](url)';
+  }
+  return '请输入 HTML 内容，例如 <h2>标题</h2><p>正文</p>';
 });
 
 const currentBlockLabel = computed(() => {
@@ -277,31 +306,39 @@ onMounted(() => {
     selectedImg.value = null;
   });
   // onMounted 时 editorRef 已就绪，直接写入内容并绑定图片
-  if (editorRef.value) {
-    const val = props.modelValue || '';
-    editorRef.value.innerHTML = val;
-    localHtml.value = val;
-    // 用 setTimeout 确保浏览器完成 DOM 渲染后再绑定，然后把相对路径换成临时 URL
-    setTimeout(async () => {
-      bindAllImages();
-      await resolveImgUrls();
-    }, 100);
-  }
+  hydrateFromModel(props.modelValue || '');
 });
 
 // 外部 modelValue 变化时同步（不用 immediate，onMounted 已处理初始值）
 watch(() => props.modelValue, (val) => {
-  if (!editorRef.value) return;
-  // 只在编辑器没有焦点时同步，避免光标跳动
-  if (document.activeElement !== editorRef.value) {
-    editorRef.value.innerHTML = val || '';
-    localHtml.value = val || '';
+  if (editFormat.value === 'rich' && document.activeElement === editorRef.value) return;
+  if (editFormat.value !== 'rich' && document.activeElement === plainEditorRef.value) return;
+  hydrateFromModel(val || '');
+}, { immediate: false });
+
+function hydrateFromModel(val: string) {
+  const parsed = parseCourseDoc(val || '');
+  editFormat.value = parsed.format
+
+  if (parsed.format === 'rich') {
+    if (editorRef.value) {
+      editorRef.value.innerHTML = parsed.content || '';
+    }
+    plainText.value = ''
+    localHtml.value = parsed.content || ''
     setTimeout(async () => {
       bindAllImages();
       await resolveImgUrls();
-    }, 100);
+    }, 100)
+    return
   }
-}, { immediate: false });
+
+  plainText.value = parsed.content || ''
+  if (editorRef.value) {
+    editorRef.value.innerHTML = ''
+  }
+  localHtml.value = renderCourseDoc(val || '')
+}
 
 // 给编辑器内所有图片补上 doc-img class 并绑定缩放
 function bindAllImages() {
@@ -325,9 +362,16 @@ function bindAllImages() {
 // 输入时同步
 function onInput() {
   if (!editorRef.value) return;
-  // syncContent 会序列化相对路径并更新 localHtml
+  localHtml.value = editorRef.value.innerHTML;
   syncContent();
   updateStates();
+}
+
+function onPlainInput() {
+  const value = plainText.value || '';
+  // Markdown/HTML 模式下预览区复用统一渲染逻辑，保证学习端和编辑端表现一致。
+  localHtml.value = editFormat.value === 'markdown' ? renderCourseDoc(`<!--OSH_DOC_FORMAT:MARKDOWN-->\n${value}`) : value;
+  emit('update:modelValue', serializeCourseDoc(value, editFormat.value));
 }
 
 // 更新工具栏状态
@@ -343,14 +387,48 @@ function updateStates() {
 // 执行富文本命令
 function execCmd(cmd: string, value?: string) {
   showHeadingMenu.value = false;
+  if (editFormat.value !== 'rich') return;
   editorRef.value?.focus();
   document.execCommand(cmd, false, value);
   onInput();
   updateStates();
 }
 
+function switchFormat(format: CourseDocFormat) {
+  if (editFormat.value === format) return;
+
+  if (format === 'rich') {
+    // 切回富文本时，把当前 Markdown/HTML 预览结果还原成可继续编辑的 HTML。
+    const html = localHtml.value || (plainText.value ? renderCourseDoc(editFormat.value === 'markdown' ? `<!--OSH_DOC_FORMAT:MARKDOWN-->\n${plainText.value}` : plainText.value) : '')
+    editFormat.value = 'rich'
+    nextTick(() => {
+      if (editorRef.value) {
+        editorRef.value.innerHTML = html
+        bindAllImages()
+      }
+      localHtml.value = html
+      emit('update:modelValue', serializeCourseDoc(html, 'rich'))
+    })
+    return
+  }
+
+  if (editFormat.value === 'rich' && editorRef.value) {
+    // 从富文本切走时先抽出当前内容，避免用户刚编辑的内容丢失。
+    plainText.value = format === 'markdown'
+      ? htmlToMarkdown(editorRef.value.innerHTML || '')
+      : editorRef.value.innerHTML || ''
+  }
+
+  editFormat.value = format
+  localHtml.value = format === 'markdown'
+    ? renderCourseDoc(`<!--OSH_DOC_FORMAT:MARKDOWN-->\n${plainText.value}`)
+    : plainText.value
+  emit('update:modelValue', serializeCourseDoc(plainText.value, format))
+}
+
 // 插入链接
 function insertLink() {
+  if (editFormat.value !== 'rich') return;
   const url = window.prompt('请输入链接地址：', 'https://');
   if (url) {
     const text = window.getSelection()?.toString() || url;
@@ -379,6 +457,7 @@ async function handleImgUpload(e: Event) {
 
 // 拖拽图片到编辑器
 function onEditorDrop(e: DragEvent) {
+  if (editFormat.value !== 'rich') return;
   const file = e.dataTransfer?.files?.[0];
   if (file && file.type.startsWith('image/')) {
     insertFileAsImage(file);
@@ -393,6 +472,7 @@ function onEditorDrop(e: DragEvent) {
 
 // 粘贴处理：识别图片链接自动转为图片
 function onPaste(e: ClipboardEvent) {
+  if (editFormat.value !== 'rich') return;
   // 粘贴图片文件
   const items = e.clipboardData?.items;
   if (items) {
@@ -416,6 +496,7 @@ function onPaste(e: ClipboardEvent) {
 
 // 将 File 对象上传到服务器，获取临时访问链接后插入图片
 async function insertFileAsImage(file: File) {
+  if (editFormat.value !== 'rich') return;
   // 先插入占位图（loading 状态），避免用户等待时无反馈
   const editor = editorRef.value;
   if (!editor) return;
@@ -500,6 +581,7 @@ async function insertFileAsImage(file: File) {
 
 // 核心：直接操作 DOM 插入 img 节点，不走 execCmd
 function insertImgNode(src: string) {
+  if (editFormat.value !== 'rich') return;
   const editor = editorRef.value;
   if (!editor) return;
   editor.focus();
@@ -673,7 +755,7 @@ function startResize(e: MouseEvent) {
 // 同步编辑器内容到 modelValue
 // 序列化时把 img[data-src]（相对路径）写回 src，确保存入数据库的是相对路径而非临时 URL
 function syncContent() {
-  if (!editorRef.value) return;
+  if (editFormat.value !== 'rich' || !editorRef.value) return;
 
   // 克隆 DOM，避免直接修改编辑器内容
   const clone = editorRef.value.cloneNode(true) as HTMLElement;
@@ -683,12 +765,11 @@ function syncContent() {
 
   const html = clone.innerHTML;
   localHtml.value = editorRef.value.innerHTML; // 预览区保持临时 URL
-  emit('update:modelValue', html);
+  emit('update:modelValue', serializeCourseDoc(html, 'rich'));
   updateStates();
 }
 
 // 加载内容后，把 img[src] 中的相对路径批量换成临时 URL 用于显示
-// 同时把相对路径存到 data-src，方便 syncContent 序列化时还原
 // 兼容旧数据：src 是过期临时 URL 的情况，后端会自动提取 fileKey 重新签名
 // 后端返回的 Map key 统一是 fileKey（相对路径）
 async function resolveImgUrls() {
@@ -696,16 +777,13 @@ async function resolveImgUrls() {
   const imgs = editorRef.value.querySelectorAll<HTMLImageElement>('img');
   if (!imgs.length) return;
 
-  // 收集所有需要刷新的路径（相对路径 或 完整临时 URL），排除 base64 占位图
   const pathsToResolve: string[] = [];
   imgs.forEach((img) => {
     const dataSrc = img.dataset.src || '';
     const src = img.getAttribute('src') || '';
-
-    // 优先用 data-src（相对路径），其次用 src（可能是相对路径或过期临时 URL）
+    // 优先用 data-src（相对路径），其次用 src（可能是相对路径或过期临时 URL），排除 base64
     const pathToUse = (dataSrc && !dataSrc.startsWith('data:')) ? dataSrc
       : (!src.startsWith('data:') ? src : '');
-
     if (pathToUse && !pathsToResolve.includes(pathToUse)) {
       pathsToResolve.push(pathToUse);
     }
@@ -740,28 +818,24 @@ async function resolveImgUrls() {
           img.src = urlMap[dataSrc];
           return;
         }
-
         // 再尝试用 src 匹配（src 本身是相对路径的情况）
         if (src && !src.startsWith('data:') && !src.startsWith('http') && urlMap[src]) {
           img.src = urlMap[src];
-          img.dataset.src = src; // 记录相对路径
+          img.dataset.src = src;
           return;
         }
-
-        // 旧数据：src 是过期临时 URL，后端提取了 fileKey 作为 key
-        // 遍历 urlMap 找到对应的 fileKey（src 包含 fileKey）
+        // 旧数据：src 是过期临时 URL，后端提取了 fileKey 作为 key，src 包含 fileKey
         if (src.startsWith('http')) {
           for (const [fileKey, newUrl] of Object.entries(urlMap)) {
             if (src.includes(fileKey)) {
               img.src = newUrl;
-              img.dataset.src = fileKey; // 补上相对路径，下次保存后数据库就存相对路径了
+              img.dataset.src = fileKey;
               break;
             }
           }
         }
       });
 
-      // 更新预览区
       localHtml.value = editorRef.value!.innerHTML;
     }
   } catch (err) {
@@ -769,8 +843,9 @@ async function resolveImgUrls() {
   }
 }
 
-// 设置字体大小
+
 function setFontSize(size: string) {
+  if (editFormat.value !== 'rich') return;
   showFontSizeMenu.value = false;
   editorRef.value?.focus();
   document.execCommand('fontSize', false, size);
@@ -781,6 +856,7 @@ function setFontSize(size: string) {
 
 // 插入表格
 function insertTable(rows: number, cols: number) {
+  if (editFormat.value !== 'rich') return;
   showTableMenu.value = false;
   tableHoverRow.value = 0;
   tableHoverCol.value = 0;
@@ -805,6 +881,7 @@ function insertTable(rows: number, cols: number) {
 
 // 插入代码块
 function insertCodeBlock() {
+  if (editFormat.value !== 'rich') return;
   const sel = window.getSelection();
   const selectedText = sel?.toString() || '';
   const code = selectedText || '// 在此输入代码';
@@ -813,11 +890,13 @@ function insertCodeBlock() {
 
 // 插入分割线
 function insertHr() {
+  if (editFormat.value !== 'rich') return;
   execCmd('insertHTML', '<hr/>');
 }
 
 // 格式刷
 function toggleFormatBrush() {
+  if (editFormat.value !== 'rich') return;
   if (!formatBrushActive.value) {
     // 记录当前选中文字的样式
     formatBrushStyles.value = {
@@ -849,6 +928,7 @@ function applyFormatBrush() {
 
 // 键盘快捷键
 function onKeydown(e: KeyboardEvent) {
+  if (editFormat.value !== 'rich') return;
   const ctrl = e.ctrlKey || e.metaKey;
 
   // 格式刷：选中文字后松开鼠标触发
@@ -901,6 +981,25 @@ function onKeydown(e: KeyboardEvent) {
 }
 .toolbar-left { display: flex; align-items: center; gap: 1px; flex-wrap: wrap; }
 .toolbar-right { display: flex; align-items: center; }
+.format-tabs { display: flex; margin-right: 8px; }
+.format-tab {
+  padding: 3px 9px;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  margin-left: -1px;
+  transition: all 0.12s;
+}
+.format-tab:first-child { border-radius: 3px 0 0 3px; }
+.format-tab:last-child { border-radius: 0 3px 3px 0; }
+.format-tab.active {
+  background: #f0fdf4;
+  color: #18a058;
+  border-color: #8fd1a8;
+  z-index: 1;
+}
 .tb-divider { width: 1px; height: 16px; background: #e0e0e0; margin: 0 4px; }
 
 .tb-btn {
@@ -992,6 +1091,20 @@ function onKeydown(e: KeyboardEvent) {
   flex: 1; overflow-y: auto; padding: 16px 20px;
   font-size: 14px; line-height: 1.8; color: #333; outline: none;
   min-height: 100px;
+}
+.plain-editor {
+  flex: 1;
+  width: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow-y: auto;
+  padding: 16px 20px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #333;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  background: #fff;
 }
 .rich-editor:empty::before {
   content: attr(data-placeholder);
