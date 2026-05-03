@@ -97,6 +97,7 @@ jobs:
 
       - name: Notify on success
         if: success() && (github.event_name != 'push' || github.ref_name == steps.latest_release.outputs.latest_branch)
+        continue-on-error: true
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ env.MAIL_SERVER }}
@@ -121,6 +122,7 @@ jobs:
 
       - name: Notify on failure
         if: failure() && (github.event_name != 'push' || github.ref_name == steps.latest_release.outputs.latest_branch)
+        continue-on-error: true
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ env.MAIL_SERVER }}
