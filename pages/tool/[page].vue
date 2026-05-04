@@ -230,14 +230,6 @@ const handleRefresh = (page) => {
 };
 
 const handleOpenTool = (item) => {
-  if (item.accessType === 1 && item.routePath) {
-    navigateTo(item.routePath);
-    return;
-  }
-  if (item.accessType === 2 && item.iframeUrl) {
-    window.open(item.iframeUrl, '_blank');
-    return;
-  }
   navigateTo(`/tool/detail/${item.id}`);
 };
 

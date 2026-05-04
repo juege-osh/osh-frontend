@@ -38,6 +38,14 @@ export async function apiToolTags() {
   });
 }
 
+export async function apiToolDetail(id) {
+  return $fetch(`/tool/detail/${id}`, {
+    method: 'GET',
+    baseURL,
+    headers: getToolAuthHeaders(),
+  });
+}
+
 export async function apiSaveTool(body) {
   return $fetch('/tool/save', {
     method: 'POST',

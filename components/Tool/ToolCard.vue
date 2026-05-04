@@ -6,6 +6,7 @@
 
     <div class="card-cover">
       <img :src="item.logoUrl || fallbackLogo" />
+      <span class="resource-badge" :class="resourceBadgeClass">{{ resourceTypeLabel }}</span>
       <div class="fav-btn" @click.stop="handleFavorite">
         <n-icon size="18" :color="item.isFavorite ? '#d03050' : 'rgba(255,255,255,0.88)'">
           <Heart v-if="item.isFavorite" />
@@ -55,6 +56,23 @@ const emit = defineEmits(['click', 'favorite', 'select']);
 
 const fallbackLogo = 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg';
 const visibleTags = computed(() => (props.item.tags || []).slice(0, 2));
+const resourceTypeMap = {
+  FREE: '免费',
+  CASH_ONLY: '付费',
+  CASH_POINT: '现金+积分',
+  VIP: 'VIP',
+  SMALL_CLASS: '小班',
+  INTERNAL: '内部',
+};
+const resourceTypeLabel = computed(() => resourceTypeMap[props.item.resourceType] || props.item.resourceType || '免费');
+const resourceBadgeClass = computed(() => {
+  const type = props.item.resourceType || 'FREE';
+  return {
+    free: type === 'FREE',
+    paid: type === 'CASH_ONLY' || type === 'CASH_POINT',
+    vip: type === 'VIP' || type === 'SMALL_CLASS' || type === 'INTERNAL',
+  };
+});
 const ratingWidth = computed(() => {
   const good = Number(props.item.goodCount || 0);
   const bad = Number(props.item.badCount || 0);
@@ -119,6 +137,29 @@ const handleCardClick = () => {
   overflow: hidden;
 }
 .card-cover img { width: 100%; height: 100%; object-fit: cover; }
+.resource-badge {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  max-width: calc(100% - 20px);
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #10213a;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.14);
+}
+.resource-badge.free { background: rgba(187, 247, 208, 0.92); }
+.resource-badge.paid { background: rgba(254, 240, 138, 0.94); }
+.resource-badge.vip {
+  color: #f8fafc;
+  background: rgba(79, 70, 229, 0.86);
+}
 .fav-btn {
   position: absolute; top: 8px; right: 8px;
   width: 28px; height: 28px;
