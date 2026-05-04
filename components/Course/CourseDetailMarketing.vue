@@ -38,6 +38,7 @@
       :key="outlineKey"
       :course-id="String(courseId)"
       :edit-mode="editMode"
+      :access-level="data.accessLevel || 'TRIAL'"
     />
 
     <!-- 编辑基础信息弹窗 -->
@@ -210,18 +211,30 @@ async function openEditBasic() {
 
   console.log('[EditBasic] ✅ 最终 resolved tagIds:', tagIds);
 
+  // 补全 tagOptions：把课程已有标签中不在 tagOptions 里的也加进去（防止手动新增的标签找不到 label 显示数字）
+  const existingTagIds = new Set(tagOptions.value.map((o: any) => o.value));
+  for (const t of rawTags) {
+    if (typeof t === 'object' && t !== null) {
+      const id = Number(t.id ?? t.tagId ?? t.value ?? t.tag_id);
+      const name = t.name || t.tagName || t.label || '';
+      if (id && name && !existingTagIds.has(id)) {
+        tagOptions.value.push({ label: name, value: id });
+        existingTagIds.add(id);
+      }
+    }
+  }
+
   editInitData.value = {
     id: props.data?.id,
     title: props.data?.title || '',
     desc: props.data?.intro || props.data?.desc || '',
     cover: coverUrl.value || props.data?.cover || '',
-    // coverPath 提取原始相对路径：从签名URL中去掉域名、/osh/前缀和签名参数
     coverPath: (() => {
       const raw = props.data?.cover || '';
-      if (!raw.startsWith('http')) return raw; // 已经是相对路径
+      if (!raw.startsWith('http')) return raw;
       try {
-        const path = new URL(raw).pathname; // /osh/common/image/...
-        return path.replace(/^\/osh\//, ''); // 去掉 /osh/ 前缀
+        const path = new URL(raw).pathname;
+        return path.replace(/^\/osh\//, '');
       } catch { return raw; }
     })(),
     tagIds,
@@ -230,6 +243,7 @@ async function openEditBasic() {
     price: props.data?.price || 0,
     tPrice: props.data?.tPrice || props.data?.t_price || 0,
     type: props.data?.type || 'media',
+    resourceType: props.data?.resourceType || 'FREE',
     materials,
   };
   showEditBasic.value = true;

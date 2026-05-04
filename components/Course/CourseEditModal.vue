@@ -37,9 +37,12 @@
       </n-form-item>
 
       <n-form-item label="服务周期 (月)">
-        <n-input
+        <n-input-number
           v-model:value="formValue.service_period"
-          placeholder="服务周期 (月)"
+          :min="0"
+          :max="120"
+          placeholder="服务周期（月），如 12"
+          style="width: 200px"
         />
       </n-form-item>
 
@@ -56,13 +59,23 @@
           v-model:value="formValue.tagIds"
           multiple
           filterable
-          placeholder="请选择课程标签"
+          tag
+          placeholder="选择已有标签或输入新标签后回车"
           :options="mergedTagOptions"
         />
       </n-form-item>
 
-      <n-form-item label="课程价格">
-        <n-space>
+      <n-form-item label="资源类型">
+        <n-select
+          :key="selectedResourceType"
+          v-model:value="selectedResourceType"
+          :options="resourceTypeOptions"
+          placeholder="请选择资源类型"
+          style="width: 200px"
+        />
+      </n-form-item>
+
+      <n-form-item label="课程价格">        <n-space>
           <n-input-number
             v-model:value="formValue.price"
             :min="0"
@@ -111,7 +124,7 @@
                     <n-button
                       text
                       type="error"
-                      @click="materialList.splice(i, 1)"
+                      @click="handleDeleteMaterial(i, f)"
                       >删除</n-button
                     >
                   </n-space>
@@ -122,7 +135,10 @@
         </div>
         <div class="upload-box">
           <div class="mat-upload-btn" @click="triggerMat" :class="{ loading: matUploading }">
-            {{ matUploading ? '上传中...' : '⬆ 上传资料' }}
+            {{ matUploading ? `上传中 ${matUploadProgress}%` : '⬆ 上传资料' }}
+          </div>
+          <div v-if="matUploading" class="mat-progress-wrap">
+            <div class="mat-progress-bar" :style="{ width: matUploadProgress + '%' }" />
           </div>
           <input ref="matInputRef" type="file" accept=".zip,.rar,.7z" style="display:none" @change="handleMatChange" />
         </div>
@@ -161,10 +177,11 @@ const props = defineProps({
 });
 const emit = defineEmits(['update:show', 'success']);
 
-const { message } = createDiscreteApi(['message']);
+const { message, dialog } = createDiscreteApi(['message', 'dialog']);
 const loading = ref(false);
 const coverUploading = ref(false);
 const matUploading = ref(false);
+const matUploadProgress = ref(0);
 const coverInputRef = ref(null);
 const matInputRef = ref(null);
 
@@ -194,10 +211,51 @@ const loadInnerTags = async () => {
   }
 };
 
+// resourceType 数字→英文 兼容映射（数据库历史数据可能存了数字）
+const resourceTypeNumMap = { 0: 'FREE', 1: 'FREE', 2: 'CASH_ONLY', 3: 'CASH_POINT', 4: 'VIP', 5: 'SMALL_CLASS', 6: 'INTERNAL' };
+const normalizeResourceType = (val) => {
+  if (!val && val !== 0) return 'FREE';
+  const str = String(val).trim();
+  // 已经是英文枚举值，直接返回
+  if (['FREE', 'CASH_ONLY', 'CASH_POINT', 'VIP', 'SMALL_CLASS', 'INTERNAL'].includes(str)) return str;
+  // 数字映射
+  const num = Number(str);
+  if (!isNaN(num) && resourceTypeNumMap[num] !== undefined) return resourceTypeNumMap[num];
+  return 'FREE';
+};
+
+const formValue = reactive({
+  id: null,
+  title: '',
+  desc: '',
+  tagIds: [],
+  cover: '',
+  coverPath: '',
+  service_period: 12,
+  service_content: '源码+文档+网站答疑+专属交流微信群',
+  price: 0,
+  tPrice: 0,
+  type: 'media',
+});
+
+// 资源类型单独用 ref，避免 reactive 对象属性在 n-select 中响应式失效
+const selectedResourceType = ref('FREE');
+
+// 资源类型选项（与后端 CourseResourceEnum 保持一致）
+const resourceTypeOptions = [
+  { label: '免费', value: 'FREE' },
+  { label: '仅现金', value: 'CASH_ONLY' },
+  { label: '现金&积分', value: 'CASH_POINT' },
+  { label: 'VIP免费', value: 'VIP' },
+  { label: '小班免费', value: 'SMALL_CLASS' },
+  { label: '内部免费', value: 'INTERNAL' },
+];
+
 // 弹窗打开时加载标签，并回显数据
-watch(() => props.show, (val) => {
+watch(() => props.show, async (val) => {
   if (val) {
-    if (mergedTagOptions.value.length === 0) loadInnerTags();
+    // 先加载标签，确保 options 有数据再回显 tagIds，避免显示数字
+    if (mergedTagOptions.value.length === 0) await loadInnerTags();
     // 有 initData 时回显（编辑模式），否则重置（新增模式）
     if (props.initData) {
       console.log('[CourseEditModal] initData:', JSON.stringify({
@@ -216,6 +274,7 @@ watch(() => props.show, (val) => {
       formValue.price = props.initData.price || 0;
       formValue.tPrice = props.initData.tPrice || 0;
       formValue.type = props.initData.type || 'media';
+      selectedResourceType.value = normalizeResourceType(props.initData.resourceType);
       // 回显资料列表
       materialList.value = Array.isArray(props.initData.materials) ? [...props.initData.materials] : [];
     } else {
@@ -231,23 +290,10 @@ watch(() => props.show, (val) => {
       formValue.price = 0;
       formValue.tPrice = 0;
       formValue.type = 'media';
+      selectedResourceType.value = 'FREE';
       materialList.value = [];
     }
   }
-});
-
-const formValue = reactive({
-  id: null,  // 有值时为编辑，null 时为新增
-  title: '',
-  desc: '',
-  tagIds: [],
-  cover: '',
-  coverPath: '',
-  service_period: 12,
-  service_content: '源码+文档+网站答疑+专属交流微信群',
-  price: 0,
-  tPrice: 0,
-  type: 'media',
 });
 
 const materialList = ref([]);
@@ -302,8 +348,15 @@ const handleMatChange = async (e) => {
     return;
   }
   matUploading.value = true;
+  matUploadProgress.value = 0;
+  // 模拟上传进度（定时器推进到90%，完成后跳100%）
+  const progressTimer = setInterval(() => {
+    if (matUploadProgress.value < 90) matUploadProgress.value += 10;
+  }, 200);
   try {
     const res = await apiUploadMaterial(file, file.name);
+    clearInterval(progressTimer);
+    matUploadProgress.value = 100;
     console.log('[上传资料] res.data:', res?.data);
     if (res?.code === 200) {
       materialList.value.push({
@@ -319,8 +372,8 @@ const handleMatChange = async (e) => {
     } else {
       message.error(res?.msg || '上传失败');
     }
-  } catch { message.error('上传失败'); }
-  finally { matUploading.value = false; e.target.value = ''; }
+  } catch { clearInterval(progressTimer); message.error('上传失败'); }
+  finally { matUploading.value = false; matUploadProgress.value = 0; e.target.value = ''; }
 };
 
 /** 下载资料（获取临时URL，触发浏览器下载弹窗） */
@@ -341,33 +394,80 @@ const handleDownload = async (mat) => {
   } catch { download(mat.url); }
 };
 
+/** 删除资料（带确认提示） */
+const handleDeleteMaterial = (index, mat) => {
+  dialog.warning({
+    title: '确认删除',
+    content: `确定删除资料「${mat.name || '该资料'}」？删除后不可恢复。`,
+    positiveText: '确认删除',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      materialList.value.splice(index, 1);
+      message.success('资料已删除');
+    },
+  });
+};
+
 /** 保存并发布 */
 const handlePublish = async () => {
-  if (!formValue.title) { message.error('请输入课程标题'); return; }
+  // 新增时完整校验，编辑时只校验标题
+  if (!formValue.title?.trim()) { message.error('请输入课程标题'); return; }
+
+  if (!formValue.id) {
+    // 新增模式：校验必填字段
+    if (!formValue.cover && !formValue.coverPath) { message.error('请上传课程封面图片'); return; }
+    if (!formValue.desc?.trim()) { message.error('请输入课程介绍'); return; }
+    if (formValue.price === null || formValue.price === undefined) { message.error('请输入课程价格'); return; }
+    if (formValue.tPrice === null || formValue.tPrice === undefined) { message.error('请输入课程原价'); return; }
+    if (!formValue.type) { message.error('请选择课程类型'); return; }
+    if (!selectedResourceType.value) { message.error('请选择资源类型'); return; }
+  }
+
   loading.value = true;
+
+  // 根据 resourceType 自动推导 freeType
+  const resourceType = selectedResourceType.value || 'FREE';
+  const freeType = resourceType === 'FREE' ? 0 : 3;
+
   try {
     const submitData = {
-      id: formValue.id || undefined,  // 有 id 时后端走更新
+      id: formValue.id || undefined,
       title: formValue.title,
-      desc: formValue.desc,
       intro: formValue.desc,
       cover: String(formValue.coverPath || formValue.cover || ''),
-      // 后端 bindCourseTags 接收标签名称列表，需要把 id 转回 name
       tags: formValue.tagIds.map((id) => {
-        const opt = mergedTagOptions.value.find((o) => o.value === id);
+        // 手动输入的标签：值是字符串本身；已有标签：值是数字id，需要转回name
+        if (typeof id === 'string' && isNaN(Number(id))) return id; // 手动输入的新标签
+        const opt = mergedTagOptions.value.find((o) => o.value === id || String(o.value) === String(id));
         return opt ? opt.label : String(id);
       }),
-      service_period: formValue.service_period,
-      service_content: formValue.service_content,
+      servicePeriod: formValue.service_period,
+      serviceContent: formValue.service_content,
       price: formValue.price,
       tPrice: formValue.tPrice,
       type: formValue.type,
-      material: materialList.value[0] ? {  // 后端只接受单个对象
-        fileName: materialList.value[0].name,
-        fileUrl: materialList.value[0].relativePath || materialList.value[0].url, // 优先用相对路径
-        fileType: materialList.value[0].type,
-        fileSize: materialList.value[0].fileSize,
-      } : null,
+      resourceType,
+      freeType,
+      material: materialList.value[0] ? (() => {
+        const mat = materialList.value[0];
+        // 已有资料（有 id）：传 materialId 告知后端保留，不重建
+        if (mat.id) {
+          return {
+            materialId: mat.id,
+            fileName: mat.name,
+            fileUrl: mat.relativePath || 'keep',  // 后端有 materialId 时不会用此字段
+            fileType: mat.type || 'zip',
+            fileSize: mat.fileSize || 1,
+          };
+        }
+        // 新上传的资料：传 relativePath（相对路径），不传签名 URL
+        return {
+          fileName: mat.name,
+          fileUrl: mat.relativePath || mat.url,
+          fileType: mat.type,
+          fileSize: mat.fileSize,
+        };
+      })() : null,
     };
     const { data, error } = await useAddCourseApi(submitData);
     if (!error.value && data.value) {
@@ -420,4 +520,18 @@ const handlePublish = async () => {
   transition: all 0.2s;
 }
 .mat-upload-btn:hover, .mat-upload-btn.loading { border-color: #18a058; color: #18a058; }
+
+.mat-progress-wrap {
+  margin-top: 8px;
+  height: 4px;
+  background: #f0f0f0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.mat-progress-bar {
+  height: 100%;
+  background: #18a058;
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
 </style>

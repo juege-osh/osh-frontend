@@ -1,6 +1,7 @@
 import {
     createDiscreteApi
 } from "naive-ui"
+import { handleAuthExpired } from "~/composables/useAuth"
 
 // 自动检测环境并设置API地址
 function getBaseURL() {
@@ -23,6 +24,20 @@ export const fetchConfig = {
     headers:{
         appid:"bd9d01ecc75dbbaaefce"
     },
+}
+
+function isAuthExpiredError(err){
+    const payload = err?.data || {}
+    const msg = payload?.msg || payload?.data || err?.message || ''
+    const code = payload?.code
+
+    return code === 401
+        || code === 3100
+        || code === 3101
+        || /认证失败/.test(msg)
+        || /登录已过期/.test(msg)
+        || /用户未登录/.test(msg)
+        || /请先登录/.test(msg)
 }
 
 function resolveToken() {
@@ -73,6 +88,14 @@ export async function useHttp(key,url,options = {}){
             }
         }).catch(err=>{
             const msg = err?.data?.data
+            if(process.client && isAuthExpiredError(err)){
+                // 统一走登录失效处理，避免业务页只看到“保存失败”。
+                handleAuthExpired(null, err?.data?.msg || msg || '登录已过期，请重新登录')
+                return {
+                    data,
+                    error
+                }
+            }
             if(process.client){
                 const { message } = createDiscreteApi(["message"])
                 message.error(msg || '服务端错误')
@@ -95,7 +118,13 @@ export async function useHttp(key,url,options = {}){
 
     // 客户端错误处理
     if(process.client && res.error.value){
-        const msg = res.error.value?.data?.data
+        const errData = res.error.value?.data
+        const msg = errData?.data || errData?.msg
+        if(isAuthExpiredError(res.error.value)){
+            // useFetch 和 $fetch 两条链路都要兜住，否则页面行为会不一致。
+            handleAuthExpired(null, errData?.msg || msg || '登录已过期，请重新登录')
+            return res
+        }
         if(!options.lazy){
             const { message } = createDiscreteApi(["message"])
             message.error(msg || '服务端错误')
