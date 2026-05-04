@@ -66,6 +66,12 @@ export async function useLogout(){
     clearPermissions()
     const permissions = usePermissions()
     permissions.value = []
+    // 断开 WebSocket 连接并清空通知
+    if (process.client) {
+        const { disconnect, clearAll } = useWebSocket()
+        disconnect()
+        clearAll()
+    }
     message.success("退出登录成功")
     // 强制跳转首页并刷新，确保内存状态完全清除
     if (process.client) {

@@ -31,20 +31,25 @@
             <span>登录</span>
           </button>
         </nuxt-link>
-        
-        <n-dropdown v-else :options="userOptions" @select="handleSelect" placement="bottom-end">
-          <button class="user-btn">
-            <n-avatar  
-              round
-              size="small"
-              :src="user?.avatar || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'"
-            />
-            <span class="user-name">{{ user?.username || '用户' }}</span>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="chevron">
-              <path d="M4 6l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-        </n-dropdown>
+
+        <template v-else>
+          <!-- 消息通知铃铛 -->
+          <NotificationBell />
+
+          <n-dropdown :options="userOptions" @select="handleSelect" placement="bottom-end">
+            <button class="user-btn">
+              <n-avatar  
+                round
+                size="small"
+                :src="user?.avatar || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'"
+              />
+              <span class="user-name">{{ user?.username || '用户' }}</span>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="chevron">
+                <path d="M4 6l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </n-dropdown>
+        </template>
       </div>
     </div>
   </div>
@@ -58,10 +63,31 @@ import {
   NAvatar,
   createDiscreteApi,
 } from 'naive-ui';
-import { h } from 'vue';
+import { h, watch, onMounted, onBeforeUnmount } from 'vue';
 
 const user = useUser();
 const route = useRoute();
+
+// ── WebSocket：用户登录后自动连接，退出后断开 ──────────────────────────────
+const { connect, disconnect } = useWebSocket();
+
+onMounted(() => {
+  if (user.value) connect();
+});
+
+onBeforeUnmount(() => {
+  // 组件卸载时不主动断开（保持全局连接），退出登录时由 useLogout 断开
+});
+
+watch(user, (newVal, oldVal) => {
+  if (newVal && !oldVal) {
+    // 刚登录
+    connect();
+  } else if (!newVal && oldVal) {
+    // 刚退出
+    disconnect();
+  }
+});
 
 // SVG Icon Components
 const HomeIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', fill: 'none' }, [
@@ -322,6 +348,9 @@ const handleSelect = (k)=>{
 /* User Section */
 .user-section {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .login-link {
