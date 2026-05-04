@@ -152,7 +152,7 @@ import { useRoute } from 'vue-router';
 import { fetchConfig } from '~/composables/useHttp';
 import { getAuthHeaders, apiGetMaterialUrl } from '~/composables/Api/Course/course';
 import CourseQuestionPanel from '~/components/Course/CourseQuestionPanel.vue';
-import { renderCourseDoc } from '~/composables/useCourseDoc';
+import { renderCourseDoc, extractCourseDocImageSrcs, replaceCourseDocImageSrc } from '~/composables/useCourseDoc';
 
 const props = defineProps({
   data: { type: Object, required: true },
@@ -172,7 +172,40 @@ const courseId = computed(() => props.data?.id || route.params.id);
 const currentSection = ref({});
 const currentVideoUrl = ref('');
 const videoEl = ref(null);
-const renderedDocContent = computed(() => renderCourseDoc(currentSection.value?.textContent || ''));
+const rawRenderedDocContent = computed(() => renderCourseDoc(currentSection.value?.textContent || ''));
+const renderedDocContent = ref('');
+
+async function hydrateDocImages(html) {
+  if (!html) return '';
+
+  const srcs = extractCourseDocImageSrcs(html);
+  const relativePaths = [...new Set(srcs.filter((src) => src && !src.startsWith('http') && !src.startsWith('data:')))];
+  if (relativePaths.length === 0) return html;
+
+  try {
+    const response = await $fetch('/course/content/image-urls', {
+      method: 'POST',
+      body: { paths: relativePaths, minute: 1440 },
+      baseURL: fetchConfig.baseURL,
+      headers: getAuthHeaders(),
+    });
+
+    if (response?.code !== 200 || !response?.data) return html;
+
+    let nextHtml = html;
+    Object.entries(response.data).forEach(([path, previewUrl]) => {
+      nextHtml = replaceCourseDocImageSrc(nextHtml, path, String(previewUrl));
+    });
+    return nextHtml;
+  } catch (err) {
+    console.warn('[CourseStudyCenter] hydrate doc images failed', err);
+    return html;
+  }
+}
+
+watch(rawRenderedDocContent, async (html) => {
+  renderedDocContent.value = await hydrateDocImages(html || '');
+}, { immediate: true });
 
 // ===== 大纲 =====
 const outline = ref([]);
