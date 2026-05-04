@@ -38,3 +38,6 @@ nuxt.config.ts
 # 配置文件
 tsconfig.json
 server/tsconfig.json
+
+#
+AGENTS.md
