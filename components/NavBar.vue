@@ -133,7 +133,7 @@ const menus = ref([
   { name: '拼团', path: '/list/group/1', match: [{ name: 'list-type-page', params: { type: 'group' } }], iconComponent: GroupIcon },
   { name: '开源项目', path: '/openproject/list', match: [{ name: 'openproject-list' }], iconComponent: ProjectIcon },
   { name: '实用网站', path: '/usefull/list', match: [{ name: 'usefull-list' }], iconComponent: LinkIcon },
-  { name: '工具', path: '/tool', match: [{ name: 'tool' }], iconComponent: ToolIcon },
+  { name: '工具', path: '/tool/1', match: [{ name: 'tool-page' }], iconComponent: ToolIcon },
   { name: '信息差', path: '/info_gap/1', match: [{ name: 'info_gap-page' }], iconComponent: InfoIcon },
   { name: '内部网站', path: '/site', iconComponent: SiteIcon }
 ]);
