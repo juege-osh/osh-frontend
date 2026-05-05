@@ -246,9 +246,9 @@ const resourceTypeOptions = [
   { label: '免费', value: 'FREE' },
   { label: '仅现金', value: 'CASH_ONLY' },
   { label: '现金&积分', value: 'CASH_POINT' },
-  { label: 'VIP免费', value: 'VIP' },
-  { label: '小班免费', value: 'SMALL_CLASS' },
-  { label: '内部免费', value: 'INTERNAL' },
+  { label: 'VIP专属', value: 'VIP' },
+  { label: '小班专属', value: 'SMALL_CLASS' },
+  { label: '内部专属', value: 'INTERNAL' },
 ];
 
 // 弹窗打开时加载标签，并回显数据

@@ -89,7 +89,7 @@ onMounted(async () => {
   if (props.data?.id) {
     // 只加载封面，资料在编辑时按需加载
     try {
-      const res: any = await apiGetCoverUrls([props.data.id], 30);
+      const res: any = await apiGetCoverUrls([props.data.id], 1440);
       if (res?.code === 200 && res.data?.[props.data.id]) {
         coverUrl.value = res.data[props.data.id];
       }
