@@ -72,6 +72,24 @@ export function renderCourseDoc(raw = '') {
   return parsed.content
 }
 
+const IMG_SRC_REGEX = /<img\b[^>]*?\bsrc=(["'])(.*?)\1[^>]*>/gi
+
+export function extractCourseDocImageSrcs(html = '') {
+  if (!html) return []
+  IMG_SRC_REGEX.lastIndex = 0
+  const srcs: string[] = []
+  let match: RegExpExecArray | null
+  while ((match = IMG_SRC_REGEX.exec(html)) !== null) {
+    if (match[2]) srcs.push(match[2])
+  }
+  return srcs
+}
+
+export function replaceCourseDocImageSrc(html = '', oldSrc = '', newSrc = '') {
+  if (!html || !oldSrc || !newSrc || oldSrc === newSrc) return html
+  return html.split(oldSrc).join(newSrc)
+}
+
 export function serializeCourseDoc(content = '', format: CourseDocFormat = 'rich') {
   const value = content || ''
 

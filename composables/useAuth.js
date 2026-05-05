@@ -92,7 +92,14 @@ export async function useRefreshUserInfo(){
 // 退出登录
 export async function useLogout(){
     await useLogoutApi()
-    clearAuthState()
+    const user = useUser()
+    user.value = null
+    const token = useCookie("token")
+    token.value = null
+    // 清除权限缓存
+    clearPermissions()
+    const permissions = usePermissions()
+    permissions.value = []
     message.success("退出登录成功")
     // 强制跳转首页并刷新，确保内存状态完全清除
     if (process.client) {
