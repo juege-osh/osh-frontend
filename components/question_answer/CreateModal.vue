@@ -163,9 +163,9 @@ const formValue = reactive({
 });
 
 const resourceTypeOptions = [
-  { label: '课程', value: '课程' },
-  { label: '网站', value: '网站' },
-  { label: '电子书', value: '电子书' },
+  { label: '课程', value: 'course' },
+  { label: '网站', value: 'website' },
+  { label: '电子书', value: 'book' },
 ];
 
 // 表单验证

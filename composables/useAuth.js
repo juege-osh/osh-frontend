@@ -31,6 +31,7 @@ export const savePermissions = (list) => {
 export const clearPermissions = () => {
   if (process.client) {
     localStorage.removeItem('__permissions__')
+    localStorage.removeItem('__user_role__')
   }
 }
 

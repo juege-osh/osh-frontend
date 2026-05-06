@@ -67,6 +67,7 @@
               <CourseQuestionPanel
                 :section-id="currentSection.id"
                 :course-id="courseId"
+                :access-level="accessLevel"
               />
             </ClientOnly>
           </div>
