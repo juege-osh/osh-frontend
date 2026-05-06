@@ -149,6 +149,11 @@ const SiteIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', f
   h('path', { d: 'M3 9h12M9 3c-2 2-2 8 0 12M9 3c2 2 2 8 0 12', stroke: 'currentColor', 'stroke-width': '1.5' })
 ]);
 
+const PlanIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', fill: 'none' }, [
+  h('rect', { x: '2', y: '3', width: '14', height: '12', rx: '2', stroke: 'currentColor', 'stroke-width': '1.5' }),
+  h('path', { d: 'M6 7h6M6 10h4M9 3v2', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' }),
+]);
+
 const menus = ref([
   { name: '首页', path: '/', iconComponent: HomeIcon },
   { name: '课程', path: '/course/1', match: [{ name: 'course-page' }], iconComponent: CourseIcon },
