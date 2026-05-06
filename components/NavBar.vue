@@ -123,7 +123,7 @@ const SiteIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', f
   h('path', { d: 'M3 9h12M9 3c-2 2-2 8 0 12M9 3c2 2 2 8 0 12', stroke: 'currentColor', 'stroke-width': '1.5' })
 ]);
 
-const menus = [
+const menus = ref([
   { name: '首页', path: '/', iconComponent: HomeIcon },
   { name: '课程', path: '/course/1', match: [{ name: 'course-page' }], iconComponent: CourseIcon },
   { name: '电子书', path: '/list/book/1', match: [{ name: 'list-type-page', params: { type: 'book' } }], iconComponent: BookIcon },
@@ -136,7 +136,17 @@ const menus = [
   { name: '工具', path: '/tool', match: [{ name: 'tool' }], iconComponent: ToolIcon },
   { name: '信息差', path: '/info_gap/1', match: [{ name: 'info_gap-page' }], iconComponent: InfoIcon },
   { name: '内部网站', path: '/site', iconComponent: SiteIcon }
-];
+]);
+
+onMounted(() => {
+  const permissions = usePermissions()
+  if (permissions.value.innerSite == undefined) {
+    const index = menus.value.findIndex(item => item.path === '/site');
+    if (index !== -1) {
+      menus.value.splice(index, 1);
+    }
+  }
+});
 
 function handleOpen(path) {
   navigateTo(path);

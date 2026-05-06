@@ -93,11 +93,11 @@ onMounted(async () => {
 
 const sortOptions = [
   { label: '全部', value: 'all' },
-  { label: '免费', value: 'free' },
-  { label: '小班专属', value: 'small_exclusive' },
-  { label: '付费', value: 'paid' },
-  { label: 'VIP', value: 'vip' },
-  { label: '内部', value: 'internal' },
+  { label: '免费', value: 'FREE' },
+  { label: '小班专属', value: 'SAMLL_CLASS' },
+  { label: '付费', value: 'CASH_ONLY' },
+  { label: 'VIP', value: 'VIP' },
+  { label: '内部', value: 'INTERNAL' },
 ];
 
 const toggleFollowing = () => {
@@ -106,12 +106,14 @@ const toggleFollowing = () => {
 };
 
 const handleSearch = () => {
-  props.modelValue.isFree = props.modelValue.sortType === 'free' ? true : null;
+  props.modelValue.isFree = props.modelValue.sortType === 'FREE' ? true : null;
   // 全部时清空类型筛选
   if (props.modelValue.sortType === 'all') {
     props.modelValue.isFree = null;
     props.modelValue.courseType = null;
   }
+  // 将 sortType 映射为后端 resourceType（all 时传 null）
+  props.modelValue.resourceType = props.modelValue.sortType === 'all' ? null : props.modelValue.sortType;
   props.modelValue.collectionFlag = props.modelValue.isFollowing ? 1 : null;
   emit('update:modelValue', props.modelValue);
   emit('search');

@@ -46,41 +46,29 @@
               ⏱ {{ fmtDuration(currentSection.duration) }}
             </span>
           </div>
-          <button class="btn-qa" @click="showQaPanel = !showQaPanel">
-            💬 {{ showQaPanel ? '收起问题' : '有疑问？' }}
-          </button>
+          <div class="vi-right">
+            <button class="btn-qa" @click="showQaPanel = !showQaPanel">
+              💬 {{ showQaPanel ? '收起提问区' : '有疑问？去提问' }}
+            </button>
+          </div>
         </div>
 
-        <!-- 问题面板（折叠式，在视频下方） -->
-        <div v-if="showQaPanel" class="qa-panel">
-          <div class="qa-panel-header">
-            <span class="qa-panel-title">问题列表</span>
-            <button class="qa-close" @click="showQaPanel = false">✕</button>
-          </div>
-          <div v-if="qaLoading" class="qa-loading">加载中...</div>
-          <div v-else-if="qaList.length === 0" class="qa-empty">暂无问题，快来提第一个问题吧</div>
-          <div v-else class="qa-list">
-            <div
-              v-for="q in qaList"
-              :key="q.id"
-              class="qa-item"
-              @click="toggleQa(q.id)"
-            >
-              <div class="qa-item-header">
-                <span class="qa-q-icon">Q</span>
-                <span class="qa-q-text">{{ q.content }}</span>
-                <span class="qa-toggle">{{ expandedQa.has(q.id) ? '▲' : '▼' }}</span>
-              </div>
-              <div v-if="expandedQa.has(q.id)" class="qa-answers">
-                <div v-if="!q.answers || q.answers.length === 0" class="qa-no-answer">暂无回答</div>
-                <div v-for="a in q.answers" :key="a.id" class="qa-answer-item">
-                  <span class="qa-a-icon">A</span>
-                  <span class="qa-a-text">{{ a.content }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        <!-- 文档展示区（有内容时直接展开，无需点击） -->
+        <div v-if="currentSection.textContent" class="doc-panel-wrap">
+          <div class="doc-panel-content" v-html="currentSection.textContent" />
         </div>
+
+        <!-- 提问区（折叠式，在视频下方） -->
+        <Transition name="qa-slide">
+          <div v-if="showQaPanel && currentSection.id" class="qa-panel-wrap">
+            <ClientOnly>
+              <CourseQuestionPanel
+                :section-id="currentSection.id"
+                :course-id="courseId"
+              />
+            </ClientOnly>
+          </div>
+        </Transition>
       </div>
 
       <!-- 右侧：章节目录 + 资料 -->
@@ -128,13 +116,17 @@
                   v-for="(section, si) in chapter.children || []"
                   :key="section.id"
                   class="section-item"
-                  :class="{ active: currentSection.id === section.id }"
+                  :class="{
+                    active: currentSection.id === section.id,
+                    locked: accessLevel === 'TRIAL' && section.freeFlag !== 1
+                  }"
                   @click="selectSection(section)"
                 >
                   <span class="sec-num">{{ ci + 1 }}.{{ si + 1 }}</span>
                   <span class="sec-dot" :class="section.sectionType === 'video' ? 'dot-video' : 'dot-text'" />
                   <span class="sec-name">{{ section.title }}</span>
                   <span v-if="section.freeFlag === 1" class="sec-free">免费</span>
+                  <span v-else-if="accessLevel === 'TRIAL'" class="sec-lock">🔒</span>
                   <span v-if="currentSection.id === section.id" class="sec-playing">▶</span>
                 </div>
               </div>
@@ -143,6 +135,12 @@
         </div>
       </div>
     </div>
+    <!-- 锁定提示 -->
+    <Transition name="fade">
+      <div v-if="lockedTipVisible" class="locked-toast">
+        🔒 该章节需要购买课程后才能观看
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -151,9 +149,17 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { fetchConfig } from '~/composables/useHttp';
 import { getAuthHeaders, apiGetMaterialUrl } from '~/composables/Api/Course/course';
+import CourseQuestionPanel from '~/components/Course/CourseQuestionPanel.vue';
 
 const props = defineProps({
   data: { type: Object, required: true },
+});
+
+// accessLevel: FULL=全部可看，TRIAL=仅试看，从课程详情数据里取
+const accessLevel = computed(() => {
+  const level = props.data?.accessLevel || 'TRIAL';
+  console.log('[CourseStudyCenter] accessLevel:', level, '| data.accessLevel:', props.data?.accessLevel);
+  return level;
 });
 
 const route = useRoute();
@@ -208,29 +214,47 @@ async function loadOutline() {
         }
       }
 
-      // 其次：选第一个有视频的小节
+      // 其次：选第一个有视频的小节（FULL 模式选任意，TRIAL 模式优先选免费节）
       for (const ch of outline.value) {
         for (const s of ch.children || []) {
           if (s.mediaUrl && !s.mediaUrl.includes('pending')) {
+            if (accessLevel.value === 'FULL' || s.freeFlag === 1) {
+              selectSection(s);
+              return;
+            }
+          }
+        }
+      }
+      // 最后：选第一个免费小节（TRIAL 模式兜底）
+      for (const ch of outline.value) {
+        for (const s of ch.children || []) {
+          if (accessLevel.value === 'FULL' || s.freeFlag === 1) {
             selectSection(s);
             return;
           }
         }
       }
-      // 最后：选第一个小节
-      const first = outline.value[0]?.children?.[0];
-      if (first) selectSection(first);
     }
   } catch {}
   finally { outlineLoading.value = false; }
 }
 
 function selectSection(section) {
+  // TRIAL 模式下，非免费章节拦截
+  if (accessLevel.value === 'TRIAL' && section.freeFlag !== 1) {
+    showLockedTip();
+    return;
+  }
   currentSection.value = section;
   currentVideoUrl.value = section.mediaUrl && !section.mediaUrl.includes('pending')
     ? section.mediaUrl : '';
-  // 加载该小节的问题
-  loadQa(section.id);
+}
+
+// 锁定提示弹窗
+const lockedTipVisible = ref(false);
+function showLockedTip() {
+  lockedTipVisible.value = true;
+  setTimeout(() => { lockedTipVisible.value = false; }, 3000);
 }
 
 function onVideoEnded() {
@@ -276,34 +300,8 @@ async function downloadMat(mat) {
   } catch { window.open(mat.fileUrl || mat.url, '_blank'); }
 }
 
-// ===== 问题列表 =====
+// ===== 问题面板开关 =====
 const showQaPanel = ref(false);
-const qaLoading = ref(false);
-const qaList = ref([]);
-const expandedQa = ref(new Set());
-
-async function loadQa(sectionId) {
-  if (!sectionId) return;
-  qaLoading.value = true;
-  qaList.value = [];
-  try {
-    const res = await $fetch(`/course/section/questions/${courseId.value}/${sectionId}`, {
-      baseURL: fetchConfig.baseURL,
-      headers: getAuthHeaders(),
-    });
-    if (res?.code === 200) {
-      qaList.value = res.data?.rows || res.data?.list || res.data || [];
-    }
-  } catch {}
-  finally { qaLoading.value = false; }
-}
-
-function toggleQa(id) {
-  const s = new Set(expandedQa.value);
-  if (s.has(id)) s.delete(id);
-  else s.add(id);
-  expandedQa.value = s;
-}
 
 // ===== 工具 =====
 function fmtDuration(sec) {
@@ -406,6 +404,7 @@ onMounted(loadOutline);
 .vi-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .vi-title { font-size: 15px; font-weight: 600; color: #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vi-duration { font-size: 12px; color: #666; flex-shrink: 0; }
+.vi-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .btn-qa {
   background: #ff8c00; color: #fff; border: none;
   border-radius: 5px; padding: 7px 16px; font-size: 13px;
@@ -413,56 +412,68 @@ onMounted(loadOutline);
 }
 .btn-qa:hover { background: #e07800; }
 
-/* 问题面板 */
-.qa-panel {
+/* 文档展示面板 */
+.doc-panel-wrap {
   background: #1a1a1a;
   border-bottom: 1px solid #2a2a2a;
-  max-height: 320px;
+  flex-shrink: 0;
+  max-height: 480px;
   overflow-y: auto;
 }
-.qa-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 20px;
-  border-bottom: 1px solid #2a2a2a;
-  position: sticky;
-  top: 0;
-  background: #1a1a1a;
-  z-index: 1;
+.doc-panel-content {
+  padding: 20px 24px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #ccc;
 }
-.qa-panel-title { font-size: 14px; font-weight: 600; color: #eee; }
-.qa-close { background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 0 4px; }
-.qa-close:hover { color: #ccc; }
-.qa-loading, .qa-empty { padding: 20px; font-size: 13px; color: #666; text-align: center; }
-.qa-list { padding: 8px 0; }
-.qa-item { border-bottom: 1px solid #222; }
-.qa-item:last-child { border-bottom: none; }
-.qa-item-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 20px;
-  cursor: pointer;
-  transition: background 0.15s;
+/* 文档内容样式 */
+.doc-panel-content :deep(h1) { font-size: 20px; font-weight: 700; color: #eee; margin: 16px 0 8px; border-bottom: 1px solid #2a2a2a; padding-bottom: 6px; }
+.doc-panel-content :deep(h2) { font-size: 17px; font-weight: 600; color: #eee; margin: 14px 0 6px; }
+.doc-panel-content :deep(h3) { font-size: 15px; font-weight: 600; color: #18a058; margin: 12px 0 5px; }
+.doc-panel-content :deep(h4) { font-size: 14px; font-weight: 600; color: #ddd; margin: 10px 0 4px; }
+.doc-panel-content :deep(p) { margin: 6px 0; }
+.doc-panel-content :deep(blockquote) { border-left: 3px solid #18a058; margin: 8px 0; padding: 6px 12px; background: #0d2818; color: #aaa; border-radius: 0 4px 4px 0; }
+.doc-panel-content :deep(pre) { background: #111; color: #d4d4d4; padding: 12px 16px; border-radius: 6px; overflow-x: auto; margin: 8px 0; font-family: monospace; font-size: 13px; border: 1px solid #2a2a2a; }
+.doc-panel-content :deep(code) { background: #111; color: #18a058; padding: 1px 5px; border-radius: 3px; font-family: monospace; font-size: 13px; }
+.doc-panel-content :deep(a) { color: #18a058; text-decoration: underline; }
+.doc-panel-content :deep(hr) { border: none; border-top: 1px solid #2a2a2a; margin: 12px 0; }
+.doc-panel-content :deep(ul) { padding-left: 20px; }
+.doc-panel-content :deep(ol) { padding-left: 20px; }
+.doc-panel-content :deep(li) { margin: 3px 0; }
+.doc-panel-content :deep(img) { max-width: 100%; height: auto; border-radius: 4px; margin: 8px 0; display: block; }
+.doc-panel-content :deep(table) { border-collapse: collapse; width: 100%; margin: 8px 0; }
+.doc-panel-content :deep(th), .doc-panel-content :deep(td) { border: 1px solid #2a2a2a; padding: 8px 12px; font-size: 13px; }
+.doc-panel-content :deep(th) { background: #222; color: #eee; font-weight: 600; }
+
+/* 文档面板动画 */
+.doc-slide-enter-active, .doc-slide-leave-active { transition: all 0.25s ease; overflow: hidden; }
+.doc-slide-enter-from, .doc-slide-leave-to { opacity: 0; max-height: 0; }
+.doc-slide-enter-to, .doc-slide-leave-from { opacity: 1; max-height: 480px; }
+
+/* 问题面板包裹 */
+.qa-panel-wrap {
+  padding: 0 20px 20px;
+  background: #0f0f0f;
 }
-.qa-item-header:hover { background: #222; }
-.qa-q-icon {
-  width: 20px; height: 20px; border-radius: 50%;
-  background: #ff8c00; color: #fff; font-size: 11px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+
+/* 提问区展开动画 */
+.qa-slide-enter-active,
+.qa-slide-leave-active {
+  transition: all 0.28s ease;
+  overflow: hidden;
 }
-.qa-q-text { flex: 1; font-size: 13px; color: #ccc; line-height: 1.5; }
-.qa-toggle { font-size: 10px; color: #555; flex-shrink: 0; margin-top: 4px; }
-.qa-answers { padding: 0 20px 12px 50px; }
-.qa-no-answer { font-size: 12px; color: #555; }
-.qa-answer-item { display: flex; gap: 8px; margin-top: 8px; }
-.qa-a-icon {
-  width: 20px; height: 20px; border-radius: 50%;
-  background: #18a058; color: #fff; font-size: 11px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+.qa-slide-enter-from,
+.qa-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+  max-height: 0;
 }
-.qa-a-text { font-size: 13px; color: #aaa; line-height: 1.5; }
+.qa-slide-enter-to,
+.qa-slide-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 1000px;
+}
 
 /* ===== 右侧侧边栏 ===== */
 .sidebar-col {
@@ -561,6 +572,11 @@ onMounted(loadOutline);
   transition: background 0.15s;
   border-bottom: 1px solid #1a1a1a;
 }
+.section-item.locked {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.section-item.locked:hover { background: transparent; }
 .section-item:last-child { border-bottom: none; }
 .section-item:hover { background: #1a1a1a; }
 .section-item.active { background: #0d2818; border-left: 3px solid #18a058; padding-left: 21px; }
@@ -571,5 +587,22 @@ onMounted(loadOutline);
 .sec-name { flex: 1; font-size: 13px; color: #bbb; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .section-item.active .sec-name { color: #18a058; font-weight: 500; }
 .sec-free { font-size: 10px; color: #18a058; border: 1px solid #18a058; padding: 1px 4px; border-radius: 3px; flex-shrink: 0; }
+.sec-lock { font-size: 12px; flex-shrink: 0; opacity: 0.6; }
 .sec-playing { font-size: 10px; color: #18a058; flex-shrink: 0; }
+
+/* 锁定提示 toast */
+.locked-toast {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 9999;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
 </style>

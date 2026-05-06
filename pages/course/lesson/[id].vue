@@ -125,7 +125,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { createDiscreteApi } from 'naive-ui';
+import { createDiscreteApi, NSwitch } from 'naive-ui';
 import { fetchConfig } from '~/composables/useHttp';
 import { getAuthHeaders, apiUploadVideo } from '~/composables/Api/Course/course';
 import DocEditor from '~/components/Course/edit/DocEditor.vue';
@@ -364,6 +364,10 @@ async function handleSave() {
     });
     if (res?.code === 200) {
       message.success('保存成功 ✓');
+      // 保存成功后跳转回课程详情页
+      setTimeout(() => {
+        router.push(`/course_detail/${courseId}`);
+      }, 800);
     } else {
       message.error(res?.msg || '保存失败');
     }

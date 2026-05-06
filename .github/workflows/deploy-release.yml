@@ -1,0 +1,121 @@
+name: Deploy Frontend Release
+
+on:
+  push:
+    branches:
+      - release/20260328
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend-release
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '18'
+  DEPLOY_HOST: ${{ secrets.DEPLOY_HOST || vars.DEPLOY_HOST || '43.242.200.25' }}
+  DEPLOY_USER: ${{ secrets.DEPLOY_USER || vars.DEPLOY_USER || 'root' }}
+  DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || vars.DEPLOY_PORT || '58753' }}
+  DEPLOY_PATH: ${{ vars.FRONTEND_DEPLOY_PATH || '/www/nginx/html' }}
+  NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL || vars.NOTIFY_EMAIL || '1402272093@qq.com' }}
+  MAIL_USERNAME: ${{ secrets.MAIL_USERNAME || vars.MAIL_USERNAME || '1402272093@qq.com' }}
+  MAIL_SERVER: ${{ vars.MAIL_SERVER || 'smtp.qq.com' }}
+  MAIL_PORT: ${{ vars.MAIL_PORT || '465' }}
+
+jobs:
+  deploy:
+    name: Build and deploy frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build static site
+        run: npm run generate
+
+      - name: Validate build output
+        run: test -d .output/public && test -f .output/public/index.html
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          for i in 1 2 3; do
+            ssh-keyscan -p "$DEPLOY_PORT" -T 15 "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && break
+            echo "ssh-keyscan attempt $i failed, retrying..."
+            sleep 3
+          done
+          test -s ~/.ssh/known_hosts || { echo "ERROR: known_hosts is empty"; exit 1; }
+
+      - name: Ensure remote directory exists
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "mkdir -p '$DEPLOY_PATH'"
+
+      - name: Upload frontend files
+        run: |
+          rsync -az --delete --exclude='.user.ini' \
+            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
+            .output/public/ \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+
+      - name: Notify on success
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ env.MAIL_SERVER }}
+          server_port: ${{ env.MAIL_PORT }}
+          secure: true
+          username: ${{ env.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "✅ 前端部署成功 - ${{ github.repository }}"
+          to: ${{ env.NOTIFY_EMAIL }}
+          from: GitHub Actions <${{ env.MAIL_USERNAME }}>
+          body: |
+            前端部署成功！
+
+            仓库：${{ github.repository }}
+            分支：${{ github.ref_name }}
+            提交：${{ github.sha }}
+            提交信息：${{ github.event.head_commit.message }}
+            触发人：${{ github.actor }}
+            时间：${{ github.event.head_commit.timestamp }}
+
+            访问地址：http://43.242.200.25/
+
+      - name: Notify on failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ env.MAIL_SERVER }}
+          server_port: ${{ env.MAIL_PORT }}
+          secure: true
+          username: ${{ env.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "❌ 前端部署失败 - ${{ github.repository }}"
+          to: ${{ env.NOTIFY_EMAIL }}
+          from: GitHub Actions <${{ env.MAIL_USERNAME }}>
+          body: |
+            前端部署失败！请检查 Actions 日志。
+
+            仓库：${{ github.repository }}
+            分支：${{ github.ref_name }}
+            提交：${{ github.sha }}
+            提交信息：${{ github.event.head_commit.message }}
+            触发人：${{ github.actor }}
+
+            查看详情：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

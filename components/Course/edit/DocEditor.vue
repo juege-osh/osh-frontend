@@ -18,6 +18,15 @@
           </div>
         </div>
 
+        <!-- 字体大小 -->
+        <div class="tb-dropdown tb-fontsize" @mousedown.prevent @click.stop="showFontSizeMenu = !showFontSizeMenu">
+          <span class="tb-dropdown-label">{{ currentFontSize }}</span>
+          <span class="tb-dropdown-arrow">▾</span>
+          <div v-if="showFontSizeMenu" class="tb-dropdown-menu tb-fontsize-menu">
+            <div v-for="size in fontSizes" :key="size.value" class="menu-item" :style="{ fontSize: size.px }" @mousedown.prevent @click="setFontSize(size.value)">{{ size.label }}</div>
+          </div>
+        </div>
+
         <div class="tb-divider" />
 
         <!-- 格式按钮 -->
@@ -33,19 +42,34 @@
           <span class="tb-color-icon" :style="{ borderBottom: `3px solid ${currentColor}` }">A</span>
           <input type="color" class="tb-color-input" v-model="currentColor" @change="execCmd('foreColor', currentColor)" />
         </div>
+        <!-- 背景色 -->
+        <div class="tb-color-wrap" title="背景颜色">
+          <span class="tb-color-icon tb-bg-icon" :style="{ background: currentBgColor }">A</span>
+          <input type="color" class="tb-color-input" v-model="currentBgColor" @change="execCmd('hiliteColor', currentBgColor)" />
+        </div>
 
         <div class="tb-divider" />
 
         <!-- 对齐 -->
-        <button class="tb-btn" title="左对齐" @mousedown.prevent @click="execCmd('justifyLeft')">⬅</button>
-        <button class="tb-btn" title="居中" @mousedown.prevent @click="execCmd('justifyCenter')">☰</button>
-        <button class="tb-btn" title="右对齐" @mousedown.prevent @click="execCmd('justifyRight')">➡</button>
+        <button class="tb-btn" title="左对齐" @mousedown.prevent @click="execCmd('justifyLeft')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><line x1="1" y1="3" x2="13" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="11" x2="13" y2="11" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <button class="tb-btn" title="居中" @mousedown.prevent @click="execCmd('justifyCenter')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><line x1="1" y1="3" x2="13" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="11" x2="13" y2="11" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <button class="tb-btn" title="右对齐" @mousedown.prevent @click="execCmd('justifyRight')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><line x1="1" y1="3" x2="13" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="11" x2="13" y2="11" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
 
         <div class="tb-divider" />
 
         <!-- 列表 -->
-        <button class="tb-btn" title="无序列表" @mousedown.prevent @click="execCmd('insertUnorderedList')">≡</button>
-        <button class="tb-btn" title="有序列表" @mousedown.prevent @click="execCmd('insertOrderedList')">1.</button>
+        <button class="tb-btn" title="无序列表" @mousedown.prevent @click="execCmd('insertUnorderedList')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="2" cy="4" r="1.2" fill="currentColor"/><line x1="5" y1="4" x2="13" y2="4" stroke="currentColor" stroke-width="1.5"/><circle cx="2" cy="8" r="1.2" fill="currentColor"/><line x1="5" y1="8" x2="13" y2="8" stroke="currentColor" stroke-width="1.5"/><circle cx="2" cy="12" r="1.2" fill="currentColor"/><line x1="5" y1="12" x2="11" y2="12" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <button class="tb-btn" title="有序列表" @mousedown.prevent @click="execCmd('insertOrderedList')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><text x="1" y="5" font-size="5" fill="currentColor">1.</text><line x1="6" y1="4" x2="13" y2="4" stroke="currentColor" stroke-width="1.5"/><text x="1" y="9" font-size="5" fill="currentColor">2.</text><line x1="6" y1="8" x2="13" y2="8" stroke="currentColor" stroke-width="1.5"/><text x="1" y="13" font-size="5" fill="currentColor">3.</text><line x1="6" y1="12" x2="11" y2="12" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
 
         <div class="tb-divider" />
 
@@ -82,6 +106,33 @@
             <input ref="imgFileRef" type="file" accept="image/*" style="display:none" @change="handleImgUpload" />
           </div>
         </div>
+
+        <!-- 表格 -->
+        <div class="tb-img-wrap">
+          <button class="tb-btn" title="插入表格" @mousedown.prevent @click.stop="showTableMenu = !showTableMenu">⊞</button>
+          <div v-if="showTableMenu" class="tb-table-menu" @click.stop>
+            <div class="img-menu-title">插入表格</div>
+            <div class="table-size-picker">
+              <div v-for="r in 6" :key="r" class="table-row-picker">
+                <div
+                  v-for="c in 6"
+                  :key="c"
+                  class="table-cell-picker"
+                  :class="{ hover: r <= tableHoverRow && c <= tableHoverCol }"
+                  @mouseenter="tableHoverRow = r; tableHoverCol = c"
+                  @mouseleave="tableHoverRow = 0; tableHoverCol = 0"
+                  @click="insertTable(r, c)"
+                />
+              </div>
+            </div>
+            <div class="table-size-label">{{ tableHoverRow > 0 ? `${tableHoverRow} × ${tableHoverCol}` : '悬停选择大小' }}</div>
+          </div>
+        </div>
+
+        <!-- 代码块 -->
+        <button class="tb-btn" title="插入代码块" @mousedown.prevent @click="insertCodeBlock">
+          <svg width="14" height="14" viewBox="0 0 14 14"><polyline points="4,3 1,7 4,11" stroke="currentColor" stroke-width="1.5" fill="none"/><polyline points="10,3 13,7 10,11" stroke="currentColor" stroke-width="1.5" fill="none"/><line x1="6" y1="2" x2="8" y2="12" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
 
         <!-- 分割线 -->
         <button class="tb-btn" title="插入分割线" @mousedown.prevent @click="insertHr">—</button>
@@ -120,6 +171,32 @@
         @focus="updateStates"
         @paste="onPaste"
       />
+
+      <!-- 图片浮动工具栏 -->
+      <div
+        v-if="imgToolbar.visible"
+        class="img-toolbar"
+        :style="{ top: imgToolbar.top + 'px', left: imgToolbar.left + 'px' }"
+        @mousedown.prevent
+      >
+        <button class="img-tb-btn" title="左对齐" @click="setImgAlign('left')">
+          <svg width="13" height="13" viewBox="0 0 13 13"><rect x="0" y="1" width="13" height="2" rx="1" fill="currentColor"/><rect x="0" y="5.5" width="8" height="2" rx="1" fill="currentColor"/><rect x="0" y="10" width="13" height="2" rx="1" fill="currentColor"/></svg>
+        </button>
+        <button class="img-tb-btn" title="居中" @click="setImgAlign('center')">
+          <svg width="13" height="13" viewBox="0 0 13 13"><rect x="0" y="1" width="13" height="2" rx="1" fill="currentColor"/><rect x="2.5" y="5.5" width="8" height="2" rx="1" fill="currentColor"/><rect x="0" y="10" width="13" height="2" rx="1" fill="currentColor"/></svg>
+        </button>
+        <button class="img-tb-btn" title="右对齐" @click="setImgAlign('right')">
+          <svg width="13" height="13" viewBox="0 0 13 13"><rect x="0" y="1" width="13" height="2" rx="1" fill="currentColor"/><rect x="5" y="5.5" width="8" height="2" rx="1" fill="currentColor"/><rect x="0" y="10" width="13" height="2" rx="1" fill="currentColor"/></svg>
+        </button>
+        <div class="img-tb-divider" />
+        <button class="img-tb-btn" title="25% 宽度" @click="setImgWidth('25%')">25%</button>
+        <button class="img-tb-btn" title="50% 宽度" @click="setImgWidth('50%')">50%</button>
+        <button class="img-tb-btn" title="75% 宽度" @click="setImgWidth('75%')">75%</button>
+        <button class="img-tb-btn" title="100% 宽度" @click="setImgWidth('100%')">100%</button>
+        <div class="img-tb-divider" />
+        <button class="img-tb-btn img-tb-del" title="删除图片" @click="deleteSelectedImg">🗑</button>
+      </div>
+
       <!-- 预览区 -->
       <div v-show="viewMode === 'preview' || viewMode === 'split'" class="preview-pane">
         <div class="preview-content" v-html="localHtml" />
@@ -147,14 +224,33 @@ const emit = defineEmits(['update:modelValue']);
 const editorRef = ref<HTMLDivElement | null>(null);
 const showHeadingMenu = ref(false);
 const showImgMenu = ref(false);
+const showFontSizeMenu = ref(false);
+const showTableMenu = ref(false);
+const tableHoverRow = ref(0);
+const tableHoverCol = ref(0);
 const imgUrlInput = ref('');
 const imgFileRef = ref<HTMLInputElement | null>(null);
 const viewMode = ref<'edit' | 'preview' | 'split'>('edit');
 const formatBrushActive = ref(false);
 const formatBrushStyles = ref<any>(null);
 const currentColor = ref('#333333');
+const currentBgColor = ref('#ffff00');
 const localHtml = ref('');
 const isComposing = ref(false);
+
+const fontSizes = [
+  { label: '12px 小号', value: '1', px: '12px' },
+  { label: '14px 正文', value: '2', px: '14px' },
+  { label: '16px 中号', value: '3', px: '16px' },
+  { label: '18px 大号', value: '4', px: '18px' },
+  { label: '24px 特大', value: '5', px: '24px' },
+  { label: '32px 超大', value: '6', px: '32px' },
+];
+const currentFontSize = ref('字号');
+
+// 图片浮动工具栏
+const imgToolbar = ref({ visible: false, top: 0, left: 0 });
+const selectedImg = ref<HTMLImageElement | null>(null);
 
 const states = ref({
   bold: false, italic: false, underline: false, strikethrough: false,
@@ -175,6 +271,10 @@ onMounted(() => {
   document.addEventListener('click', () => {
     showHeadingMenu.value = false;
     showImgMenu.value = false;
+    showFontSizeMenu.value = false;
+    showTableMenu.value = false;
+    imgToolbar.value.visible = false;
+    selectedImg.value = null;
   });
   // onMounted 时 editorRef 已就绪，直接写入内容并绑定图片
   if (editorRef.value) {
@@ -441,16 +541,86 @@ function insertImgNode(src: string) {
 // ===== 图片缩放（独立 overlay，不影响 contenteditable）=====
 
 function bindImgResize(img: HTMLImageElement) {
-  // 移除旧的监听（通过替换节点克隆方式清除所有旧事件）
-  // 用 dataset.rb 标记是否已绑定，重新绑定时先清除标记
   img.dataset.rb = '1';
-  // 移除旧监听，重新绑定（防止重复）
   img.removeEventListener('dragstart', preventDrag);
   img.removeEventListener('mousedown', startResize);
   img.removeEventListener('mousemove', updateImgCursor);
+  img.removeEventListener('click', showImgToolbar);
   img.addEventListener('dragstart', preventDrag);
   img.addEventListener('mousedown', startResize);
   img.addEventListener('mousemove', updateImgCursor);
+  img.addEventListener('click', showImgToolbar);
+}
+
+function showImgToolbar(e: Event) {
+  e.stopPropagation();
+  const img = e.currentTarget as HTMLImageElement;
+  const imgRect = img.getBoundingClientRect();
+  selectedImg.value = img;
+
+  // 工具栏宽度约 260px，高度约 38px
+  const toolbarW = 260;
+  const toolbarH = 38;
+  const gap = 6;
+
+  // 默认显示在图片上方
+  let top = imgRect.top - toolbarH - gap;
+  let left = imgRect.left;
+
+  // 上方空间不足时显示在图片下方
+  if (top < 8) {
+    top = imgRect.bottom + gap;
+  }
+
+  // 右侧超出视口时向左偏移
+  if (left + toolbarW > window.innerWidth - 8) {
+    left = window.innerWidth - toolbarW - 8;
+  }
+
+  // 左侧不能小于 8
+  if (left < 8) left = 8;
+
+  imgToolbar.value = { visible: true, top, left };
+}
+
+function setImgAlign(align: 'left' | 'center' | 'right') {
+  const img = selectedImg.value;
+  if (!img) return;
+  if (align === 'center') {
+    img.style.display = 'block';
+    img.style.margin = '8px auto';
+    img.style.float = '';
+  } else if (align === 'left') {
+    img.style.display = 'block';
+    img.style.margin = '8px auto 8px 0';
+    img.style.float = '';
+  } else {
+    img.style.display = 'block';
+    img.style.margin = '8px 0 8px auto';
+    img.style.float = '';
+  }
+  syncContent();
+  imgToolbar.value.visible = false;
+  selectedImg.value = null;
+}
+
+function setImgWidth(width: string) {
+  const img = selectedImg.value;
+  if (!img) return;
+  img.style.width = width;
+  img.style.maxWidth = '100%';
+  syncContent();
+  imgToolbar.value.visible = false;
+  selectedImg.value = null;
+}
+
+function deleteSelectedImg() {
+  const img = selectedImg.value;
+  if (!img) return;
+  img.parentNode?.removeChild(img);
+  imgToolbar.value.visible = false;
+  selectedImg.value = null;
+  syncContent();
 }
 
 function preventDrag(e: Event) {
@@ -502,6 +672,48 @@ function syncContent() {
   localHtml.value = html;
   emit('update:modelValue', html);
   updateStates();
+}
+
+// 设置字体大小
+function setFontSize(size: string) {
+  showFontSizeMenu.value = false;
+  editorRef.value?.focus();
+  document.execCommand('fontSize', false, size);
+  const sizeMap: Record<string, string> = { '1': '12px', '2': '14px', '3': '16px', '4': '18px', '5': '24px', '6': '32px' };
+  currentFontSize.value = sizeMap[size] || '字号';
+  onInput();
+}
+
+// 插入表格
+function insertTable(rows: number, cols: number) {
+  showTableMenu.value = false;
+  tableHoverRow.value = 0;
+  tableHoverCol.value = 0;
+  let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0;">';
+  // 表头
+  html += '<thead><tr>';
+  for (let c = 0; c < cols; c++) {
+    html += `<th style="border:1px solid #e0e0e0;padding:8px 12px;background:#f5f5f5;font-weight:600;text-align:left;">表头${c + 1}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+  // 数据行
+  for (let r = 1; r < rows; r++) {
+    html += '<tr>';
+    for (let c = 0; c < cols; c++) {
+      html += `<td style="border:1px solid #e0e0e0;padding:8px 12px;">内容</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table><p><br></p>';
+  execCmd('insertHTML', html);
+}
+
+// 插入代码块
+function insertCodeBlock() {
+  const sel = window.getSelection();
+  const selectedText = sel?.toString() || '';
+  const code = selectedText || '// 在此输入代码';
+  execCmd('insertHTML', `<pre style="background:#1e1e1e;color:#d4d4d4;padding:12px 16px;border-radius:6px;overflow-x:auto;margin:8px 0;font-family:monospace;font-size:13px;">${code}</pre><p><br></p>`);
 }
 
 // 插入分割线
@@ -613,6 +825,7 @@ function onKeydown(e: KeyboardEvent) {
   cursor: pointer; padding: 0 4px;
 }
 .tb-color-icon { font-size: 14px; font-weight: 700; color: #333; }
+.tb-bg-icon { color: #333; border-bottom: none !important; padding: 1px 3px; border-radius: 2px; }
 .tb-color-input {
   position: absolute; opacity: 0; width: 100%; height: 100%;
   cursor: pointer; top: 0; left: 0;
@@ -626,6 +839,7 @@ function onKeydown(e: KeyboardEvent) {
   min-width: 64px; user-select: none; height: 26px;
 }
 .tb-dropdown:hover { border-color: #18a058; }
+.tb-fontsize { min-width: 52px; }
 .tb-dropdown-label { flex: 1; font-size: 12px; }
 .tb-dropdown-arrow { font-size: 9px; color: #999; }
 .tb-dropdown-menu {
@@ -633,6 +847,7 @@ function onKeydown(e: KeyboardEvent) {
   background: #fff; border: 1px solid #e0e0e0; border-radius: 5px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 200; min-width: 140px; overflow: hidden;
 }
+.tb-fontsize-menu { min-width: 110px; }
 .menu-item {
   padding: 7px 12px; cursor: pointer; font-size: 13px; color: #333; transition: background 0.12s;
 }
@@ -643,6 +858,22 @@ function onKeydown(e: KeyboardEvent) {
 .menu-item.h4 { font-size: 13px; font-weight: 500; }
 .menu-item.blockquote { border-left: 3px solid #18a058; padding-left: 9px; color: #555; }
 .menu-item.pre { font-family: monospace; background: #f5f5f5; }
+
+/* 表格选择器 */
+.tb-table-menu {
+  position: absolute; top: calc(100% + 6px); left: 0;
+  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12); z-index: 300;
+  padding: 14px; min-width: 180px;
+}
+.table-size-picker { display: flex; flex-direction: column; gap: 3px; margin: 8px 0; }
+.table-row-picker { display: flex; gap: 3px; }
+.table-cell-picker {
+  width: 20px; height: 20px; border: 1px solid #e0e0e0; border-radius: 2px;
+  cursor: pointer; transition: all 0.1s;
+}
+.table-cell-picker.hover { background: #d4edda; border-color: #18a058; }
+.table-size-label { font-size: 12px; color: #888; text-align: center; margin-top: 4px; }
 
 /* 视图切换 */
 .view-tabs { display: flex; }
@@ -657,6 +888,7 @@ function onKeydown(e: KeyboardEvent) {
 /* 编辑区 */
 .editor-body {
   flex: 1; display: flex; overflow: hidden; min-height: 0;
+  position: relative;
 }
 .mode-split .rich-editor { border-right: 1px solid #f0f0f0; }
 
@@ -742,6 +974,31 @@ function onKeydown(e: KeyboardEvent) {
   cursor: pointer; text-align: center; transition: all 0.2s;
 }
 .img-btn-upload:hover { border-color: #18a058; color: #18a058; background: #f0fdf4; }
+
+/* 图片浮动工具栏 */
+.img-toolbar {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 4px 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  z-index: 9999;
+  user-select: none;
+}
+.img-tb-btn {
+  min-width: 28px; height: 26px; padding: 0 6px;
+  border: none; background: none; border-radius: 4px;
+  font-size: 11px; color: #ccc; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s; white-space: nowrap;
+}
+.img-tb-btn:hover { background: #333; color: #fff; }
+.img-tb-del:hover { background: #5a1a1a; color: #ff6b6b; }
+.img-tb-divider { width: 1px; height: 16px; background: #333; margin: 0 2px; }
 
 /* 编辑区图片样式 */
 .rich-editor :deep(img.doc-img) {

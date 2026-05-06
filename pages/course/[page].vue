@@ -97,6 +97,7 @@ const queryParams = reactive({
   isFollowing: false,
   collectionFlag: null, // 「我收藏的」筛选
   sortType: 'all',
+  resourceType: null,  // 课程资源类型筛选（FREE/VIP/CASH_ONLY 等）
   courseNo: '',
 });
 

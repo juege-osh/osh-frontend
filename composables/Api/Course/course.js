@@ -45,12 +45,11 @@ export const getMaterialUploadConfig = () => ({
 // ✅ 修改为 POST 请求
 export function useCourseSearchApi(body) {
   return useHttpPost('CourseSearch', '/course/search', {
-    body, // 这里改用 body，对应后端的 @RequestBody
+    body,
     headers: getAuthHeaders(),
     lazy: true,
-    immediate: false,
-    // 课程页会在筛选变更后手动 refresh，这里禁用 useFetch 的响应式自动重拉，避免一次点击触发两次请求。
-    watch: false,
+    server: false,  // 强制客户端执行，确保 token 存在，收藏状态正确回显
+    watch: false,   // 禁用响应式自动重拉，避免筛选变更触发两次请求
   });
 }
 
