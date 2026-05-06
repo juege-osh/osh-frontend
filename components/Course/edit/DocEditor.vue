@@ -336,8 +336,13 @@ onMounted(() => {
 
 // 外部 modelValue 变化时同步（不用 immediate，onMounted 已处理初始值）
 watch(() => props.modelValue, (val) => {
-  if (editFormat.value === 'rich' && document.activeElement === editorRef.value) return;
-  if (editFormat.value !== 'rich' && document.activeElement === plainEditorRef.value) return;
+  // 只在编辑器有实质内容且用户正在编辑时跳过，避免覆盖用户输入
+  // 初始加载（编辑器内容为空或只有空白）时不跳过，确保异步数据能正确写入
+  const editorHasContent = (editorRef.value?.innerText?.trim() || '').length > 0;
+  const plainHasContent = (plainText.value?.trim() || '').length > 0;
+  const editorFocused = editFormat.value === 'rich' && document.activeElement === editorRef.value;
+  const plainFocused = editFormat.value !== 'rich' && document.activeElement === plainEditorRef.value;
+  if ((editorFocused && editorHasContent) || (plainFocused && plainHasContent)) return;
   hydrateFromModel(val || '');
 }, { immediate: false });
 
@@ -353,6 +358,7 @@ function hydrateFromModel(val: string) {
     localHtml.value = parsed.content || ''
     setTimeout(async () => {
       bindAllImages();
+      console.log('[DocEditor] resolveImgUrls start, editorRef:', !!editorRef.value, 'innerHTML length:', editorRef.value?.innerHTML?.length);
       await resolveImgUrls();
     }, 100)
     return
@@ -811,6 +817,7 @@ function syncContent() {
 async function resolveImgUrls() {
   if (!editorRef.value) return;
   const imgs = editorRef.value.querySelectorAll<HTMLImageElement>('img');
+  console.log('[DocEditor] resolveImgUrls imgs count:', imgs.length);
   if (!imgs.length) return;
 
   const pathsToResolve: string[] = [];

@@ -52,13 +52,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { NButton, NIcon } from 'naive-ui';
 import { CreateOutline } from '@vicons/ionicons5';
 import CourseOutlineManager from '~/components/Course/edit/CourseOutlineManager.vue';
 import CourseEditModal from '~/components/Course/CourseEditModal.vue';
-import { apiGetCoverUrls, apiGetMaterialUrl, getAuthHeaders } from '~/composables/Api/Course/course';
+import { apiGetMaterialUrl, getAuthHeaders } from '~/composables/Api/Course/course';
 import { fetchConfig } from '~/composables/useHttp';
 
 const { permissionList } = usePermission();
@@ -79,21 +79,20 @@ const editMode = ref(false);
 // 本地课程数据副本，编辑后更新
 const localData = ref<any>({ ...props.data });
 
-// 封面临时URL
+// 封面临时URL：后端 getCourseDetail 已经把 cover 字段签名成临时 URL 返回，直接用
 const coverUrl = ref(props.data?.cover || '');
 
 // 课程资料列表
 const courseMaterials = ref<any[]>([]);
 
-onMounted(async () => {
-  if (props.data?.id) {
-    // 只加载封面，资料在编辑时按需加载
-    try {
-      const res: any = await apiGetCoverUrls([props.data.id], 1440);
-      if (res?.code === 200 && res.data?.[props.data.id]) {
-        coverUrl.value = res.data[props.data.id];
-      }
-    } catch {}
+onMounted(() => {
+  coverUrl.value = props.data?.cover || '';
+});
+
+// props.data.cover 变化时（保存后父组件刷新数据）直接更新
+watch(() => props.data?.cover, (newCover) => {
+  if (newCover) {
+    coverUrl.value = newCover;
   }
 });
 
@@ -229,14 +228,7 @@ async function openEditBasic() {
     title: props.data?.title || '',
     desc: props.data?.intro || props.data?.desc || '',
     cover: coverUrl.value || props.data?.cover || '',
-    coverPath: (() => {
-      const raw = props.data?.cover || '';
-      if (!raw.startsWith('http')) return raw;
-      try {
-        const path = new URL(raw).pathname;
-        return path.replace(/^\/osh\//, '');
-      } catch { return raw; }
-    })(),
+    coverPath: props.data?.cover || '',  // 数据库存的就是相对路径，直接用
     tagIds,
     service_period: props.data?.servicePeriod || props.data?.service_period || 12,
     service_content: props.data?.serviceContent || props.data?.service_content || '源码+文档+网站答疑+专属交流微信群',
