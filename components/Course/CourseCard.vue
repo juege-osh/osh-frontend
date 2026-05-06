@@ -4,10 +4,11 @@
     :class="{ selected }"
     @click="handleCardClick"
   >
-    <!-- 选中勾 -->
+    <!-- 选中勾 测试ce-->
     <div v-if="selectable" class="select-check" @click.stop="$emit('select', item.id)">
       <span class="check-icon">{{ selected ? '✓' : '' }}</span>
     </div>
+    
 
     <div class="card-cover">
       <img :src="item.cover || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'" />
@@ -50,6 +51,7 @@
 <script setup>
 import { NIcon } from 'naive-ui';
 import { Heart, HeartOutline } from '@vicons/ionicons5';
+// CourseCard 组件：展示课程卡片信息
 
 const props = defineProps({
   item: { type: Object, required: true },
