@@ -4,6 +4,9 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate"
   },
+  "overrides": {
+    "nitropack": "2.5.2"
+  },
   "dependencies": {
     "@css-render/vue3-ssr": "^0.15.10",
     "@umoteam/umo-editor-nuxt": "^0.1.2",

@@ -246,9 +246,9 @@ const resourceTypeOptions = [
   { label: '免费', value: 'FREE' },
   { label: '仅现金', value: 'CASH_ONLY' },
   { label: '现金&积分', value: 'CASH_POINT' },
-  { label: 'VIP免费', value: 'VIP' },
-  { label: '小班免费', value: 'SMALL_CLASS' },
-  { label: '内部免费', value: 'INTERNAL' },
+  { label: 'VIP专属', value: 'VIP' },
+  { label: '小班专属', value: 'SMALL_CLASS' },
+  { label: '内部专属', value: 'INTERNAL' },
 ];
 
 // 弹窗打开时加载标签，并回显数据
@@ -430,11 +430,18 @@ const handlePublish = async () => {
   const freeType = resourceType === 'FREE' ? 0 : 3;
 
   try {
+    // cover 字段：只传相对路径，如果是临时 URL（http开头）说明用户没有重新上传，不传（后端保持原值）
+    const coverToSubmit = (() => {
+      const path = formValue.coverPath || formValue.cover || '';
+      if (!path || path.startsWith('http')) return undefined; // 临时 URL 不传，后端保持原值
+      return String(path);
+    })();
+
     const submitData = {
       id: formValue.id || undefined,
       title: formValue.title,
       intro: formValue.desc,
-      cover: String(formValue.coverPath || formValue.cover || ''),
+      ...(coverToSubmit !== undefined ? { cover: coverToSubmit } : {}),
       tags: formValue.tagIds.map((id) => {
         // 手动输入的标签：值是字符串本身；已有标签：值是数字id，需要转回name
         if (typeof id === 'string' && isNaN(Number(id))) return id; // 手动输入的新标签

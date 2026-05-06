@@ -30,10 +30,10 @@
         <div class="tb-divider" />
 
         <!-- 格式按钮 -->
-        <button class="tb-btn bold" :class="{ active: states.bold }" title="加粗 (Ctrl+B)" @mousedown.prevent @click="execCmd('bold')"><b>B</b></button>
-        <button class="tb-btn italic" :class="{ active: states.italic }" title="斜体 (Ctrl+I)" @mousedown.prevent @click="execCmd('italic')"><i>I</i></button>
-        <button class="tb-btn underline" :class="{ active: states.underline }" title="下划线 (Ctrl+U)" @mousedown.prevent @click="execCmd('underline')"><u>U</u></button>
-        <button class="tb-btn strikethrough" :class="{ active: states.strikethrough }" title="删除线" @mousedown.prevent @click="execCmd('strikeThrough')"><s>S</s></button>
+        <button class="tb-btn bold" :class="{ active: states.bold }" :title="`加粗 (${mod}+B)`" @mousedown.prevent @click="execCmd('bold')"><b>B</b></button>
+        <button class="tb-btn italic" :class="{ active: states.italic }" :title="`斜体 (${mod}+I)`" @mousedown.prevent @click="execCmd('italic')"><i>I</i></button>
+        <button class="tb-btn underline" :class="{ active: states.underline }" :title="`下划线 (${mod}+U)`" @mousedown.prevent @click="execCmd('underline')"><u>U</u></button>
+        <button class="tb-btn strikethrough" :class="{ active: states.strikethrough }" :title="`删除线 (${mod}+Shift+X)`" @mousedown.prevent @click="execCmd('strikeThrough')"><s>S</s></button>
 
         <div class="tb-divider" />
 
@@ -51,31 +51,41 @@
         <div class="tb-divider" />
 
         <!-- 对齐 -->
-        <button class="tb-btn" title="左对齐" @mousedown.prevent @click="execCmd('justifyLeft')">
+        <button class="tb-btn" :title="`左对齐 (${mod}+Shift+L)`" @mousedown.prevent @click="execCmd('justifyLeft')">
           <svg width="14" height="14" viewBox="0 0 14 14"><line x1="1" y1="3" x2="13" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="11" x2="13" y2="11" stroke="currentColor" stroke-width="1.5"/></svg>
         </button>
-        <button class="tb-btn" title="居中" @mousedown.prevent @click="execCmd('justifyCenter')">
+        <button class="tb-btn" :title="`居中 (${mod}+Shift+E)`" @mousedown.prevent @click="execCmd('justifyCenter')">
           <svg width="14" height="14" viewBox="0 0 14 14"><line x1="1" y1="3" x2="13" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="11" x2="13" y2="11" stroke="currentColor" stroke-width="1.5"/></svg>
         </button>
-        <button class="tb-btn" title="右对齐" @mousedown.prevent @click="execCmd('justifyRight')">
+        <button class="tb-btn" :title="`右对齐 (${mod}+Shift+R)`" @mousedown.prevent @click="execCmd('justifyRight')">
           <svg width="14" height="14" viewBox="0 0 14 14"><line x1="1" y1="3" x2="13" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="11" x2="13" y2="11" stroke="currentColor" stroke-width="1.5"/></svg>
         </button>
 
         <div class="tb-divider" />
 
         <!-- 列表 -->
-        <button class="tb-btn" title="无序列表" @mousedown.prevent @click="execCmd('insertUnorderedList')">
+        <button class="tb-btn" :title="`无序列表 (${mod}+Shift+U)`" @mousedown.prevent @click="execCmd('insertUnorderedList')">
           <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="2" cy="4" r="1.2" fill="currentColor"/><line x1="5" y1="4" x2="13" y2="4" stroke="currentColor" stroke-width="1.5"/><circle cx="2" cy="8" r="1.2" fill="currentColor"/><line x1="5" y1="8" x2="13" y2="8" stroke="currentColor" stroke-width="1.5"/><circle cx="2" cy="12" r="1.2" fill="currentColor"/><line x1="5" y1="12" x2="11" y2="12" stroke="currentColor" stroke-width="1.5"/></svg>
         </button>
-        <button class="tb-btn" title="有序列表" @mousedown.prevent @click="execCmd('insertOrderedList')">
+        <button class="tb-btn" :title="`有序列表 (${mod}+Shift+O)`" @mousedown.prevent @click="execCmd('insertOrderedList')">
           <svg width="14" height="14" viewBox="0 0 14 14"><text x="1" y="5" font-size="5" fill="currentColor">1.</text><line x1="6" y1="4" x2="13" y2="4" stroke="currentColor" stroke-width="1.5"/><text x="1" y="9" font-size="5" fill="currentColor">2.</text><line x1="6" y1="8" x2="13" y2="8" stroke="currentColor" stroke-width="1.5"/><text x="1" y="13" font-size="5" fill="currentColor">3.</text><line x1="6" y1="12" x2="11" y2="12" stroke="currentColor" stroke-width="1.5"/></svg>
         </button>
 
         <div class="tb-divider" />
 
         <!-- 缩进 -->
-        <button class="tb-btn" title="增加缩进" @mousedown.prevent @click="execCmd('indent')">→</button>
-        <button class="tb-btn" title="减少缩进" @mousedown.prevent @click="execCmd('outdent')">←</button>
+        <button class="tb-btn" title="增加缩进 (Tab)" @mousedown.prevent @click="execCmd('indent')">→</button>
+        <button class="tb-btn" title="减少缩进 (Shift+Tab)" @mousedown.prevent @click="execCmd('outdent')">←</button>
+
+        <div class="tb-divider" />
+
+        <!-- 撤销/重做 -->
+        <button class="tb-btn" :title="`撤销 (${mod}+Z)`" @mousedown.prevent @click="execCmd('undo')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7 C2 4 4.5 2 7 2 C9.5 2 12 4 12 7 C12 10 9.5 12 7 12" stroke="currentColor" stroke-width="1.5" fill="none"/><polyline points="2,4 2,7 5,7" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+        </button>
+        <button class="tb-btn" :title="`重做 (${mod}+Y)`" @mousedown.prevent @click="execCmd('redo')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 7 C12 4 9.5 2 7 2 C4.5 2 2 4 2 7 C2 10 4.5 12 7 12" stroke="currentColor" stroke-width="1.5" fill="none"/><polyline points="12,4 12,7 9,7" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+        </button>
 
         <div class="tb-divider" />
 
@@ -83,7 +93,12 @@
         <button class="tb-btn format-brush" :class="{ active: formatBrushActive }" title="格式刷" @mousedown.prevent @click="toggleFormatBrush">🖌</button>
 
         <!-- 链接 -->
-        <button class="tb-btn" title="插入链接 (Ctrl+K)" @mousedown.prevent @click="insertLink">🔗</button>
+        <button class="tb-btn" :title="`插入链接 (${mod}+K)`" @mousedown.prevent @click="insertLink">🔗</button>
+
+        <!-- 行内代码 -->
+        <button class="tb-btn" :title="`行内代码 (${mod}+\`)`" @mousedown.prevent @click="insertInlineCode">
+          <svg width="14" height="14" viewBox="0 0 14 14"><polyline points="4,4 1,7 4,10" stroke="currentColor" stroke-width="1.5" fill="none"/><polyline points="10,4 13,7 10,10" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+        </button>
 
         <!-- 图片 -->
         <div class="tb-img-wrap">
@@ -130,15 +145,20 @@
         </div>
 
         <!-- 代码块 -->
-        <button class="tb-btn" title="插入代码块" @mousedown.prevent @click="insertCodeBlock">
+        <button class="tb-btn" :title="`插入代码块 (${mod}+Shift+K)`" @mousedown.prevent @click="insertCodeBlock">
           <svg width="14" height="14" viewBox="0 0 14 14"><polyline points="4,3 1,7 4,11" stroke="currentColor" stroke-width="1.5" fill="none"/><polyline points="10,3 13,7 10,11" stroke="currentColor" stroke-width="1.5" fill="none"/><line x1="6" y1="2" x2="8" y2="12" stroke="currentColor" stroke-width="1.5"/></svg>
         </button>
 
+        <!-- 引用块 -->
+        <button class="tb-btn" :title="`引用块 (${mod}+Shift+.)`" @mousedown.prevent @click="execCmd('formatBlock', 'blockquote')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="2" width="3" height="10" rx="1" fill="currentColor" opacity="0.4"/><line x1="6" y1="4" x2="13" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="6" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="6" y1="10" x2="11" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+
         <!-- 分割线 -->
-        <button class="tb-btn" title="插入分割线" @mousedown.prevent @click="insertHr">—</button>
+        <button class="tb-btn" :title="`插入分割线 (${mod}+Shift+-)`" @mousedown.prevent @click="insertHr">—</button>
 
         <!-- 清除格式 -->
-        <button class="tb-btn" title="清除格式" @mousedown.prevent @click="execCmd('removeFormat')">✕</button>
+        <button class="tb-btn" :title="`清除格式 (${mod}+\\)`" @mousedown.prevent @click="execCmd('removeFormat')">✕</button>
       </div>
 
       <div class="toolbar-right">
@@ -213,14 +233,14 @@
 
       <!-- 预览区 -->
       <div v-show="viewMode === 'preview' || viewMode === 'split'" class="preview-pane">
-        <div class="preview-content" v-html="localHtml" />
+        <div ref="previewPaneRef" class="preview-content" v-html="localHtml" />
       </div>
     </div>
 
     <!-- 状态栏 -->
     <div class="status-bar">
       <span class="status-item">字符数：{{ charCount }}</span>
-      <span class="status-tip">Ctrl+B 加粗 · Ctrl+I 斜体 · Ctrl+U 下划线 · Ctrl+K 链接</span>
+      <span class="status-tip">{{ mod }}+B 加粗 · {{ mod }}+I 斜体 · {{ mod }}+U 下划线 · {{ mod }}+K 链接 · {{ mod }}+` 行内代码 · {{ mod }}+Shift+K 代码块 · {{ mod }}+Shift+. 引用 · {{ mod }}+Z 撤销</span>
     </div>
   </div>
 </template>
@@ -236,7 +256,12 @@ const props = defineProps<{
 }>();
 const emit = defineEmits(['update:modelValue']);
 
+// 平台检测：Mac 用 ⌘，Windows/Linux 用 Ctrl
+const isMac = process.client && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+const mod = isMac ? '⌘' : 'Ctrl';
+
 const editorRef = ref<HTMLDivElement | null>(null);
+const previewPaneRef = ref<HTMLDivElement | null>(null);
 const showHeadingMenu = ref(false);
 const showImgMenu = ref(false);
 const showFontSizeMenu = ref(false);
@@ -311,8 +336,13 @@ onMounted(() => {
 
 // 外部 modelValue 变化时同步（不用 immediate，onMounted 已处理初始值）
 watch(() => props.modelValue, (val) => {
-  if (editFormat.value === 'rich' && document.activeElement === editorRef.value) return;
-  if (editFormat.value !== 'rich' && document.activeElement === plainEditorRef.value) return;
+  // 只在编辑器有实质内容且用户正在编辑时跳过，避免覆盖用户输入
+  // 初始加载（编辑器内容为空或只有空白）时不跳过，确保异步数据能正确写入
+  const editorHasContent = (editorRef.value?.innerText?.trim() || '').length > 0;
+  const plainHasContent = (plainText.value?.trim() || '').length > 0;
+  const editorFocused = editFormat.value === 'rich' && document.activeElement === editorRef.value;
+  const plainFocused = editFormat.value !== 'rich' && document.activeElement === plainEditorRef.value;
+  if ((editorFocused && editorHasContent) || (plainFocused && plainHasContent)) return;
   hydrateFromModel(val || '');
 }, { immediate: false });
 
@@ -328,6 +358,7 @@ function hydrateFromModel(val: string) {
     localHtml.value = parsed.content || ''
     setTimeout(async () => {
       bindAllImages();
+      console.log('[DocEditor] resolveImgUrls start, editorRef:', !!editorRef.value, 'innerHTML length:', editorRef.value?.innerHTML?.length);
       await resolveImgUrls();
     }, 100)
     return
@@ -338,6 +369,10 @@ function hydrateFromModel(val: string) {
     editorRef.value.innerHTML = ''
   }
   localHtml.value = renderCourseDoc(val || '')
+  // Markdown 渲染后，对预览区图片做临时 URL 续期
+  nextTick(async () => {
+    await resolvePreviewImgUrls();
+  })
 }
 
 // 给编辑器内所有图片补上 doc-img class 并绑定缩放
@@ -436,8 +471,15 @@ function insertLink() {
   }
 }
 
-// ===== 图片插入 =====
-// 通过 URL 插入图片
+// 插入行内代码
+function insertInlineCode() {
+  if (editFormat.value !== 'rich') return;
+  const sel = window.getSelection();
+  const selectedText = sel?.toString() || '';
+  const code = selectedText || 'code';
+  execCmd('insertHTML', `<code style="background:#f0f0f0;color:#d03050;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:0.9em;">${code}</code>`);
+}
+
 function insertImageByUrl() {
   const url = imgUrlInput.value.trim();
   if (!url) return;
@@ -775,6 +817,7 @@ function syncContent() {
 async function resolveImgUrls() {
   if (!editorRef.value) return;
   const imgs = editorRef.value.querySelectorAll<HTMLImageElement>('img');
+  console.log('[DocEditor] resolveImgUrls imgs count:', imgs.length);
   if (!imgs.length) return;
 
   const pathsToResolve: string[] = [];
@@ -843,6 +886,70 @@ async function resolveImgUrls() {
   }
 }
 
+// 对预览区（v-html 渲染的 Markdown/HTML）的图片做临时 URL 续期
+// 逻辑与 resolveImgUrls 相同，但操作的是 previewPaneRef 而非 editorRef
+async function resolvePreviewImgUrls() {
+  const container = previewPaneRef.value;
+  if (!container) return;
+  const imgs = container.querySelectorAll<HTMLImageElement>('img');
+  if (!imgs.length) return;
+
+  const pathsToResolve: string[] = [];
+  imgs.forEach((img) => {
+    const dataSrc = img.dataset.src || '';
+    const src = img.getAttribute('src') || '';
+    const pathToUse = (dataSrc && !dataSrc.startsWith('data:')) ? dataSrc
+      : (!src.startsWith('data:') ? src : '');
+    if (pathToUse && !pathsToResolve.includes(pathToUse)) {
+      pathsToResolve.push(pathToUse);
+    }
+  });
+
+  if (!pathsToResolve.length) return;
+
+  try {
+    const token = useCookie('token');
+    const tokenValue = token.value || (process.client ? localStorage.getItem('token') || '' : '');
+
+    const response = await $fetch('/course/content/image-urls', {
+      method: 'POST',
+      body: { paths: pathsToResolve, minute: 1440 },
+      baseURL: fetchConfig.baseURL,
+      headers: {
+        appid: fetchConfig.headers.appid,
+        token: tokenValue,
+      },
+    }) as any;
+
+    if (response?.code === 200 && response?.data) {
+      const urlMap: Record<string, string> = response.data;
+      imgs.forEach((img) => {
+        const dataSrc = img.dataset.src || '';
+        const src = img.getAttribute('src') || '';
+        if (dataSrc && !dataSrc.startsWith('data:') && urlMap[dataSrc]) {
+          img.src = urlMap[dataSrc];
+          return;
+        }
+        if (src && !src.startsWith('data:') && !src.startsWith('http') && urlMap[src]) {
+          img.src = urlMap[src];
+          img.dataset.src = src;
+          return;
+        }
+        if (src.startsWith('http')) {
+          for (const [fileKey, newUrl] of Object.entries(urlMap)) {
+            if (src.includes(fileKey)) {
+              img.src = newUrl;
+              img.dataset.src = fileKey;
+              break;
+            }
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('[DocEditor] 预览区图片临时 URL 刷新失败', err);
+  }
+}
 
 function setFontSize(size: string) {
   if (editFormat.value !== 'rich') return;
@@ -930,6 +1037,7 @@ function applyFormatBrush() {
 function onKeydown(e: KeyboardEvent) {
   if (editFormat.value !== 'rich') return;
   const ctrl = e.ctrlKey || e.metaKey;
+  const shift = e.shiftKey;
 
   // 格式刷：选中文字后松开鼠标触发
   if (formatBrushActive.value && e.type === 'mouseup') {
@@ -937,17 +1045,44 @@ function onKeydown(e: KeyboardEvent) {
     return;
   }
 
-  if (ctrl && e.key === 'b') { e.preventDefault(); execCmd('bold'); return; }
-  if (ctrl && e.key === 'i') { e.preventDefault(); execCmd('italic'); return; }
-  if (ctrl && e.key === 'u') { e.preventDefault(); execCmd('underline'); return; }
-  if (ctrl && e.key === 'k') { e.preventDefault(); insertLink(); return; }
+  // 基础格式
+  if (ctrl && !shift && e.key === 'b') { e.preventDefault(); execCmd('bold'); return; }
+  if (ctrl && !shift && e.key === 'i') { e.preventDefault(); execCmd('italic'); return; }
+  if (ctrl && !shift && e.key === 'u') { e.preventDefault(); execCmd('underline'); return; }
+  if (ctrl && shift && e.key === 'X') { e.preventDefault(); execCmd('strikeThrough'); return; }
+  if (ctrl && shift && e.key === 'x') { e.preventDefault(); execCmd('strikeThrough'); return; }
+
+  // 链接 / 行内代码
+  if (ctrl && !shift && e.key === 'k') { e.preventDefault(); insertLink(); return; }
+  if (ctrl && !shift && (e.key === '`' || e.key === 'Dead')) { e.preventDefault(); insertInlineCode(); return; }
+
+  // 代码块
+  if (ctrl && shift && (e.key === 'K' || e.key === 'k')) { e.preventDefault(); insertCodeBlock(); return; }
+
+  // 引用块
+  if (ctrl && shift && (e.key === '.' || e.key === '>')) { e.preventDefault(); execCmd('formatBlock', 'blockquote'); return; }
+
+  // 分割线
+  if (ctrl && shift && (e.key === '-' || e.key === '_')) { e.preventDefault(); insertHr(); return; }
+
+  // 清除格式
+  if (ctrl && !shift && e.key === '\\') { e.preventDefault(); execCmd('removeFormat'); return; }
+
+  // 对齐
+  if (ctrl && shift && (e.key === 'L' || e.key === 'l')) { e.preventDefault(); execCmd('justifyLeft'); return; }
+  if (ctrl && shift && (e.key === 'E' || e.key === 'e')) { e.preventDefault(); execCmd('justifyCenter'); return; }
+  if (ctrl && shift && (e.key === 'R' || e.key === 'r')) { e.preventDefault(); execCmd('justifyRight'); return; }
+
+  // 列表
+  if (ctrl && shift && (e.key === 'U' || e.key === 'u')) { e.preventDefault(); execCmd('insertUnorderedList'); return; }
+  if (ctrl && shift && (e.key === 'O' || e.key === 'o')) { e.preventDefault(); execCmd('insertOrderedList'); return; }
 
   // 标题快捷键
-  if (ctrl && e.key === '1') { e.preventDefault(); execCmd('formatBlock', 'h1'); return; }
-  if (ctrl && e.key === '2') { e.preventDefault(); execCmd('formatBlock', 'h2'); return; }
-  if (ctrl && e.key === '3') { e.preventDefault(); execCmd('formatBlock', 'h3'); return; }
-  if (ctrl && e.key === '4') { e.preventDefault(); execCmd('formatBlock', 'h4'); return; }
-  if (ctrl && e.key === '0') { e.preventDefault(); execCmd('formatBlock', 'p'); return; }
+  if (ctrl && !shift && e.key === '1') { e.preventDefault(); execCmd('formatBlock', 'h1'); return; }
+  if (ctrl && !shift && e.key === '2') { e.preventDefault(); execCmd('formatBlock', 'h2'); return; }
+  if (ctrl && !shift && e.key === '3') { e.preventDefault(); execCmd('formatBlock', 'h3'); return; }
+  if (ctrl && !shift && e.key === '4') { e.preventDefault(); execCmd('formatBlock', 'h4'); return; }
+  if (ctrl && !shift && e.key === '0') { e.preventDefault(); execCmd('formatBlock', 'p'); return; }
 
   // Tab 缩进
   if (e.key === 'Tab') {
