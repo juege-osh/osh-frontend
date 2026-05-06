@@ -149,6 +149,11 @@ const SiteIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', f
   h('path', { d: 'M3 9h12M9 3c-2 2-2 8 0 12M9 3c2 2 2 8 0 12', stroke: 'currentColor', 'stroke-width': '1.5' })
 ]);
 
+const PlanIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', fill: 'none' }, [
+  h('rect', { x: '2', y: '3', width: '14', height: '12', rx: '2', stroke: 'currentColor', 'stroke-width': '1.5' }),
+  h('path', { d: 'M6 7h6M6 10h4M9 3v2', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' }),
+]);
+
 const menus = ref([
   { name: '首页', path: '/', iconComponent: HomeIcon },
   { name: '课程', path: '/course/1', match: [{ name: 'course-page' }], iconComponent: CourseIcon },
@@ -159,7 +164,7 @@ const menus = ref([
   { name: '拼团', path: '/list/group/1', match: [{ name: 'list-type-page', params: { type: 'group' } }], iconComponent: GroupIcon },
   { name: '开源项目', path: '/openproject/list', match: [{ name: 'openproject-list' }], iconComponent: ProjectIcon },
   { name: '实用网站', path: '/usefull/list', match: [{ name: 'usefull-list' }], iconComponent: LinkIcon },
-  { name: '工具', path: '/tool', match: [{ name: 'tool' }], iconComponent: ToolIcon },
+  { name: '工具', path: '/tool/1', match: [{ name: 'tool-page' }], iconComponent: ToolIcon },
   { name: '信息差', path: '/info_gap/1', match: [{ name: 'info_gap-page' }], iconComponent: InfoIcon },
   { name: '内部网站', path: '/site', iconComponent: SiteIcon }
 ]);
