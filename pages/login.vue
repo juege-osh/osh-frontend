@@ -202,6 +202,10 @@ const onSubmit = () => {
             permissions.value = result.permissionList || []
             // 持久化到 localStorage，刷新后不丢失
             savePermissions(result.permissionList || [])
+            // 持久化 role 信息（含 level），刷新后不丢失
+            if (process.client && result.role) {
+              localStorage.setItem('__user_role__', JSON.stringify(result.role))
+            }
 
             // 如果有 from 参数，跳转到该页面
             // 例：/login?from=/user → 跳转到 /user

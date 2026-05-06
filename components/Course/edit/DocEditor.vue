@@ -358,7 +358,6 @@ function hydrateFromModel(val: string) {
     localHtml.value = parsed.content || ''
     setTimeout(async () => {
       bindAllImages();
-      console.log('[DocEditor] resolveImgUrls start, editorRef:', !!editorRef.value, 'innerHTML length:', editorRef.value?.innerHTML?.length);
       await resolveImgUrls();
     }, 100)
     return
@@ -817,7 +816,6 @@ function syncContent() {
 async function resolveImgUrls() {
   if (!editorRef.value) return;
   const imgs = editorRef.value.querySelectorAll<HTMLImageElement>('img');
-  console.log('[DocEditor] resolveImgUrls imgs count:', imgs.length);
   if (!imgs.length) return;
 
   const pathsToResolve: string[] = [];
