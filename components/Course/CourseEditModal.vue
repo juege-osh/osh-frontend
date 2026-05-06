@@ -430,11 +430,18 @@ const handlePublish = async () => {
   const freeType = resourceType === 'FREE' ? 0 : 3;
 
   try {
+    // cover 字段：只传相对路径，如果是临时 URL（http开头）说明用户没有重新上传，不传（后端保持原值）
+    const coverToSubmit = (() => {
+      const path = formValue.coverPath || formValue.cover || '';
+      if (!path || path.startsWith('http')) return undefined; // 临时 URL 不传，后端保持原值
+      return String(path);
+    })();
+
     const submitData = {
       id: formValue.id || undefined,
       title: formValue.title,
       intro: formValue.desc,
-      cover: String(formValue.coverPath || formValue.cover || ''),
+      ...(coverToSubmit !== undefined ? { cover: coverToSubmit } : {}),
       tags: formValue.tagIds.map((id) => {
         // 手动输入的标签：值是字符串本身；已有标签：值是数字id，需要转回name
         if (typeof id === 'string' && isNaN(Number(id))) return id; // 手动输入的新标签
