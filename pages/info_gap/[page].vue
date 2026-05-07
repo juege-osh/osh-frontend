@@ -18,9 +18,9 @@
               v-model:value="queryParams.title"
               placeholder="搜索信息差..."
               clearable
-              @keyup.enter="loadData"
+              @keyup.enter="handleSearch"
             />
-            <n-button ghost>
+            <n-button ghost @click="handleSearch">
               <template #icon
                 ><n-icon><SearchOutline /></n-icon
               ></template>
@@ -32,7 +32,7 @@
           v-model:value="queryParams.type"
           name="tab-group"
           size="medium"
-          @update:value="loadData"
+          @update:value="handleTypeChange"
         >
           <n-radio-button value="hot">
             <n-icon><FlashOutline /></n-icon> 热门信息差
@@ -255,6 +255,29 @@ const total = ref(0); // 后端返回的总条数
 const rows = ref([]); // 列表数据容器
 // 2. 加载数据的方法
 
+const getRouteType = () => route.query.type || 'hot';
+const getRouteTitle = () =>
+  typeof route.query.title === 'string' ? route.query.title : '';
+const getRoutePageNum = () => parseInt(route.params.page) || 1;
+
+const syncToPage = async (page) => {
+  queryParams.pageNum = page;
+
+  if (getRoutePageNum() === page) {
+    await loadData();
+    return;
+  }
+
+  await navigateTo({
+    path: `/info_gap/${page}`,
+    query: {
+      ...route.query,
+      type: queryParams.type,
+      title: queryParams.title || undefined,
+    },
+  });
+};
+
 // 1. 修改加载数据的方法，调用你封装的 useHttpGet
 const loadData = async () => {
   console.log('--- 正在请求页码 ---', queryParams.pageNum); // 看这个打印！
@@ -281,7 +304,7 @@ const loadData = async () => {
     if (data.value) {
       // 【关键修改】：只在这里赋值一次！
       // 确保 isVoted, goodCount 等字段都在 map 里初始化
-      rows.value = (data.value.records || []).map((row) => ({
+      rows.value = (data.value.rows || []).map((row) => ({
         ...row,
         // 确保这些字段存在，Vue 才能追踪它们的变化
         isVoted: row.isVoted || 0,
@@ -306,20 +329,27 @@ const loadData = async () => {
 // 1. 修改跳转逻辑：把页码塞进 Query
 const handlePageChange = (p) => {
   console.log('正在跳转至页码:', p);
-  // 跳转到当前路径，但更新 query 参数
-  navigateTo({
-    path: route.path,
-    query: { ...route.query, pageNum: p },
-  });
+  syncToPage(p);
 };
 
-// 2. 修改监听逻辑：监听 query 里的 pageNum
+const handleTypeChange = async (value) => {
+  queryParams.type = value;
+  await syncToPage(1);
+};
+
+const handleSearch = async () => {
+  await syncToPage(1);
+};
+
+// 2. 修改监听逻辑：监听路由里的页码参数
 watch(
-  () => route.query.pageNum,
+  () => route.params.page,
   (newP) => {
-    // 只要 URL 里的 pageNum 变了，就同步给请求参数并刷数据
+    // 只要 URL 里的 page 变了，就同步给请求参数并刷数据
     const p = parseInt(newP) || 1;
     queryParams.pageNum = p;
+    queryParams.type = getRouteType();
+    queryParams.title = getRouteTitle();
     loadData();
   },
   { immediate: true } // 初始进来时也抓一次
@@ -377,7 +407,7 @@ const confirmPublish = async () => {
     // 发布成功后的“收尾”三部曲：
     showModal.value = false; // 1. 关弹窗
     Object.assign(form, { title: '', tag: '技术', content: '' }); // 2. 清空表单
-    loadData(); // 3. 刷新列表，立刻看到新发的
+    await syncToPage(1); // 3. 回到第一页并刷新列表
   } catch (err) {
     console.error('发布失败:', err);
   } finally {
