@@ -55,9 +55,44 @@ export async function apiSaveTool(body) {
   });
 }
 
-export async function apiUploadToolCover(file) {
+export async function apiUpdateTool(body) {
+  return $fetch('/tool/update', {
+    method: 'POST',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    body,
+  });
+}
+
+export async function apiUploadToolCover(file, onProgress) {
   const form = new FormData();
   form.append('file', file);
+  if (typeof onProgress === 'function' && process.client) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${baseURL}/tool/cover/upload`);
+      const headers = getToolAuthHeaders();
+      Object.keys(headers).forEach((key) => xhr.setRequestHeader(key, headers[key]));
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      };
+      xhr.onload = () => {
+        try {
+          const response = JSON.parse(xhr.responseText || '{}');
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(response);
+          } else {
+            reject(response);
+          }
+        } catch (error) {
+          reject(error);
+        }
+      };
+      xhr.onerror = () => reject(new Error('上传失败'));
+      xhr.send(form);
+    });
+  }
   return $fetch('/tool/cover/upload', {
     method: 'POST',
     baseURL,

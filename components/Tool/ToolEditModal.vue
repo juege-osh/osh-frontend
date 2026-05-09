@@ -2,7 +2,7 @@
   <n-modal
     :show="show"
     preset="card"
-    title="新增工具"
+    :title="modalTitle"
     style="width: 920px"
     size="huge"
     :segmented="{ content: 'soft', footer: 'soft' }"
@@ -25,15 +25,35 @@
 
       <n-form-item label="工具封面">
         <div class="cover-upload">
-          <div v-if="formValue.logoUrl" class="cover-preview" @click="triggerCover">
-            <img :src="formValue.logoPreview || formValue.logoUrl" class="cover-img" />
-            <div class="cover-mask">点击更换</div>
+          <div class="cover-main">
+            <div v-if="previewUrl" class="cover-preview" @click="showPreview = true">
+              <img :src="previewUrl" class="cover-img" />
+              <div class="cover-mask">点击预览</div>
+            </div>
+            <div v-else class="cover-placeholder" :class="{ loading: coverUploading }" @click="triggerCover">
+              {{ coverUploading ? '上传中...' : '暂无封面' }}
+            </div>
+            <n-progress
+              v-if="coverUploading || uploadProgress > 0"
+              type="line"
+              :percentage="uploadProgress"
+              :show-indicator="true"
+              processing
+            />
           </div>
-          <div v-else class="cover-placeholder" :class="{ loading: coverUploading }" @click="triggerCover">
-            {{ coverUploading ? '上传中...' : '+ 点击上传封面' }}
+          <div class="cover-actions">
+            <n-button
+              type="primary"
+              secondary
+              :loading="coverUploading"
+              :disabled="coverUploading"
+              @click="triggerCover"
+            >
+              {{ previewUrl ? '修改封面' : '上传封面' }}
+            </n-button>
+            <span class="upload-tip">建议 16:9，JPG/PNG，≤5MB</span>
           </div>
           <input ref="coverInputRef" type="file" accept="image/*" style="display:none" @change="handleCoverChange" />
-          <span class="upload-tip">建议 16:9，JPG/PNG，≤5MB</span>
         </div>
       </n-form-item>
 
@@ -113,38 +133,67 @@
       <n-form-item label="备注">
         <n-input v-model:value="formValue.remark" placeholder="可选，后台备注" />
       </n-form-item>
+
+      <n-form-item label="售卖套餐">
+        <div class="package-editor">
+          <div
+            v-for="(item, index) in formValue.packages"
+            :key="item.localKey"
+            class="package-row"
+          >
+            <n-input v-model:value="item.packageName" placeholder="套餐名称" />
+            <n-input-number v-model:value="item.useCount" :min="1" placeholder="次数" />
+            <n-input-number v-model:value="item.price" :min="0" placeholder="现金">
+              <template #prefix>￥</template>
+            </n-input-number>
+            <n-input-number v-model:value="item.pointCost" :min="0" placeholder="积分" />
+            <n-select v-model:value="item.payType" :options="payTypeOptions" />
+            <n-input-number v-model:value="item.sortOrder" placeholder="排序" />
+            <n-button tertiary type="error" @click="removePackage(index)">删除</n-button>
+          </div>
+          <n-button secondary type="primary" @click="addPackage">+ 添加套餐</n-button>
+        </div>
+      </n-form-item>
     </n-form>
 
     <template #footer>
       <n-space>
-        <n-button type="primary" :loading="loading" :disabled="loading" @click="handleSubmit">保存并发布</n-button>
+        <n-button type="primary" :loading="loading" :disabled="loading" @click="handleSubmit">{{ submitText }}</n-button>
         <n-button @click="$emit('update:show', false)">取消</n-button>
       </n-space>
     </template>
   </n-modal>
+
+  <n-modal v-model:show="showPreview" preset="card" title="封面预览" style="width: 760px">
+    <img v-if="previewUrl" :src="previewUrl" class="preview-large-img" />
+  </n-modal>
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import {
   NModal, NForm, NFormItem, NInput, NSelect, NSpace,
-  NInputNumber, NButton,
+  NInputNumber, NButton, NProgress,
 } from 'naive-ui';
-import { apiSaveTool, apiUploadToolCover } from '~/composables/Api/Tool/tool';
+import { apiSaveTool, apiUpdateTool, apiUploadToolCover } from '~/composables/Api/Tool/tool';
 
 const props = defineProps({
   show: Boolean,
   tagOptions: { type: Array, default: () => [] },
+  editData: { type: Object, default: null },
 });
 const emit = defineEmits(['update:show', 'success']);
 
 const { message } = createDiscreteApi(['message']);
 const loading = ref(false);
 const coverUploading = ref(false);
+const uploadProgress = ref(0);
 const coverInputRef = ref(null);
+const showPreview = ref(false);
 
 const formValue = reactive({
+  id: null,
   toolName: '',
   description: '',
   logoUrl: '',
@@ -161,7 +210,13 @@ const formValue = reactive({
   resourceType: 'FREE',
   level: 1,
   tags: [],
+  packages: [],
 });
+
+const isEdit = computed(() => !!props.editData?.id);
+const modalTitle = computed(() => isEdit.value ? '修改工具' : '新增工具');
+const submitText = computed(() => isEdit.value ? '保存修改' : '保存并发布');
+const previewUrl = computed(() => formValue.logoPreview || formValue.logoUrl);
 
 const accessTypeOptions = [
   { label: '站内工具', value: 1 },
@@ -177,30 +232,84 @@ const resourceTypeOptions = [
   { label: '内部免费', value: 'INTERNAL' },
 ];
 
+const payTypeOptions = [
+  { label: '现金', value: 1 },
+  { label: '积分', value: 2 },
+  { label: '现金+积分', value: 3 },
+];
+
 watch(() => props.show, (value) => {
   if (value) resetForm();
 });
 
+watch(() => props.editData, () => {
+  if (props.show) resetForm();
+});
+
 function resetForm() {
-  formValue.toolName = '';
-  formValue.description = '';
-  formValue.logoUrl = '';
+  const source = props.editData || {};
+  uploadProgress.value = 0;
+  showPreview.value = false;
+  formValue.id = source.id || null;
+  formValue.toolName = source.toolName || '';
+  formValue.description = source.description || '';
+  formValue.logoUrl = source.logoUrl || '';
   formValue.logoPreview = '';
-  formValue.accessType = 1;
-  formValue.routePath = '';
-  formValue.iframeUrl = '';
-  formValue.githubUrl = '';
-  formValue.price = 0;
-  formValue.originalPrice = 0;
-  formValue.pointCost = 0;
-  formValue.status = 1;
-  formValue.remark = '';
-  formValue.resourceType = 'FREE';
-  formValue.level = 1;
-  formValue.tags = [];
+  formValue.accessType = Number(source.accessType || source.access_type || 1);
+  formValue.routePath = source.routePath || source.route_path || '';
+  formValue.iframeUrl = source.iframeUrl || source.iframe_url || '';
+  formValue.githubUrl = source.githubUrl || source.github_url || '';
+  formValue.price = Number(source.price || 0);
+  formValue.originalPrice = Number(source.originalPrice || source.original_price || 0);
+  formValue.pointCost = Number(source.pointCost || source.point_cost || 0);
+  formValue.status = source.status ?? 1;
+  formValue.remark = source.remark || '';
+  formValue.resourceType = source.resourceType || source.resource_type || 'FREE';
+  formValue.level = Number(source.level || 1);
+  formValue.tags = Array.isArray(source.tags) ? [...source.tags] : [];
+  formValue.packages = normalizePackages(source.packages);
 }
 
 const triggerCover = () => coverInputRef.value?.click();
+
+function createEmptyPackage() {
+  return {
+    localKey: `${Date.now()}-${Math.random()}`,
+    id: null,
+    packageName: '',
+    useCount: 10,
+    price: 0,
+    pointCost: 0,
+    payType: 1,
+    status: 1,
+    sortOrder: 0,
+  };
+}
+
+function normalizePackages(packages) {
+  if (!Array.isArray(packages)) {
+    return [];
+  }
+  return packages.map((item) => ({
+    localKey: `${item.id || 'new'}-${Date.now()}-${Math.random()}`,
+    id: item.id || null,
+    packageName: item.packageName || item.package_name || '',
+    useCount: Number(item.useCount || item.use_count || 1),
+    price: Number(item.price || 0),
+    pointCost: Number(item.pointCost || item.point_cost || 0),
+    payType: Number(item.payType || item.pay_type || 1),
+    status: item.status ?? 1,
+    sortOrder: Number(item.sortOrder || item.sort_order || 0),
+  }));
+}
+
+function addPackage() {
+  formValue.packages.push(createEmptyPackage());
+}
+
+function removePackage(index) {
+  formValue.packages.splice(index, 1);
+}
 
 async function handleCoverChange(e) {
   const file = e.target.files?.[0];
@@ -211,11 +320,15 @@ async function handleCoverChange(e) {
     return;
   }
   coverUploading.value = true;
+  uploadProgress.value = 0;
   try {
-    const res = await apiUploadToolCover(file);
+    const res = await apiUploadToolCover(file, (percent) => {
+      uploadProgress.value = percent;
+    });
     if (res?.code === 200) {
       formValue.logoPreview = res.data?.url || '';
       formValue.logoUrl = res.data?.relativePath || '';
+      uploadProgress.value = 100;
       message.success('封面上传成功');
     } else {
       message.error(res?.msg || '上传失败');
@@ -225,6 +338,9 @@ async function handleCoverChange(e) {
     message.error('上传失败');
   } finally {
     coverUploading.value = false;
+    setTimeout(() => {
+      if (!coverUploading.value) uploadProgress.value = 0;
+    }, 800);
     e.target.value = '';
   }
 }
@@ -246,10 +362,21 @@ async function handleSubmit() {
     message.error('请输入第三方 iframe 地址');
     return;
   }
+  for (const item of formValue.packages) {
+    if (!item.packageName?.trim()) {
+      message.error('请输入套餐名称');
+      return;
+    }
+    if (!item.useCount || item.useCount <= 0) {
+      message.error('套餐次数必须大于0');
+      return;
+    }
+  }
 
   loading.value = true;
   try {
     const body = {
+      id: formValue.id,
       toolName: formValue.toolName,
       description: formValue.description,
       logoUrl: formValue.logoUrl,
@@ -264,22 +391,32 @@ async function handleSubmit() {
       remark: formValue.remark,
       resourceType: formValue.resourceType,
       level: formValue.level,
+      packages: formValue.packages.map((item) => ({
+        id: item.id,
+        packageName: item.packageName,
+        useCount: item.useCount,
+        price: item.price || 0,
+        pointCost: item.pointCost || 0,
+        payType: item.payType || 1,
+        status: item.status ?? 1,
+        sortOrder: item.sortOrder || 0,
+      })),
       tags: formValue.tags.map((tag) => {
         if (typeof tag === 'string' && isNaN(Number(tag))) return tag;
         const option = props.tagOptions.find((item) => item.value === tag || String(item.value) === String(tag));
         return option ? option.label : String(tag);
       }),
     };
-    const res = await apiSaveTool(body);
+    const res = isEdit.value ? await apiUpdateTool(body) : await apiSaveTool(body);
     if (res?.code === 200) {
-      message.success('工具创建成功');
+      message.success(isEdit.value ? '工具修改成功' : '工具创建成功');
       emit('success');
       emit('update:show', false);
     } else {
       message.error(res?.msg || '保存失败');
     }
   } catch (err) {
-    console.error('新增工具失败:', err);
+    console.error(isEdit.value ? '修改工具失败:' : '新增工具失败:', err);
     message.error('网络异常');
   } finally {
     loading.value = false;
@@ -295,8 +432,20 @@ async function handleSubmit() {
 }
 .cover-upload {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 14px;
+}
+.cover-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 176px;
+}
+.cover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
 }
 .cover-preview {
   position: relative;
@@ -351,9 +500,36 @@ async function handleSubmit() {
 .upload-tip {
   color: #999;
   font-size: 12px;
+  line-height: 1.5;
+}
+.preview-large-img {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #f3f4f6;
+}
+.package-editor {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.package-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.4fr) minmax(90px, 0.8fr) minmax(110px, 0.9fr) minmax(100px, 0.8fr) minmax(120px, 1fr) minmax(90px, 0.8fr) auto;
+  gap: 8px;
+  align-items: center;
 }
 @media (max-width: 780px) {
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .cover-upload {
+    flex-direction: column;
+  }
+  .package-row {
     grid-template-columns: 1fr;
   }
 }

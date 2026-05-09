@@ -30,24 +30,88 @@
       </Transition>
 
       <ClientOnly>
-        <div class="grid-content-box">
-          <n-grid
-            v-if="displayList && displayList.length > 0"
-            :x-gap="16"
-            :y-gap="16"
-            :cols="5"
-          >
-            <n-gi v-for="item in displayList" :key="item.id">
-              <ToolCard
-                :item="item"
-                :selectable="selectMode"
-                :selected="selectedIds.has(item.id)"
-                @click="handleOpenTool(item)"
-                @favorite="handleDoCollect"
-                @select="toggleSelect"
-              />
-            </n-gi>
-          </n-grid>
+        <div class="tool-list-box">
+          <div v-if="displayList && displayList.length > 0" class="tool-row-list">
+            <div
+              v-for="item in displayList"
+              :key="item.id"
+              class="tool-item-row-card"
+              :class="{ 'is-active': item.isExpanded, selected: selectedIds.has(item.id) }"
+            >
+              <div class="one-line-content">
+                <button class="collapser-wrapper" type="button" @click.stop="toggleExpand(item)">
+                  <span class="expand-arrow" :class="{ rotated: item.isExpanded }">›</span>
+                </button>
+
+                <label v-if="selectMode" class="select-check" @click.stop>
+                  <input
+                    type="checkbox"
+                    :checked="selectedIds.has(item.id)"
+                    @change="toggleSelect(item.id)"
+                  >
+                </label>
+
+                <div class="title-section" @click="toggleExpand(item)">
+                  <span class="tag">【{{ formatResourceType(item.resourceType) }}】</span>
+                  <span class="main-title">{{ item.toolName }}</span>
+                  <span v-if="item.description" class="description-text">{{ item.description }}</span>
+                </div>
+
+                <div class="meta-group">
+                  <span class="meta-item">{{ formatAccessType(item.accessType) }}</span>
+                  <span class="meta-item quota" :class="{ active: Number(item.remainingCount || 0) > 0 }">
+                    剩余 {{ item.remainingCount || 0 }} 次
+                  </span>
+                  <span class="meta-item">{{ item.totalUsage || 0 }} 次使用</span>
+                  <span class="meta-item">{{ item.collectionCount || 0 }} 收藏</span>
+                </div>
+
+                <div class="action-group">
+                  <button
+                    class="row-action-btn favorite"
+                    :class="{ active: item.isFavorite }"
+                    type="button"
+                    @click.stop="handleDoCollect(item.id)"
+                  >
+                    {{ item.isFavorite ? '已收藏' : '+收藏' }}
+                  </button>
+                  <button
+                    class="row-action-btn open"
+                    type="button"
+                    @click.stop="handleOpenTool(item)"
+                  >
+                    购买工具使用次数
+                  </button>
+                  <button
+                    v-if="canUpdate"
+                    class="row-action-btn edit"
+                    type="button"
+                    @click.stop="handleEditTool(item)"
+                  >
+                    修改
+                  </button>
+                </div>
+              </div>
+
+              <transition name="expand">
+                <div v-if="item.isExpanded" class="tool-embed-area">
+                  <iframe
+                    v-if="isIframeTool(item) && getEmbedUrl(item)"
+                    class="tool-embed-frame"
+                    :src="getEmbedUrl(item)"
+                    :title="item.toolName"
+                  />
+                  <component
+                    :is="getRuntimeComponent(item)"
+                    v-else-if="getRuntimeComponent(item)"
+                  />
+                  <div v-else class="tool-empty-url">
+                    该工具暂未配置可加载的工具文件
+                  </div>
+                </div>
+              </transition>
+            </div>
+          </div>
 
           <div v-else-if="!pending" class="empty-placeholder">
             <n-empty :description="queryParams.isFollowing ? '暂无收藏的工具' : '暂无工具数据'" />
@@ -65,15 +129,19 @@
       </div>
     </div>
 
-    <ToolEditModal v-model:show="showCreateModal" :tag-options="tagOptions" @success="handleCreateSuccess" />
+    <ToolEditModal
+      v-model:show="showEditModal"
+      :tag-options="tagOptions"
+      :edit-data="editingTool"
+      @success="handleCreateSuccess"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
-import { createDiscreteApi, NGrid, NGi, NPagination, NSpin, NEmpty } from 'naive-ui';
+import { createDiscreteApi, NPagination, NSpin, NEmpty } from 'naive-ui';
 import ToolFilter from '~/components/Tool/ToolFilter.vue';
-import ToolCard from '~/components/Tool/ToolCard.vue';
 import ToolEditModal from '~/components/Tool/ToolEditModal.vue';
 import {
   apiCollectTool,
@@ -82,11 +150,13 @@ import {
   apiToolTags,
   useToolSearchApi,
 } from '~/composables/Api/Tool/tool';
+import ToolRuntimeTestTest from '~/components/Tool/runtime/test/test.vue';
 
 const route = useRoute();
 const { permissionList } = usePermission();
 
 const canCreate = computed(() => permissionList.value.includes('tool:create'));
+const canUpdate = computed(() => permissionList.value.includes('tool:update'));
 const canDelete = computed(() => permissionList.value.includes('tool:delete'));
 
 const queryParams = reactive({
@@ -110,7 +180,12 @@ const toolList = ref([]);
 const tagOptions = ref([]);
 const selectMode = ref(false);
 const selectedIds = ref(new Set());
-const showCreateModal = ref(false);
+const showEditModal = ref(false);
+const editingTool = ref(null);
+
+const runtimeToolMap = {
+  '/test/test': ToolRuntimeTestTest,
+};
 
 const syncToolList = (payload) => {
   if (!payload) {
@@ -129,6 +204,7 @@ const syncToolList = (payload) => {
       collectionFlag: isFavorite ? 1 : 0,
       favoriteCount: prev != null ? prev.favoriteCount : (item.collectionCount || 0),
       collectionCount: prev != null ? prev.favoriteCount : (item.collectionCount || 0),
+      isExpanded: prev != null ? !!prev.isExpanded : false,
     };
   });
 };
@@ -175,7 +251,13 @@ function toggleSelectMode() {
 }
 
 function handleCreateTool() {
-  showCreateModal.value = true;
+  editingTool.value = null;
+  showEditModal.value = true;
+}
+
+function handleEditTool(item) {
+  editingTool.value = { ...item };
+  showEditModal.value = true;
 }
 
 async function handleCreateSuccess() {
@@ -231,6 +313,40 @@ const handleRefresh = (page) => {
 
 const handleOpenTool = (item) => {
   navigateTo(`/tool/detail/${item.id}`);
+};
+
+const toggleExpand = (item) => {
+  item.isExpanded = !item.isExpanded;
+};
+
+const getFieldValue = (item, camelKey, snakeKey) => item?.[camelKey] || item?.[snakeKey] || '';
+
+const getEmbedUrl = (item) => {
+  const accessType = Number(getFieldValue(item, 'accessType', 'access_type'));
+  return accessType === 2
+    ? getFieldValue(item, 'iframeUrl', 'iframe_url')
+    : getFieldValue(item, 'routePath', 'route_path');
+};
+
+const isIframeTool = (item) => Number(getFieldValue(item, 'accessType', 'access_type')) === 2;
+
+const getRuntimeComponent = (item) => {
+  const routePath = getFieldValue(item, 'routePath', 'route_path');
+  return runtimeToolMap[routePath] || null;
+};
+
+const formatAccessType = (accessType) => Number(accessType) === 2 ? '外部页面' : '站内页面';
+
+const formatResourceType = (resourceType) => {
+  const typeMap = {
+    FREE: '免费',
+    CASH_ONLY: '付费',
+    CASH_POINT: '现金+积分',
+    VIP: 'VIP',
+    SMALL_CLASS: '小班',
+    INTERNAL: '内部',
+  };
+  return typeMap[resourceType] || resourceType || '工具';
 };
 
 const handleDoCollect = async (toolId) => {
@@ -314,9 +430,170 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   display: flex;
   flex-direction: column;
 }
-.grid-content-box {
+.tool-list-box {
   min-height: 200px;
   margin-bottom: 12px;
+}
+.tool-row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tool-item-row-card {
+  background: #fff;
+  border: 1px solid #efeff5;
+  border-radius: 6px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+.tool-item-row-card:hover {
+  border-color: #26a67a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+.tool-item-row-card.is-active {
+  border-color: #26a67a;
+  box-shadow: 0 4px 12px rgba(38, 166, 122, 0.08);
+}
+.tool-item-row-card.selected {
+  border-color: #d03050;
+}
+.one-line-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 14px;
+}
+.collapser-wrapper {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  background: transparent;
+  color: #999;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+}
+.expand-arrow {
+  font-size: 24px;
+  line-height: 1;
+  transition: transform 0.25s ease;
+}
+.expand-arrow.rotated {
+  color: #26a67a;
+  transform: rotate(90deg);
+}
+.select-check {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.title-section {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.tag {
+  color: #165d69;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.main-title {
+  color: #333;
+  font-size: 15px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.description-text {
+  color: #666;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta-group {
+  display: flex;
+  gap: 12px;
+  color: #888;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.meta-item {
+  white-space: nowrap;
+}
+.meta-item.quota {
+  color: #d03050;
+  font-weight: 700;
+}
+.meta-item.quota.active {
+  color: #18a058;
+}
+.action-group {
+  border-left: 1px solid #eee;
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-left: 12px;
+}
+.row-action-btn {
+  border: 1px solid #d9d9d9;
+  border-radius: 5px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  height: 26px;
+  padding: 0 9px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.row-action-btn:hover {
+  border-color: #26a67a;
+  color: #26a67a;
+}
+.row-action-btn.favorite.active {
+  background: #18a058;
+  border-color: #18a058;
+  color: #fff;
+}
+.row-action-btn.edit:hover {
+  border-color: #4f46e5;
+  color: #4f46e5;
+}
+.tool-embed-area {
+  background: #fafafa;
+  border-top: 1px dashed #efeff5;
+  padding: 12px 16px 16px 46px;
+}
+.tool-embed-frame {
+  width: 100%;
+  min-height: 560px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+}
+.tool-empty-url {
+  color: #999;
+  font-size: 13px;
+  line-height: 44px;
+}
+.expand-enter-active,
+.expand-leave-active {
+  transition: all 0.2s ease;
+}
+.expand-enter-from,
+.expand-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 .pagination-footer {
   display: flex;
@@ -342,5 +619,25 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+@media (max-width: 900px) {
+  .one-line-content {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .title-section {
+    flex-basis: calc(100% - 36px);
+  }
+  .meta-group,
+  .action-group {
+    margin-left: 36px;
+  }
+  .action-group {
+    border-left: 0;
+    padding-left: 0;
+  }
+  .tool-embed-area {
+    padding-left: 16px;
+  }
 }
 </style>

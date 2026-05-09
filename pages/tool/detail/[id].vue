@@ -38,8 +38,8 @@
               <strong>{{ tool.collectionCount || 0 }}</strong>
             </div>
             <div class="metric-card">
-              <span>权限等级</span>
-              <strong>{{ tool.level || 1 }}</strong>
+              <span>剩余次数</span>
+              <strong>{{ remainingCountText }}</strong>
             </div>
             <div class="metric-card">
               <span>访问方式</span>
@@ -48,10 +48,10 @@
           </div>
 
           <div class="purchase-row">
-            <div class="price-block">
-              <span class="price">{{ priceText }}</span>
-              <span v-if="showOriginalPrice" class="origin">¥{{ tool.originalPrice }}</span>
-              <span v-if="Number(tool.pointCost || 0) > 0" class="point-cost">{{ tool.pointCost }} 积分/次</span>
+            <div class="quota-block">
+              <span>当前权益</span>
+              <strong>{{ purchasedStatusText }}</strong>
+              <em v-if="Number(tool.remainingCount || 0) > 0">还可使用 {{ tool.remainingCount }} 次</em>
             </div>
             <button class="open-btn" @click="openTool">{{ openButtonText }}</button>
           </div>
@@ -59,7 +59,21 @@
       </section>
 
       <section v-if="tool" class="detail-section">
-        <h2>工具信息</h2>
+        <div class="section-title-row">
+          <div>
+            <p class="section-kicker">Tool Content</p>
+            <h2>工具内容</h2>
+          </div>
+          <a
+            v-if="tool.githubUrl"
+            class="text-link"
+            :href="tool.githubUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub
+          </a>
+        </div>
         <div class="info-grid">
           <div class="info-item">
             <span>资源类型</span>
@@ -70,9 +84,8 @@
             <strong>{{ tool.goodCount || 0 }} / {{ tool.neutralCount || 0 }} / {{ tool.badCount || 0 }}</strong>
           </div>
           <div class="info-item">
-            <span>GitHub</span>
-            <a v-if="tool.githubUrl" class="text-link" :href="tool.githubUrl" target="_blank" rel="noopener noreferrer">打开地址</a>
-            <strong v-else>暂无</strong>
+            <span>权限等级</span>
+            <strong>{{ tool.level || 1 }}</strong>
           </div>
           <div class="info-item">
             <span>访问地址</span>
@@ -92,6 +105,53 @@
             <span>更新时间</span>
             <strong>{{ tool.updateTime || tool.createTime || '--' }}</strong>
           </div>
+        </div>
+      </section>
+
+      <section v-if="tool" class="detail-section package-section">
+        <div class="section-title-row">
+          <div>
+            <p class="section-kicker">Packages</p>
+            <h2>购买套餐</h2>
+          </div>
+          <div class="quota-summary">
+            <span>剩余次数</span>
+            <strong>{{ remainingCountText }}</strong>
+          </div>
+        </div>
+
+        <div v-if="packages.length" class="package-grid">
+          <article
+            v-for="item in packages"
+            :key="item.id || item.packageName"
+            class="package-card"
+            :class="{ disabled: Number(item.status) === 0 }"
+          >
+            <div class="package-head">
+              <h3>{{ item.packageName }}</h3>
+              <span class="package-status">{{ Number(item.status) === 0 ? '已下架' : '可购买' }}</span>
+            </div>
+            <div class="package-count">
+              <strong>{{ item.useCount || 0 }}</strong>
+              <span>次使用次数</span>
+            </div>
+            <div class="package-price">
+              <span v-if="Number(item.price || 0) > 0" class="cash-price">¥{{ item.price }}</span>
+              <span v-if="Number(item.pointCost || 0) > 0" class="point-price">{{ item.pointCost }} 积分</span>
+              <span v-if="Number(item.price || 0) <= 0 && Number(item.pointCost || 0) <= 0" class="free-price">免费</span>
+            </div>
+            <button
+              class="buy-btn"
+              :disabled="Number(item.status) === 0"
+              @click="handleBuyPackage(item)"
+            >
+              {{ Number(item.status) === 0 ? '暂不可买' : '购买套餐' }}
+            </button>
+          </article>
+        </div>
+
+        <div v-else class="empty-packages">
+          暂无可购买套餐
         </div>
       </section>
     </main>
@@ -154,15 +214,16 @@ const resourceBadgeClass = computed(() => {
 });
 const accessTypeLabel = computed(() => Number(tool.value?.accessType) === 2 ? '第三方 iframe' : '站内工具');
 const openButtonText = computed(() => Number(tool.value?.accessType) === 2 ? '打开第三方工具' : '进入工具');
-const priceText = computed(() => {
-  const price = Number(tool.value?.price || 0);
-  return price > 0 ? `¥${tool.value.price}` : '免费';
+const packages = computed(() => {
+  const list = tool.value?.packages;
+  if (!Array.isArray(list)) return [];
+  return [...list].sort((a, b) => Number(b.sortOrder || 0) - Number(a.sortOrder || 0));
 });
-const showOriginalPrice = computed(() => {
-  const originalPrice = Number(tool.value?.originalPrice || 0);
-  const price = Number(tool.value?.price || 0);
-  return originalPrice > 0 && originalPrice !== price;
+const remainingCountText = computed(() => {
+  const count = Number(tool.value?.remainingCount || 0);
+  return count > 0 ? `${count} 次` : '0 次';
 });
+const purchasedStatusText = computed(() => Number(tool.value?.remainingCount || 0) > 0 ? '已购买' : '未购买');
 const toolLink = computed(() => {
   const current = tool.value;
   if (!current) return '';
@@ -190,6 +251,14 @@ function openTool() {
     return;
   }
   message.warning('该工具暂未配置访问地址');
+}
+
+function handleBuyPackage(item) {
+  if (Number(item?.status) === 0) {
+    message.warning('该套餐已下架');
+    return;
+  }
+  message.info('购买功能待接入');
 }
 
 async function toggleFavorite() {
@@ -397,24 +466,23 @@ h1 {
   justify-content: space-between;
   gap: 18px;
 }
-.price-block {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
+.quota-block {
+  display: grid;
+  gap: 5px;
 }
-.price {
-  color: #ea3f13;
-  font-size: 32px;
+.quota-block span {
+  color: #64748b;
+  font-size: 13px;
+}
+.quota-block strong {
+  color: #10213a;
+  font-size: 24px;
   font-weight: 900;
 }
-.origin {
-  color: #94a3b8;
-  text-decoration: line-through;
-}
-.point-cost {
-  color: #7c3aed;
-  font-weight: 800;
+.quota-block em {
+  color: #0f766e;
+  font-style: normal;
+  font-weight: 700;
 }
 .open-btn {
   border: 0;
@@ -434,8 +502,23 @@ h1 {
   margin-top: 22px;
   padding: 24px;
 }
+.section-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.section-kicker {
+  margin: 0 0 6px;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
 .detail-section h2 {
-  margin: 0 0 16px;
+  margin: 0;
   color: #10213a;
   font-size: 22px;
 }
@@ -443,6 +526,124 @@ h1 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+.quota-summary {
+  min-width: 132px;
+  border-radius: 8px;
+  background: #ecfdf5;
+  padding: 10px 14px;
+  text-align: right;
+}
+.quota-summary span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.quota-summary strong {
+  color: #047857;
+  font-size: 20px;
+  font-weight: 900;
+}
+.package-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.package-card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 8px;
+  background: #fff;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.package-card.disabled {
+  opacity: 0.58;
+}
+.package-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.package-head h3 {
+  margin: 0;
+  color: #10213a;
+  font-size: 18px;
+  line-height: 1.35;
+}
+.package-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.package-card.disabled .package-status {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.package-count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.package-count strong {
+  color: #0f172a;
+  font-size: 34px;
+  font-weight: 900;
+}
+.package-count span {
+  color: #64748b;
+  font-weight: 700;
+}
+.package-price {
+  min-height: 31px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cash-price {
+  color: #ea3f13;
+  font-size: 24px;
+  font-weight: 900;
+}
+.point-price {
+  color: #7c3aed;
+  font-size: 18px;
+  font-weight: 900;
+}
+.free-price {
+  color: #0f766e;
+  font-size: 22px;
+  font-weight: 900;
+}
+.buy-btn {
+  margin-top: auto;
+  border: 0;
+  border-radius: 8px;
+  padding: 11px 14px;
+  color: #fff;
+  background: #13236f;
+  cursor: pointer;
+  font-weight: 800;
+}
+.buy-btn:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+.empty-packages {
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #64748b;
+  padding: 28px;
+  text-align: center;
+  font-weight: 700;
 }
 
 @media (max-width: 980px) {
@@ -459,11 +660,15 @@ h1 {
   .info-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .package-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 560px) {
   .title-row,
-  .purchase-row {
+  .purchase-row,
+  .section-title-row {
     flex-direction: column;
     align-items: stretch;
   }
@@ -471,11 +676,15 @@ h1 {
     font-size: 26px;
   }
   .metric-grid,
-  .info-grid {
+  .info-grid,
+  .package-grid {
     grid-template-columns: 1fr;
   }
   .open-btn {
     width: 100%;
+  }
+  .quota-summary {
+    text-align: left;
   }
 }
 </style>
