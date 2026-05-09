@@ -1,7 +1,11 @@
 <template>
     <div class="test-item">
         <div class="title">
-            第{{ index + 1 }}题 {{ typeOptions[item.type] }}
+            <span>第{{ index + 1 }}题 {{ typeOptions[item.type] }}</span>
+            <span v-if="showQuestionAdmin" class="title-admin">
+                <n-button size="tiny" quaternary @click.stop="$emit('question-edit', item)">编辑</n-button>
+                <n-button size="tiny" quaternary type="error" @click.stop="$emit('question-delete', item)">删除</n-button>
+            </span>
         </div>
         <div class="p-4">
             <!-- 题目内容 -->
@@ -71,10 +75,10 @@
 
     
     const props = defineProps({
-        item:Object,
-        index:Number
+        item: Object,
+        index: Number,
+        showQuestionAdmin: { type: Boolean, default: false },
     })
-
     const modelValue = ref(props.item.user_value)
 
     // 移除填空
@@ -139,7 +143,7 @@
     }
 
     // 监听值变化
-    const emit = defineEmits(["change"])
+    const emit = defineEmits(['change', 'question-edit', 'question-delete'])
     watch(modelValue,(newVal)=>{
         emit("change",unref(newVal))
     },{
@@ -160,6 +164,16 @@
         border-bottom-width: 1px;
         font-size: 0.875rem;
         line-height: 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .title-admin {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
     }
 
     .test-item .tip {
