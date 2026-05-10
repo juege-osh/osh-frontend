@@ -4,13 +4,6 @@
       <button class="back-btn" @click="goBack">返回工具列表</button>
 
       <section v-if="tool" class="detail-hero">
-        <div class="cover-panel">
-          <div class="cover-wrap">
-            <img :src="tool.logoUrl || fallbackLogo" :alt="tool.toolName" />
-            <span class="resource-badge" :class="resourceBadgeClass">{{ resourceTypeLabel }}</span>
-          </div>
-        </div>
-
         <div class="info-panel">
           <div class="title-row">
             <div>
@@ -37,7 +30,7 @@
               <span>收藏数</span>
               <strong>{{ tool.collectionCount || 0 }}</strong>
             </div>
-            <div class="metric-card">
+            <div v-if="isPaidTool" class="metric-card">
               <span>剩余次数</span>
               <strong>{{ remainingCountText }}</strong>
             </div>
@@ -47,13 +40,18 @@
             </div>
           </div>
 
-          <div class="purchase-row">
+          <div v-if="isPaidTool" class="purchase-row">
             <div class="quota-block">
               <span>当前权益</span>
               <strong>{{ purchasedStatusText }}</strong>
               <em v-if="Number(tool.remainingCount || 0) > 0">还可使用 {{ tool.remainingCount }} 次</em>
             </div>
-            <button class="open-btn" @click="openTool">{{ openButtonText }}</button>
+          </div>
+          <div v-else class="purchase-row">
+            <div class="quota-block">
+              <span>当前权益</span>
+              <strong>{{ resourceTypeLabel }}</strong>
+            </div>
           </div>
         </div>
       </section>
@@ -88,27 +86,13 @@
             <strong>{{ tool.level || 1 }}</strong>
           </div>
           <div class="info-item">
-            <span>访问地址</span>
-            <a
-              v-if="toolLink"
-              class="text-link"
-              :href="toolLink"
-              :target="Number(tool.accessType) === 2 ? '_blank' : '_self'"
-              rel="noopener noreferrer"
-              @click.prevent="openTool"
-            >
-              {{ Number(tool.accessType) === 2 ? '打开第三方地址' : '进入站内路由' }}
-            </a>
-            <strong v-else>暂无</strong>
-          </div>
-          <div class="info-item">
             <span>更新时间</span>
             <strong>{{ tool.updateTime || tool.createTime || '--' }}</strong>
           </div>
         </div>
       </section>
 
-      <section v-if="tool" class="detail-section package-section">
+      <section v-if="tool && isPaidTool" class="detail-section package-section">
         <div class="section-title-row">
           <div>
             <p class="section-kicker">Packages</p>
@@ -171,7 +155,6 @@ const route = useRoute();
 const router = useRouter();
 const { message } = createDiscreteApi(['message']);
 
-const fallbackLogo = 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg';
 const resourceTypeMap = {
   FREE: '免费',
   CASH_ONLY: '付费',
@@ -204,16 +187,8 @@ watch(
 
 const tags = computed(() => tool.value?.tags || []);
 const resourceTypeLabel = computed(() => resourceTypeMap[tool.value?.resourceType] || tool.value?.resourceType || '免费');
-const resourceBadgeClass = computed(() => {
-  const type = tool.value?.resourceType || 'FREE';
-  return {
-    free: type === 'FREE',
-    paid: type === 'CASH_ONLY' || type === 'CASH_POINT',
-    vip: type === 'VIP' || type === 'SMALL_CLASS' || type === 'INTERNAL',
-  };
-});
 const accessTypeLabel = computed(() => Number(tool.value?.accessType) === 2 ? '第三方 iframe' : '站内工具');
-const openButtonText = computed(() => Number(tool.value?.accessType) === 2 ? '打开第三方工具' : '进入工具');
+const isPaidTool = computed(() => ['CASH_ONLY', 'CASH_POINT'].includes(tool.value?.resourceType));
 const packages = computed(() => {
   const list = tool.value?.packages;
   if (!Array.isArray(list)) return [];
@@ -224,12 +199,6 @@ const remainingCountText = computed(() => {
   return count > 0 ? `${count} 次` : '0 次';
 });
 const purchasedStatusText = computed(() => Number(tool.value?.remainingCount || 0) > 0 ? '已购买' : '未购买');
-const toolLink = computed(() => {
-  const current = tool.value;
-  if (!current) return '';
-  if (Number(current.accessType) === 2) return current.iframeUrl || '';
-  return current.routePath || '';
-});
 
 function goBack() {
   if (window.history.length > 1) {
@@ -237,20 +206,6 @@ function goBack() {
   } else {
     navigateTo('/tool/1');
   }
-}
-
-function openTool() {
-  const current = tool.value;
-  if (!current) return;
-  if (Number(current.accessType) === 2 && current.iframeUrl) {
-    window.open(current.iframeUrl, '_blank');
-    return;
-  }
-  if (current.routePath) {
-    navigateTo(current.routePath);
-    return;
-  }
-  message.warning('该工具暂未配置访问地址');
 }
 
 function handleBuyPackage(item) {
@@ -308,57 +263,14 @@ useHead(() => ({
 }
 .back-btn:hover { border-color: #18a058; color: #18a058; }
 .detail-hero {
-  display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
-  gap: 24px;
-  align-items: stretch;
+  display: block;
 }
-.cover-panel,
 .info-panel,
 .detail-section {
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: linear-gradient(150deg, rgba(255,255,255,0.98), rgba(247,250,252,0.94));
   border-radius: 8px;
   box-shadow: 0 20px 48px rgba(15, 23, 42, 0.08);
-}
-.cover-panel {
-  padding: 20px;
-}
-.cover-wrap {
-  position: relative;
-  overflow: hidden;
-  height: 360px;
-  border-radius: 8px;
-  background: #eef2f7;
-}
-.cover-wrap img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.resource-badge {
-  position: absolute;
-  left: 16px;
-  bottom: 16px;
-  max-width: calc(100% - 32px);
-  padding: 9px 14px;
-  border-radius: 999px;
-  color: #10213a;
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1;
-  backdrop-filter: blur(12px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
-}
-.resource-badge.free { background: rgba(187, 247, 208, 0.92); }
-.resource-badge.paid { background: rgba(254, 240, 138, 0.94); }
-.resource-badge.vip {
-  color: #f8fafc;
-  background: rgba(79, 70, 229, 0.88);
 }
 .info-panel {
   padding: 28px;
@@ -483,20 +395,6 @@ h1 {
   color: #0f766e;
   font-style: normal;
   font-weight: 700;
-}
-.open-btn {
-  border: 0;
-  border-radius: 8px;
-  padding: 13px 26px;
-  color: #fff;
-  background: linear-gradient(135deg, #13236f, #1d4ed8);
-  cursor: pointer;
-  font-weight: 800;
-  white-space: nowrap;
-  box-shadow: 0 14px 28px rgba(29, 78, 216, 0.24);
-}
-.open-btn:hover {
-  transform: translateY(-1px);
 }
 .detail-section {
   margin-top: 22px;
@@ -650,12 +548,6 @@ h1 {
   .tool-detail-page {
     padding: 14px 14px 32px;
   }
-  .detail-hero {
-    grid-template-columns: 1fr;
-  }
-  .cover-wrap {
-    height: 280px;
-  }
   .metric-grid,
   .info-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -679,9 +571,6 @@ h1 {
   .info-grid,
   .package-grid {
     grid-template-columns: 1fr;
-  }
-  .open-btn {
-    width: 100%;
   }
   .quota-summary {
     text-align: left;

@@ -46,6 +46,15 @@ export async function apiToolDetail(id) {
   });
 }
 
+export async function apiToolRecommend(body) {
+  return $fetch('/tool/recommend', {
+    method: 'POST',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    body,
+  });
+}
+
 export async function apiSaveTool(body) {
   return $fetch('/tool/save', {
     method: 'POST',
@@ -61,43 +70,6 @@ export async function apiUpdateTool(body) {
     baseURL,
     headers: getToolAuthHeaders(),
     body,
-  });
-}
-
-export async function apiUploadToolCover(file, onProgress) {
-  const form = new FormData();
-  form.append('file', file);
-  if (typeof onProgress === 'function' && process.client) {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${baseURL}/tool/cover/upload`);
-      const headers = getToolAuthHeaders();
-      Object.keys(headers).forEach((key) => xhr.setRequestHeader(key, headers[key]));
-      xhr.upload.onprogress = (event) => {
-        if (!event.lengthComputable) return;
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      };
-      xhr.onload = () => {
-        try {
-          const response = JSON.parse(xhr.responseText || '{}');
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(response);
-          } else {
-            reject(response);
-          }
-        } catch (error) {
-          reject(error);
-        }
-      };
-      xhr.onerror = () => reject(new Error('上传失败'));
-      xhr.send(form);
-    });
-  }
-  return $fetch('/tool/cover/upload', {
-    method: 'POST',
-    baseURL,
-    headers: getToolAuthHeaders(),
-    body: form,
   });
 }
 
@@ -125,5 +97,32 @@ export async function apiDeleteTool(ids) {
     baseURL,
     headers: getToolAuthHeaders(),
     body: { ids },
+  });
+}
+
+export async function apiConsumeToolUsage(body) {
+  return $fetch('/tool/use/consume', {
+    method: 'POST',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    body,
+  });
+}
+
+export async function apiVoteGoodTool(toolId) {
+  return $fetch('/tool/vote/good', {
+    method: 'POST',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    body: { toolId },
+  });
+}
+
+export async function apiVoteBadTool(toolId) {
+  return $fetch('/tool/vote/bad', {
+    method: 'POST',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    body: { toolId },
   });
 }
