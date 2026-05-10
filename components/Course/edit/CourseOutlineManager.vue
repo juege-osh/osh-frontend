@@ -345,6 +345,11 @@ function addSectionInline(chapter: any) {
   addingSectionChapterId.value = chapter.id;
   newSectionTitle.value = '';
   newSectionType.value = 'video';
+  // 如果章节是折叠状态，自动展开
+  if (collapsedChapters.value.has(chapter.id)) {
+    collapsedChapters.value.delete(chapter.id);
+    collapsedChapters.value = new Set(collapsedChapters.value);
+  }
 }
 
 function cancelAddSection() {

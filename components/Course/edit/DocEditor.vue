@@ -18,13 +18,22 @@
           </div>
         </div>
 
+        <!-- 字体大小 -->
+        <div class="tb-dropdown tb-fontsize" @mousedown.prevent @click.stop="showFontSizeMenu = !showFontSizeMenu">
+          <span class="tb-dropdown-label">{{ currentFontSize }}</span>
+          <span class="tb-dropdown-arrow">▾</span>
+          <div v-if="showFontSizeMenu" class="tb-dropdown-menu tb-fontsize-menu">
+            <div v-for="size in fontSizes" :key="size.value" class="menu-item" :style="{ fontSize: size.px }" @mousedown.prevent @click="setFontSize(size.value)">{{ size.label }}</div>
+          </div>
+        </div>
+
         <div class="tb-divider" />
 
         <!-- 格式按钮 -->
-        <button class="tb-btn bold" :class="{ active: states.bold }" title="加粗 (Ctrl+B)" @mousedown.prevent @click="execCmd('bold')"><b>B</b></button>
-        <button class="tb-btn italic" :class="{ active: states.italic }" title="斜体 (Ctrl+I)" @mousedown.prevent @click="execCmd('italic')"><i>I</i></button>
-        <button class="tb-btn underline" :class="{ active: states.underline }" title="下划线 (Ctrl+U)" @mousedown.prevent @click="execCmd('underline')"><u>U</u></button>
-        <button class="tb-btn strikethrough" :class="{ active: states.strikethrough }" title="删除线" @mousedown.prevent @click="execCmd('strikeThrough')"><s>S</s></button>
+        <button class="tb-btn bold" :class="{ active: states.bold }" :title="`加粗 (${mod}+B)`" @mousedown.prevent @click="execCmd('bold')"><b>B</b></button>
+        <button class="tb-btn italic" :class="{ active: states.italic }" :title="`斜体 (${mod}+I)`" @mousedown.prevent @click="execCmd('italic')"><i>I</i></button>
+        <button class="tb-btn underline" :class="{ active: states.underline }" :title="`下划线 (${mod}+U)`" @mousedown.prevent @click="execCmd('underline')"><u>U</u></button>
+        <button class="tb-btn strikethrough" :class="{ active: states.strikethrough }" :title="`删除线 (${mod}+Shift+X)`" @mousedown.prevent @click="execCmd('strikeThrough')"><s>S</s></button>
 
         <div class="tb-divider" />
 
@@ -33,25 +42,50 @@
           <span class="tb-color-icon" :style="{ borderBottom: `3px solid ${currentColor}` }">A</span>
           <input type="color" class="tb-color-input" v-model="currentColor" @change="execCmd('foreColor', currentColor)" />
         </div>
+        <!-- 背景色 -->
+        <div class="tb-color-wrap" title="背景颜色">
+          <span class="tb-color-icon tb-bg-icon" :style="{ background: currentBgColor }">A</span>
+          <input type="color" class="tb-color-input" v-model="currentBgColor" @change="execCmd('hiliteColor', currentBgColor)" />
+        </div>
 
         <div class="tb-divider" />
 
         <!-- 对齐 -->
-        <button class="tb-btn" title="左对齐" @mousedown.prevent @click="execCmd('justifyLeft')">⬅</button>
-        <button class="tb-btn" title="居中" @mousedown.prevent @click="execCmd('justifyCenter')">☰</button>
-        <button class="tb-btn" title="右对齐" @mousedown.prevent @click="execCmd('justifyRight')">➡</button>
+        <button class="tb-btn" :title="`左对齐 (${mod}+Shift+L)`" @mousedown.prevent @click="execCmd('justifyLeft')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><line x1="1" y1="3" x2="13" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="11" x2="13" y2="11" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <button class="tb-btn" :title="`居中 (${mod}+Shift+E)`" @mousedown.prevent @click="execCmd('justifyCenter')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><line x1="1" y1="3" x2="13" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="11" x2="13" y2="11" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <button class="tb-btn" :title="`右对齐 (${mod}+Shift+R)`" @mousedown.prevent @click="execCmd('justifyRight')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><line x1="1" y1="3" x2="13" y2="3" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="11" x2="13" y2="11" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
 
         <div class="tb-divider" />
 
         <!-- 列表 -->
-        <button class="tb-btn" title="无序列表" @mousedown.prevent @click="execCmd('insertUnorderedList')">≡</button>
-        <button class="tb-btn" title="有序列表" @mousedown.prevent @click="execCmd('insertOrderedList')">1.</button>
+        <button class="tb-btn" :title="`无序列表 (${mod}+Shift+U)`" @mousedown.prevent @click="execCmd('insertUnorderedList')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="2" cy="4" r="1.2" fill="currentColor"/><line x1="5" y1="4" x2="13" y2="4" stroke="currentColor" stroke-width="1.5"/><circle cx="2" cy="8" r="1.2" fill="currentColor"/><line x1="5" y1="8" x2="13" y2="8" stroke="currentColor" stroke-width="1.5"/><circle cx="2" cy="12" r="1.2" fill="currentColor"/><line x1="5" y1="12" x2="11" y2="12" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <button class="tb-btn" :title="`有序列表 (${mod}+Shift+O)`" @mousedown.prevent @click="execCmd('insertOrderedList')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><text x="1" y="5" font-size="5" fill="currentColor">1.</text><line x1="6" y1="4" x2="13" y2="4" stroke="currentColor" stroke-width="1.5"/><text x="1" y="9" font-size="5" fill="currentColor">2.</text><line x1="6" y1="8" x2="13" y2="8" stroke="currentColor" stroke-width="1.5"/><text x="1" y="13" font-size="5" fill="currentColor">3.</text><line x1="6" y1="12" x2="11" y2="12" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
 
         <div class="tb-divider" />
 
         <!-- 缩进 -->
-        <button class="tb-btn" title="增加缩进" @mousedown.prevent @click="execCmd('indent')">→</button>
-        <button class="tb-btn" title="减少缩进" @mousedown.prevent @click="execCmd('outdent')">←</button>
+        <button class="tb-btn" title="增加缩进 (Tab)" @mousedown.prevent @click="execCmd('indent')">→</button>
+        <button class="tb-btn" title="减少缩进 (Shift+Tab)" @mousedown.prevent @click="execCmd('outdent')">←</button>
+
+        <div class="tb-divider" />
+
+        <!-- 撤销/重做 -->
+        <button class="tb-btn" :title="`撤销 (${mod}+Z)`" @mousedown.prevent @click="execCmd('undo')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7 C2 4 4.5 2 7 2 C9.5 2 12 4 12 7 C12 10 9.5 12 7 12" stroke="currentColor" stroke-width="1.5" fill="none"/><polyline points="2,4 2,7 5,7" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+        </button>
+        <button class="tb-btn" :title="`重做 (${mod}+Y)`" @mousedown.prevent @click="execCmd('redo')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 7 C12 4 9.5 2 7 2 C4.5 2 2 4 2 7 C2 10 4.5 12 7 12" stroke="currentColor" stroke-width="1.5" fill="none"/><polyline points="12,4 12,7 9,7" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+        </button>
 
         <div class="tb-divider" />
 
@@ -59,7 +93,12 @@
         <button class="tb-btn format-brush" :class="{ active: formatBrushActive }" title="格式刷" @mousedown.prevent @click="toggleFormatBrush">🖌</button>
 
         <!-- 链接 -->
-        <button class="tb-btn" title="插入链接 (Ctrl+K)" @mousedown.prevent @click="insertLink">🔗</button>
+        <button class="tb-btn" :title="`插入链接 (${mod}+K)`" @mousedown.prevent @click="insertLink">🔗</button>
+
+        <!-- 行内代码 -->
+        <button class="tb-btn" :title="`行内代码 (${mod}+\`)`" @mousedown.prevent @click="insertInlineCode">
+          <svg width="14" height="14" viewBox="0 0 14 14"><polyline points="4,4 1,7 4,10" stroke="currentColor" stroke-width="1.5" fill="none"/><polyline points="10,4 13,7 10,10" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+        </button>
 
         <!-- 图片 -->
         <div class="tb-img-wrap">
@@ -83,14 +122,51 @@
           </div>
         </div>
 
+        <!-- 表格 -->
+        <div class="tb-img-wrap">
+          <button class="tb-btn" title="插入表格" @mousedown.prevent @click.stop="showTableMenu = !showTableMenu">⊞</button>
+          <div v-if="showTableMenu" class="tb-table-menu" @click.stop>
+            <div class="img-menu-title">插入表格</div>
+            <div class="table-size-picker">
+              <div v-for="r in 6" :key="r" class="table-row-picker">
+                <div
+                  v-for="c in 6"
+                  :key="c"
+                  class="table-cell-picker"
+                  :class="{ hover: r <= tableHoverRow && c <= tableHoverCol }"
+                  @mouseenter="tableHoverRow = r; tableHoverCol = c"
+                  @mouseleave="tableHoverRow = 0; tableHoverCol = 0"
+                  @click="insertTable(r, c)"
+                />
+              </div>
+            </div>
+            <div class="table-size-label">{{ tableHoverRow > 0 ? `${tableHoverRow} × ${tableHoverCol}` : '悬停选择大小' }}</div>
+          </div>
+        </div>
+
+        <!-- 代码块 -->
+        <button class="tb-btn" :title="`插入代码块 (${mod}+Shift+K)`" @mousedown.prevent @click="insertCodeBlock">
+          <svg width="14" height="14" viewBox="0 0 14 14"><polyline points="4,3 1,7 4,11" stroke="currentColor" stroke-width="1.5" fill="none"/><polyline points="10,3 13,7 10,11" stroke="currentColor" stroke-width="1.5" fill="none"/><line x1="6" y1="2" x2="8" y2="12" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+
+        <!-- 引用块 -->
+        <button class="tb-btn" :title="`引用块 (${mod}+Shift+.)`" @mousedown.prevent @click="execCmd('formatBlock', 'blockquote')">
+          <svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="2" width="3" height="10" rx="1" fill="currentColor" opacity="0.4"/><line x1="6" y1="4" x2="13" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="6" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="6" y1="10" x2="11" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+
         <!-- 分割线 -->
-        <button class="tb-btn" title="插入分割线" @mousedown.prevent @click="insertHr">—</button>
+        <button class="tb-btn" :title="`插入分割线 (${mod}+Shift+-)`" @mousedown.prevent @click="insertHr">—</button>
 
         <!-- 清除格式 -->
-        <button class="tb-btn" title="清除格式" @mousedown.prevent @click="execCmd('removeFormat')">✕</button>
+        <button class="tb-btn" :title="`清除格式 (${mod}+\\)`" @mousedown.prevent @click="execCmd('removeFormat')">✕</button>
       </div>
 
       <div class="toolbar-right">
+        <div class="format-tabs">
+          <span class="format-tab" :class="{ active: editFormat === 'rich' }" @click="switchFormat('rich')">富文本</span>
+          <span class="format-tab" :class="{ active: editFormat === 'markdown' }" @click="switchFormat('markdown')">Markdown</span>
+          <span class="format-tab" :class="{ active: editFormat === 'html' }" @click="switchFormat('html')">HTML</span>
+        </div>
         <div class="view-tabs">
           <span class="view-tab" :class="{ active: viewMode === 'edit' }" @click="viewMode = 'edit'">编辑</span>
           <span class="view-tab" :class="{ active: viewMode === 'preview' }" @click="viewMode = 'preview'">预览</span>
@@ -108,7 +184,7 @@
     >
       <!-- 富文本编辑区 -->
       <div
-        v-show="viewMode !== 'preview'"
+        v-show="viewMode !== 'preview' && editFormat === 'rich'"
         ref="editorRef"
         class="rich-editor"
         contenteditable="true"
@@ -120,16 +196,51 @@
         @focus="updateStates"
         @paste="onPaste"
       />
+
+      <textarea
+        v-show="viewMode !== 'preview' && editFormat !== 'rich'"
+        ref="plainEditorRef"
+        v-model="plainText"
+        class="plain-editor"
+        :placeholder="plainPlaceholder"
+        @input="onPlainInput"
+      />
+
+      <!-- 图片浮动工具栏 -->
+      <div
+        v-if="imgToolbar.visible"
+        class="img-toolbar"
+        :style="{ top: imgToolbar.top + 'px', left: imgToolbar.left + 'px' }"
+        @mousedown.prevent
+      >
+        <button class="img-tb-btn" title="左对齐" @click="setImgAlign('left')">
+          <svg width="13" height="13" viewBox="0 0 13 13"><rect x="0" y="1" width="13" height="2" rx="1" fill="currentColor"/><rect x="0" y="5.5" width="8" height="2" rx="1" fill="currentColor"/><rect x="0" y="10" width="13" height="2" rx="1" fill="currentColor"/></svg>
+        </button>
+        <button class="img-tb-btn" title="居中" @click="setImgAlign('center')">
+          <svg width="13" height="13" viewBox="0 0 13 13"><rect x="0" y="1" width="13" height="2" rx="1" fill="currentColor"/><rect x="2.5" y="5.5" width="8" height="2" rx="1" fill="currentColor"/><rect x="0" y="10" width="13" height="2" rx="1" fill="currentColor"/></svg>
+        </button>
+        <button class="img-tb-btn" title="右对齐" @click="setImgAlign('right')">
+          <svg width="13" height="13" viewBox="0 0 13 13"><rect x="0" y="1" width="13" height="2" rx="1" fill="currentColor"/><rect x="5" y="5.5" width="8" height="2" rx="1" fill="currentColor"/><rect x="0" y="10" width="13" height="2" rx="1" fill="currentColor"/></svg>
+        </button>
+        <div class="img-tb-divider" />
+        <button class="img-tb-btn" title="25% 宽度" @click="setImgWidth('25%')">25%</button>
+        <button class="img-tb-btn" title="50% 宽度" @click="setImgWidth('50%')">50%</button>
+        <button class="img-tb-btn" title="75% 宽度" @click="setImgWidth('75%')">75%</button>
+        <button class="img-tb-btn" title="100% 宽度" @click="setImgWidth('100%')">100%</button>
+        <div class="img-tb-divider" />
+        <button class="img-tb-btn img-tb-del" title="删除图片" @click="deleteSelectedImg">🗑</button>
+      </div>
+
       <!-- 预览区 -->
       <div v-show="viewMode === 'preview' || viewMode === 'split'" class="preview-pane">
-        <div class="preview-content" v-html="localHtml" />
+        <div ref="previewPaneRef" class="preview-content" v-html="localHtml" />
       </div>
     </div>
 
     <!-- 状态栏 -->
     <div class="status-bar">
       <span class="status-item">字符数：{{ charCount }}</span>
-      <span class="status-tip">Ctrl+B 加粗 · Ctrl+I 斜体 · Ctrl+U 下划线 · Ctrl+K 链接</span>
+      <span class="status-tip">{{ mod }}+B 加粗 · {{ mod }}+I 斜体 · {{ mod }}+U 下划线 · {{ mod }}+K 链接 · {{ mod }}+` 行内代码 · {{ mod }}+Shift+K 代码块 · {{ mod }}+Shift+. 引用 · {{ mod }}+Z 撤销</span>
     </div>
   </div>
 </template>
@@ -137,6 +248,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { fetchConfig } from '~/composables/useHttp';
+import { parseCourseDoc, renderCourseDoc, serializeCourseDoc, htmlToMarkdown, type CourseDocFormat } from '~/composables/useCourseDoc';
 
 const props = defineProps<{
   modelValue: string;
@@ -144,24 +256,62 @@ const props = defineProps<{
 }>();
 const emit = defineEmits(['update:modelValue']);
 
+// 平台检测：Mac 用 ⌘，Windows/Linux 用 Ctrl
+const isMac = process.client && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+const mod = isMac ? '⌘' : 'Ctrl';
+
 const editorRef = ref<HTMLDivElement | null>(null);
+const previewPaneRef = ref<HTMLDivElement | null>(null);
 const showHeadingMenu = ref(false);
 const showImgMenu = ref(false);
+const showFontSizeMenu = ref(false);
+const showTableMenu = ref(false);
+const tableHoverRow = ref(0);
+const tableHoverCol = ref(0);
 const imgUrlInput = ref('');
 const imgFileRef = ref<HTMLInputElement | null>(null);
 const viewMode = ref<'edit' | 'preview' | 'split'>('edit');
 const formatBrushActive = ref(false);
 const formatBrushStyles = ref<any>(null);
 const currentColor = ref('#333333');
+const currentBgColor = ref('#ffff00');
 const localHtml = ref('');
+const plainText = ref('');
+const plainEditorRef = ref<HTMLTextAreaElement | null>(null);
+// editFormat 决定实际保存格式，viewMode 只控制编辑区/预览区的展示方式。
+const editFormat = ref<CourseDocFormat>('rich');
 const isComposing = ref(false);
+
+const fontSizes = [
+  { label: '12px 小号', value: '1', px: '12px' },
+  { label: '14px 正文', value: '2', px: '14px' },
+  { label: '16px 中号', value: '3', px: '16px' },
+  { label: '18px 大号', value: '4', px: '18px' },
+  { label: '24px 特大', value: '5', px: '24px' },
+  { label: '32px 超大', value: '6', px: '32px' },
+];
+const currentFontSize = ref('字号');
+
+// 图片浮动工具栏
+const imgToolbar = ref({ visible: false, top: 0, left: 0 });
+const selectedImg = ref<HTMLImageElement | null>(null);
 
 const states = ref({
   bold: false, italic: false, underline: false, strikethrough: false,
 });
 
 const charCount = computed(() => {
-  return editorRef.value?.innerText?.length || 0;
+  if (editFormat.value === 'rich') {
+    return editorRef.value?.innerText?.length || 0;
+  }
+  return plainText.value.length || 0;
+});
+
+const plainPlaceholder = computed(() => {
+  if (editFormat.value === 'markdown') {
+    return '支持 Markdown 语法：# 标题、- 列表、``` 代码块、> 引用、[链接](url)';
+  }
+  return '请输入 HTML 内容，例如 <h2>标题</h2><p>正文</p>';
 });
 
 const currentBlockLabel = computed(() => {
@@ -175,27 +325,54 @@ onMounted(() => {
   document.addEventListener('click', () => {
     showHeadingMenu.value = false;
     showImgMenu.value = false;
+    showFontSizeMenu.value = false;
+    showTableMenu.value = false;
+    imgToolbar.value.visible = false;
+    selectedImg.value = null;
   });
   // onMounted 时 editorRef 已就绪，直接写入内容并绑定图片
-  if (editorRef.value) {
-    const val = props.modelValue || '';
-    editorRef.value.innerHTML = val;
-    localHtml.value = val;
-    // 用 setTimeout 确保浏览器完成 DOM 渲染后再绑定
-    setTimeout(() => bindAllImages(), 100);
-  }
+  hydrateFromModel(props.modelValue || '');
 });
 
 // 外部 modelValue 变化时同步（不用 immediate，onMounted 已处理初始值）
 watch(() => props.modelValue, (val) => {
-  if (!editorRef.value) return;
-  // 只在编辑器没有焦点时同步，避免光标跳动
-  if (document.activeElement !== editorRef.value) {
-    editorRef.value.innerHTML = val || '';
-    localHtml.value = val || '';
-    setTimeout(() => bindAllImages(), 100);
-  }
+  // 只在编辑器有实质内容且用户正在编辑时跳过，避免覆盖用户输入
+  // 初始加载（编辑器内容为空或只有空白）时不跳过，确保异步数据能正确写入
+  const editorHasContent = (editorRef.value?.innerText?.trim() || '').length > 0;
+  const plainHasContent = (plainText.value?.trim() || '').length > 0;
+  const editorFocused = editFormat.value === 'rich' && document.activeElement === editorRef.value;
+  const plainFocused = editFormat.value !== 'rich' && document.activeElement === plainEditorRef.value;
+  if ((editorFocused && editorHasContent) || (plainFocused && plainHasContent)) return;
+  hydrateFromModel(val || '');
 }, { immediate: false });
+
+function hydrateFromModel(val: string) {
+  const parsed = parseCourseDoc(val || '');
+  editFormat.value = parsed.format
+
+  if (parsed.format === 'rich') {
+    if (editorRef.value) {
+      editorRef.value.innerHTML = parsed.content || '';
+    }
+    plainText.value = ''
+    localHtml.value = parsed.content || ''
+    setTimeout(async () => {
+      bindAllImages();
+      await resolveImgUrls();
+    }, 100)
+    return
+  }
+
+  plainText.value = parsed.content || ''
+  if (editorRef.value) {
+    editorRef.value.innerHTML = ''
+  }
+  localHtml.value = renderCourseDoc(val || '')
+  // Markdown 渲染后，对预览区图片做临时 URL 续期
+  nextTick(async () => {
+    await resolvePreviewImgUrls();
+  })
+}
 
 // 给编辑器内所有图片补上 doc-img class 并绑定缩放
 function bindAllImages() {
@@ -219,10 +396,16 @@ function bindAllImages() {
 // 输入时同步
 function onInput() {
   if (!editorRef.value) return;
-  const html = editorRef.value.innerHTML;
-  localHtml.value = html;
-  emit('update:modelValue', html);
+  localHtml.value = editorRef.value.innerHTML;
+  syncContent();
   updateStates();
+}
+
+function onPlainInput() {
+  const value = plainText.value || '';
+  // Markdown/HTML 模式下预览区复用统一渲染逻辑，保证学习端和编辑端表现一致。
+  localHtml.value = editFormat.value === 'markdown' ? renderCourseDoc(`<!--OSH_DOC_FORMAT:MARKDOWN-->\n${value}`) : value;
+  emit('update:modelValue', serializeCourseDoc(value, editFormat.value));
 }
 
 // 更新工具栏状态
@@ -238,14 +421,48 @@ function updateStates() {
 // 执行富文本命令
 function execCmd(cmd: string, value?: string) {
   showHeadingMenu.value = false;
+  if (editFormat.value !== 'rich') return;
   editorRef.value?.focus();
   document.execCommand(cmd, false, value);
   onInput();
   updateStates();
 }
 
+function switchFormat(format: CourseDocFormat) {
+  if (editFormat.value === format) return;
+
+  if (format === 'rich') {
+    // 切回富文本时，把当前 Markdown/HTML 预览结果还原成可继续编辑的 HTML。
+    const html = localHtml.value || (plainText.value ? renderCourseDoc(editFormat.value === 'markdown' ? `<!--OSH_DOC_FORMAT:MARKDOWN-->\n${plainText.value}` : plainText.value) : '')
+    editFormat.value = 'rich'
+    nextTick(() => {
+      if (editorRef.value) {
+        editorRef.value.innerHTML = html
+        bindAllImages()
+      }
+      localHtml.value = html
+      emit('update:modelValue', serializeCourseDoc(html, 'rich'))
+    })
+    return
+  }
+
+  if (editFormat.value === 'rich' && editorRef.value) {
+    // 从富文本切走时先抽出当前内容，避免用户刚编辑的内容丢失。
+    plainText.value = format === 'markdown'
+      ? htmlToMarkdown(editorRef.value.innerHTML || '')
+      : editorRef.value.innerHTML || ''
+  }
+
+  editFormat.value = format
+  localHtml.value = format === 'markdown'
+    ? renderCourseDoc(`<!--OSH_DOC_FORMAT:MARKDOWN-->\n${plainText.value}`)
+    : plainText.value
+  emit('update:modelValue', serializeCourseDoc(plainText.value, format))
+}
+
 // 插入链接
 function insertLink() {
+  if (editFormat.value !== 'rich') return;
   const url = window.prompt('请输入链接地址：', 'https://');
   if (url) {
     const text = window.getSelection()?.toString() || url;
@@ -253,8 +470,15 @@ function insertLink() {
   }
 }
 
-// ===== 图片插入 =====
-// 通过 URL 插入图片
+// 插入行内代码
+function insertInlineCode() {
+  if (editFormat.value !== 'rich') return;
+  const sel = window.getSelection();
+  const selectedText = sel?.toString() || '';
+  const code = selectedText || 'code';
+  execCmd('insertHTML', `<code style="background:#f0f0f0;color:#d03050;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:0.9em;">${code}</code>`);
+}
+
 function insertImageByUrl() {
   const url = imgUrlInput.value.trim();
   if (!url) return;
@@ -274,6 +498,7 @@ async function handleImgUpload(e: Event) {
 
 // 拖拽图片到编辑器
 function onEditorDrop(e: DragEvent) {
+  if (editFormat.value !== 'rich') return;
   const file = e.dataTransfer?.files?.[0];
   if (file && file.type.startsWith('image/')) {
     insertFileAsImage(file);
@@ -288,6 +513,7 @@ function onEditorDrop(e: DragEvent) {
 
 // 粘贴处理：识别图片链接自动转为图片
 function onPaste(e: ClipboardEvent) {
+  if (editFormat.value !== 'rich') return;
   // 粘贴图片文件
   const items = e.clipboardData?.items;
   if (items) {
@@ -311,6 +537,7 @@ function onPaste(e: ClipboardEvent) {
 
 // 将 File 对象上传到服务器，获取临时访问链接后插入图片
 async function insertFileAsImage(file: File) {
+  if (editFormat.value !== 'rich') return;
   // 先插入占位图（loading 状态），避免用户等待时无反馈
   const editor = editorRef.value;
   if (!editor) return;
@@ -395,6 +622,7 @@ async function insertFileAsImage(file: File) {
 
 // 核心：直接操作 DOM 插入 img 节点，不走 execCmd
 function insertImgNode(src: string) {
+  if (editFormat.value !== 'rich') return;
   const editor = editorRef.value;
   if (!editor) return;
   editor.focus();
@@ -441,16 +669,86 @@ function insertImgNode(src: string) {
 // ===== 图片缩放（独立 overlay，不影响 contenteditable）=====
 
 function bindImgResize(img: HTMLImageElement) {
-  // 移除旧的监听（通过替换节点克隆方式清除所有旧事件）
-  // 用 dataset.rb 标记是否已绑定，重新绑定时先清除标记
   img.dataset.rb = '1';
-  // 移除旧监听，重新绑定（防止重复）
   img.removeEventListener('dragstart', preventDrag);
   img.removeEventListener('mousedown', startResize);
   img.removeEventListener('mousemove', updateImgCursor);
+  img.removeEventListener('click', showImgToolbar);
   img.addEventListener('dragstart', preventDrag);
   img.addEventListener('mousedown', startResize);
   img.addEventListener('mousemove', updateImgCursor);
+  img.addEventListener('click', showImgToolbar);
+}
+
+function showImgToolbar(e: Event) {
+  e.stopPropagation();
+  const img = e.currentTarget as HTMLImageElement;
+  const imgRect = img.getBoundingClientRect();
+  selectedImg.value = img;
+
+  // 工具栏宽度约 260px，高度约 38px
+  const toolbarW = 260;
+  const toolbarH = 38;
+  const gap = 6;
+
+  // 默认显示在图片上方
+  let top = imgRect.top - toolbarH - gap;
+  let left = imgRect.left;
+
+  // 上方空间不足时显示在图片下方
+  if (top < 8) {
+    top = imgRect.bottom + gap;
+  }
+
+  // 右侧超出视口时向左偏移
+  if (left + toolbarW > window.innerWidth - 8) {
+    left = window.innerWidth - toolbarW - 8;
+  }
+
+  // 左侧不能小于 8
+  if (left < 8) left = 8;
+
+  imgToolbar.value = { visible: true, top, left };
+}
+
+function setImgAlign(align: 'left' | 'center' | 'right') {
+  const img = selectedImg.value;
+  if (!img) return;
+  if (align === 'center') {
+    img.style.display = 'block';
+    img.style.margin = '8px auto';
+    img.style.float = '';
+  } else if (align === 'left') {
+    img.style.display = 'block';
+    img.style.margin = '8px auto 8px 0';
+    img.style.float = '';
+  } else {
+    img.style.display = 'block';
+    img.style.margin = '8px 0 8px auto';
+    img.style.float = '';
+  }
+  syncContent();
+  imgToolbar.value.visible = false;
+  selectedImg.value = null;
+}
+
+function setImgWidth(width: string) {
+  const img = selectedImg.value;
+  if (!img) return;
+  img.style.width = width;
+  img.style.maxWidth = '100%';
+  syncContent();
+  imgToolbar.value.visible = false;
+  selectedImg.value = null;
+}
+
+function deleteSelectedImg() {
+  const img = selectedImg.value;
+  if (!img) return;
+  img.parentNode?.removeChild(img);
+  imgToolbar.value.visible = false;
+  selectedImg.value = null;
+  syncContent();
 }
 
 function preventDrag(e: Event) {
@@ -496,21 +794,214 @@ function startResize(e: MouseEvent) {
 }
 
 // 同步编辑器内容到 modelValue
+// 序列化时把 img[data-src]（相对路径）写回 src，确保存入数据库的是相对路径而非临时 URL
 function syncContent() {
-  if (!editorRef.value) return;
-  const html = editorRef.value.innerHTML;
-  localHtml.value = html;
-  emit('update:modelValue', html);
+  if (editFormat.value !== 'rich' || !editorRef.value) return;
+
+  // 克隆 DOM，避免直接修改编辑器内容
+  const clone = editorRef.value.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll<HTMLImageElement>('img[data-src]').forEach((img) => {
+    img.src = img.dataset.src!;
+  });
+
+  const html = clone.innerHTML;
+  localHtml.value = editorRef.value.innerHTML; // 预览区保持临时 URL
+  emit('update:modelValue', serializeCourseDoc(html, 'rich'));
   updateStates();
+}
+
+// 加载内容后，把 img[src] 中的相对路径批量换成临时 URL 用于显示
+// 兼容旧数据：src 是过期临时 URL 的情况，后端会自动提取 fileKey 重新签名
+// 后端返回的 Map key 统一是 fileKey（相对路径）
+async function resolveImgUrls() {
+  if (!editorRef.value) return;
+  const imgs = editorRef.value.querySelectorAll<HTMLImageElement>('img');
+  if (!imgs.length) return;
+
+  const pathsToResolve: string[] = [];
+  imgs.forEach((img) => {
+    const dataSrc = img.dataset.src || '';
+    const src = img.getAttribute('src') || '';
+    // 优先用 data-src（相对路径），其次用 src（可能是相对路径或过期临时 URL），排除 base64
+    const pathToUse = (dataSrc && !dataSrc.startsWith('data:')) ? dataSrc
+      : (!src.startsWith('data:') ? src : '');
+    if (pathToUse && !pathsToResolve.includes(pathToUse)) {
+      pathsToResolve.push(pathToUse);
+    }
+  });
+
+  if (!pathsToResolve.length) return;
+
+  try {
+    const token = useCookie('token');
+    const tokenValue = token.value || (process.client ? localStorage.getItem('token') || '' : '');
+
+    const response = await $fetch('/course/content/image-urls', {
+      method: 'POST',
+      body: { paths: pathsToResolve, minute: 1440 },
+      baseURL: fetchConfig.baseURL,
+      headers: {
+        appid: fetchConfig.headers.appid,
+        token: tokenValue,
+      },
+    }) as any;
+
+    if (response?.code === 200 && response?.data) {
+      // 后端返回的 Map key 是 fileKey（相对路径），value 是新临时 URL
+      const urlMap: Record<string, string> = response.data;
+
+      imgs.forEach((img) => {
+        const dataSrc = img.dataset.src || '';
+        const src = img.getAttribute('src') || '';
+
+        // 先尝试用 data-src 匹配（已是相对路径）
+        if (dataSrc && !dataSrc.startsWith('data:') && urlMap[dataSrc]) {
+          img.src = urlMap[dataSrc];
+          return;
+        }
+        // 再尝试用 src 匹配（src 本身是相对路径的情况）
+        if (src && !src.startsWith('data:') && !src.startsWith('http') && urlMap[src]) {
+          img.src = urlMap[src];
+          img.dataset.src = src;
+          return;
+        }
+        // 旧数据：src 是过期临时 URL，后端提取了 fileKey 作为 key，src 包含 fileKey
+        if (src.startsWith('http')) {
+          for (const [fileKey, newUrl] of Object.entries(urlMap)) {
+            if (src.includes(fileKey)) {
+              img.src = newUrl;
+              img.dataset.src = fileKey;
+              break;
+            }
+          }
+        }
+      });
+
+      localHtml.value = editorRef.value!.innerHTML;
+    }
+  } catch (err) {
+    console.warn('[DocEditor] 批量获取图片临时 URL 失败', err);
+  }
+}
+
+// 对预览区（v-html 渲染的 Markdown/HTML）的图片做临时 URL 续期
+// 逻辑与 resolveImgUrls 相同，但操作的是 previewPaneRef 而非 editorRef
+async function resolvePreviewImgUrls() {
+  const container = previewPaneRef.value;
+  if (!container) return;
+  const imgs = container.querySelectorAll<HTMLImageElement>('img');
+  if (!imgs.length) return;
+
+  const pathsToResolve: string[] = [];
+  imgs.forEach((img) => {
+    const dataSrc = img.dataset.src || '';
+    const src = img.getAttribute('src') || '';
+    const pathToUse = (dataSrc && !dataSrc.startsWith('data:')) ? dataSrc
+      : (!src.startsWith('data:') ? src : '');
+    if (pathToUse && !pathsToResolve.includes(pathToUse)) {
+      pathsToResolve.push(pathToUse);
+    }
+  });
+
+  if (!pathsToResolve.length) return;
+
+  try {
+    const token = useCookie('token');
+    const tokenValue = token.value || (process.client ? localStorage.getItem('token') || '' : '');
+
+    const response = await $fetch('/course/content/image-urls', {
+      method: 'POST',
+      body: { paths: pathsToResolve, minute: 1440 },
+      baseURL: fetchConfig.baseURL,
+      headers: {
+        appid: fetchConfig.headers.appid,
+        token: tokenValue,
+      },
+    }) as any;
+
+    if (response?.code === 200 && response?.data) {
+      const urlMap: Record<string, string> = response.data;
+      imgs.forEach((img) => {
+        const dataSrc = img.dataset.src || '';
+        const src = img.getAttribute('src') || '';
+        if (dataSrc && !dataSrc.startsWith('data:') && urlMap[dataSrc]) {
+          img.src = urlMap[dataSrc];
+          return;
+        }
+        if (src && !src.startsWith('data:') && !src.startsWith('http') && urlMap[src]) {
+          img.src = urlMap[src];
+          img.dataset.src = src;
+          return;
+        }
+        if (src.startsWith('http')) {
+          for (const [fileKey, newUrl] of Object.entries(urlMap)) {
+            if (src.includes(fileKey)) {
+              img.src = newUrl;
+              img.dataset.src = fileKey;
+              break;
+            }
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('[DocEditor] 预览区图片临时 URL 刷新失败', err);
+  }
+}
+
+function setFontSize(size: string) {
+  if (editFormat.value !== 'rich') return;
+  showFontSizeMenu.value = false;
+  editorRef.value?.focus();
+  document.execCommand('fontSize', false, size);
+  const sizeMap: Record<string, string> = { '1': '12px', '2': '14px', '3': '16px', '4': '18px', '5': '24px', '6': '32px' };
+  currentFontSize.value = sizeMap[size] || '字号';
+  onInput();
+}
+
+// 插入表格
+function insertTable(rows: number, cols: number) {
+  if (editFormat.value !== 'rich') return;
+  showTableMenu.value = false;
+  tableHoverRow.value = 0;
+  tableHoverCol.value = 0;
+  let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0;">';
+  // 表头
+  html += '<thead><tr>';
+  for (let c = 0; c < cols; c++) {
+    html += `<th style="border:1px solid #e0e0e0;padding:8px 12px;background:#f5f5f5;font-weight:600;text-align:left;">表头${c + 1}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+  // 数据行
+  for (let r = 1; r < rows; r++) {
+    html += '<tr>';
+    for (let c = 0; c < cols; c++) {
+      html += `<td style="border:1px solid #e0e0e0;padding:8px 12px;">内容</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table><p><br></p>';
+  execCmd('insertHTML', html);
+}
+
+// 插入代码块
+function insertCodeBlock() {
+  if (editFormat.value !== 'rich') return;
+  const sel = window.getSelection();
+  const selectedText = sel?.toString() || '';
+  const code = selectedText || '// 在此输入代码';
+  execCmd('insertHTML', `<pre style="background:#1e1e1e;color:#d4d4d4;padding:12px 16px;border-radius:6px;overflow-x:auto;margin:8px 0;font-family:monospace;font-size:13px;">${code}</pre><p><br></p>`);
 }
 
 // 插入分割线
 function insertHr() {
+  if (editFormat.value !== 'rich') return;
   execCmd('insertHTML', '<hr/>');
 }
 
 // 格式刷
 function toggleFormatBrush() {
+  if (editFormat.value !== 'rich') return;
   if (!formatBrushActive.value) {
     // 记录当前选中文字的样式
     formatBrushStyles.value = {
@@ -542,7 +1033,9 @@ function applyFormatBrush() {
 
 // 键盘快捷键
 function onKeydown(e: KeyboardEvent) {
+  if (editFormat.value !== 'rich') return;
   const ctrl = e.ctrlKey || e.metaKey;
+  const shift = e.shiftKey;
 
   // 格式刷：选中文字后松开鼠标触发
   if (formatBrushActive.value && e.type === 'mouseup') {
@@ -550,17 +1043,44 @@ function onKeydown(e: KeyboardEvent) {
     return;
   }
 
-  if (ctrl && e.key === 'b') { e.preventDefault(); execCmd('bold'); return; }
-  if (ctrl && e.key === 'i') { e.preventDefault(); execCmd('italic'); return; }
-  if (ctrl && e.key === 'u') { e.preventDefault(); execCmd('underline'); return; }
-  if (ctrl && e.key === 'k') { e.preventDefault(); insertLink(); return; }
+  // 基础格式
+  if (ctrl && !shift && e.key === 'b') { e.preventDefault(); execCmd('bold'); return; }
+  if (ctrl && !shift && e.key === 'i') { e.preventDefault(); execCmd('italic'); return; }
+  if (ctrl && !shift && e.key === 'u') { e.preventDefault(); execCmd('underline'); return; }
+  if (ctrl && shift && e.key === 'X') { e.preventDefault(); execCmd('strikeThrough'); return; }
+  if (ctrl && shift && e.key === 'x') { e.preventDefault(); execCmd('strikeThrough'); return; }
+
+  // 链接 / 行内代码
+  if (ctrl && !shift && e.key === 'k') { e.preventDefault(); insertLink(); return; }
+  if (ctrl && !shift && (e.key === '`' || e.key === 'Dead')) { e.preventDefault(); insertInlineCode(); return; }
+
+  // 代码块
+  if (ctrl && shift && (e.key === 'K' || e.key === 'k')) { e.preventDefault(); insertCodeBlock(); return; }
+
+  // 引用块
+  if (ctrl && shift && (e.key === '.' || e.key === '>')) { e.preventDefault(); execCmd('formatBlock', 'blockquote'); return; }
+
+  // 分割线
+  if (ctrl && shift && (e.key === '-' || e.key === '_')) { e.preventDefault(); insertHr(); return; }
+
+  // 清除格式
+  if (ctrl && !shift && e.key === '\\') { e.preventDefault(); execCmd('removeFormat'); return; }
+
+  // 对齐
+  if (ctrl && shift && (e.key === 'L' || e.key === 'l')) { e.preventDefault(); execCmd('justifyLeft'); return; }
+  if (ctrl && shift && (e.key === 'E' || e.key === 'e')) { e.preventDefault(); execCmd('justifyCenter'); return; }
+  if (ctrl && shift && (e.key === 'R' || e.key === 'r')) { e.preventDefault(); execCmd('justifyRight'); return; }
+
+  // 列表
+  if (ctrl && shift && (e.key === 'U' || e.key === 'u')) { e.preventDefault(); execCmd('insertUnorderedList'); return; }
+  if (ctrl && shift && (e.key === 'O' || e.key === 'o')) { e.preventDefault(); execCmd('insertOrderedList'); return; }
 
   // 标题快捷键
-  if (ctrl && e.key === '1') { e.preventDefault(); execCmd('formatBlock', 'h1'); return; }
-  if (ctrl && e.key === '2') { e.preventDefault(); execCmd('formatBlock', 'h2'); return; }
-  if (ctrl && e.key === '3') { e.preventDefault(); execCmd('formatBlock', 'h3'); return; }
-  if (ctrl && e.key === '4') { e.preventDefault(); execCmd('formatBlock', 'h4'); return; }
-  if (ctrl && e.key === '0') { e.preventDefault(); execCmd('formatBlock', 'p'); return; }
+  if (ctrl && !shift && e.key === '1') { e.preventDefault(); execCmd('formatBlock', 'h1'); return; }
+  if (ctrl && !shift && e.key === '2') { e.preventDefault(); execCmd('formatBlock', 'h2'); return; }
+  if (ctrl && !shift && e.key === '3') { e.preventDefault(); execCmd('formatBlock', 'h3'); return; }
+  if (ctrl && !shift && e.key === '4') { e.preventDefault(); execCmd('formatBlock', 'h4'); return; }
+  if (ctrl && !shift && e.key === '0') { e.preventDefault(); execCmd('formatBlock', 'p'); return; }
 
   // Tab 缩进
   if (e.key === 'Tab') {
@@ -594,6 +1114,25 @@ function onKeydown(e: KeyboardEvent) {
 }
 .toolbar-left { display: flex; align-items: center; gap: 1px; flex-wrap: wrap; }
 .toolbar-right { display: flex; align-items: center; }
+.format-tabs { display: flex; margin-right: 8px; }
+.format-tab {
+  padding: 3px 9px;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  margin-left: -1px;
+  transition: all 0.12s;
+}
+.format-tab:first-child { border-radius: 3px 0 0 3px; }
+.format-tab:last-child { border-radius: 0 3px 3px 0; }
+.format-tab.active {
+  background: #f0fdf4;
+  color: #18a058;
+  border-color: #8fd1a8;
+  z-index: 1;
+}
 .tb-divider { width: 1px; height: 16px; background: #e0e0e0; margin: 0 4px; }
 
 .tb-btn {
@@ -613,6 +1152,7 @@ function onKeydown(e: KeyboardEvent) {
   cursor: pointer; padding: 0 4px;
 }
 .tb-color-icon { font-size: 14px; font-weight: 700; color: #333; }
+.tb-bg-icon { color: #333; border-bottom: none !important; padding: 1px 3px; border-radius: 2px; }
 .tb-color-input {
   position: absolute; opacity: 0; width: 100%; height: 100%;
   cursor: pointer; top: 0; left: 0;
@@ -626,6 +1166,7 @@ function onKeydown(e: KeyboardEvent) {
   min-width: 64px; user-select: none; height: 26px;
 }
 .tb-dropdown:hover { border-color: #18a058; }
+.tb-fontsize { min-width: 52px; }
 .tb-dropdown-label { flex: 1; font-size: 12px; }
 .tb-dropdown-arrow { font-size: 9px; color: #999; }
 .tb-dropdown-menu {
@@ -633,6 +1174,7 @@ function onKeydown(e: KeyboardEvent) {
   background: #fff; border: 1px solid #e0e0e0; border-radius: 5px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 200; min-width: 140px; overflow: hidden;
 }
+.tb-fontsize-menu { min-width: 110px; }
 .menu-item {
   padding: 7px 12px; cursor: pointer; font-size: 13px; color: #333; transition: background 0.12s;
 }
@@ -643,6 +1185,22 @@ function onKeydown(e: KeyboardEvent) {
 .menu-item.h4 { font-size: 13px; font-weight: 500; }
 .menu-item.blockquote { border-left: 3px solid #18a058; padding-left: 9px; color: #555; }
 .menu-item.pre { font-family: monospace; background: #f5f5f5; }
+
+/* 表格选择器 */
+.tb-table-menu {
+  position: absolute; top: calc(100% + 6px); left: 0;
+  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12); z-index: 300;
+  padding: 14px; min-width: 180px;
+}
+.table-size-picker { display: flex; flex-direction: column; gap: 3px; margin: 8px 0; }
+.table-row-picker { display: flex; gap: 3px; }
+.table-cell-picker {
+  width: 20px; height: 20px; border: 1px solid #e0e0e0; border-radius: 2px;
+  cursor: pointer; transition: all 0.1s;
+}
+.table-cell-picker.hover { background: #d4edda; border-color: #18a058; }
+.table-size-label { font-size: 12px; color: #888; text-align: center; margin-top: 4px; }
 
 /* 视图切换 */
 .view-tabs { display: flex; }
@@ -657,6 +1215,7 @@ function onKeydown(e: KeyboardEvent) {
 /* 编辑区 */
 .editor-body {
   flex: 1; display: flex; overflow: hidden; min-height: 0;
+  position: relative;
 }
 .mode-split .rich-editor { border-right: 1px solid #f0f0f0; }
 
@@ -665,6 +1224,20 @@ function onKeydown(e: KeyboardEvent) {
   flex: 1; overflow-y: auto; padding: 16px 20px;
   font-size: 14px; line-height: 1.8; color: #333; outline: none;
   min-height: 100px;
+}
+.plain-editor {
+  flex: 1;
+  width: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow-y: auto;
+  padding: 16px 20px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #333;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  background: #fff;
 }
 .rich-editor:empty::before {
   content: attr(data-placeholder);
@@ -742,6 +1315,31 @@ function onKeydown(e: KeyboardEvent) {
   cursor: pointer; text-align: center; transition: all 0.2s;
 }
 .img-btn-upload:hover { border-color: #18a058; color: #18a058; background: #f0fdf4; }
+
+/* 图片浮动工具栏 */
+.img-toolbar {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 4px 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  z-index: 9999;
+  user-select: none;
+}
+.img-tb-btn {
+  min-width: 28px; height: 26px; padding: 0 6px;
+  border: none; background: none; border-radius: 4px;
+  font-size: 11px; color: #ccc; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s; white-space: nowrap;
+}
+.img-tb-btn:hover { background: #333; color: #fff; }
+.img-tb-del:hover { background: #5a1a1a; color: #ff6b6b; }
+.img-tb-divider { width: 1px; height: 16px; background: #333; margin: 0 2px; }
 
 /* 编辑区图片样式 */
 .rich-editor :deep(img.doc-img) {

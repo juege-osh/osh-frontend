@@ -7,8 +7,19 @@
             </div>
         </main>
         <PageFooter/>
+        <ClientOnly v-if="shouldShowAssistant">
+            <AssistantFloatingAssistantShell />
+        </ClientOnly>
     </div>
 </template>
+
+<script setup>
+const token = useCookie('token')
+
+const shouldShowAssistant = computed(() => {
+    return !!token.value
+})
+</script>
 
 <style scoped>
 /* Leantime-inspired Layout */
@@ -23,13 +34,13 @@
 .main-content {
     flex: 1;
     width: 100%;
-    padding: 0;
+    padding: var(--space-xl) 0;
 }
 
 .content-wrapper {
-    width: 100%;
-    margin: 0;
-    padding: 0;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--space-lg);
 }
 
 /* Responsive */
