@@ -8,6 +8,10 @@
             题目总数：{{ item.question_count }} 总分数：{{ item.total_score }} 及格分：{{ item.pass_score }}
         </p>
         <div class="flex-end">
+            <template v-if="canEdit || canDelete">
+                <n-button v-if="canEdit" size="small" quaternary @click.stop="emit('edit', item)">编辑</n-button>
+                <n-button v-if="canDelete" size="small" quaternary type="error" @click.stop="emit('delete', item)">删除</n-button>
+            </template>
             <n-button type="primary" @click="test" :disabled="item.is_test">{{ item.is_test ? '考过了' : '立即考试' }}</n-button>
         </div>
     </section>
@@ -29,8 +33,11 @@
 }
 
 .flex-end {
-    display: flex;
-    justify-content: flex-end;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .text-rose {
@@ -56,20 +63,46 @@
         NButton,
         createDiscreteApi
     } from "naive-ui"
+    import { useUser, canTakeExam } from '~/composables/useAuth'
 
     const props = defineProps({
-        item:Object
+        item: { type: Object, required: true },
+        canEdit: { type: Boolean, default: false },
+        canDelete: { type: Boolean, default: false },
     })
+    const emit = defineEmits(['edit', 'delete'])
+    const route = useRoute()
 
     const test = ()=>{
-        const { dialog } = createDiscreteApi(["dialog"])
+        const { dialog, message } = createDiscreteApi(["dialog", "message"])
+        const user = useUser()
+        if (!user.value) {
+            message.warning('请先登录')
+            return navigateTo('/login?from=' + encodeURIComponent(route.fullPath))
+        }
+        if (!canTakeExam()) {
+            message.warning('需要 VIP 及以上等级才能参加考试')
+            return
+        }
         dialog.create({
             content:"是否要参加该场考试？",
             positiveText:"立即考试",
             negativeText:"取消",
-            onPositiveClick(){
-                navigateTo("/paper_test/"+props.item.id)
-            }
+            async onPositiveClick() {
+                if (!canTakeExam()) {
+                    message.warning('需要 VIP 及以上等级才能参加考试')
+                    return true
+                }
+                const examId = props.item?.id
+                if (examId == null || examId === '') {
+                    message.error('试卷信息不完整，无法进入考试')
+                    return true
+                }
+                // Naive Dialog: if this handler resolves to exactly `false`, the dialog will NOT close.
+                // navigateTo() resolves to `false` when navigation is aborted (e.g. exam-vip redirects back).
+                await navigateTo(`/paper_test/${examId}`)
+                return true
+            },
         })
     }
 </script>

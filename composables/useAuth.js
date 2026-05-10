@@ -4,6 +4,46 @@ const { message } = createDiscreteApi(["message"])
 
 export const useUser = ()=> useState("user",()=>null)
 
+/** Member level required to take exams (aligned with backend VIP gate, level >= 2). */
+export const MIN_EXAM_MEMBER_LEVEL = 2
+
+/**
+ * Current user's member level (0 = free / unknown).
+ * Prefer in-memory user.role, then persisted login role in localStorage.
+ */
+export function getUserMemberLevel() {
+  let level = 0
+  const user = useUser()
+  const fromUser = Number(user.value?.role?.level)
+  if (Number.isFinite(fromUser) && fromUser >= 0) {
+    level = fromUser
+  }
+  if (process.client) {
+    try {
+      const roleStr = localStorage.getItem('__user_role__')
+      const role = roleStr ? JSON.parse(roleStr) : null
+      const fromLs = Number(role?.level ?? NaN)
+      if (Number.isFinite(fromLs) && fromLs >= 0) {
+        level = Math.max(level, fromLs)
+      }
+    } catch {}
+  }
+  return level
+}
+
+export function canTakeExam() {
+  return getUserMemberLevel() >= MIN_EXAM_MEMBER_LEVEL
+}
+
+/** osh_role.level 4–6：考试后台管理（与后端 @examLevelAuth 对齐） */
+export const MIN_EXAM_ADMIN_ROLE_LEVEL = 4
+export const MAX_EXAM_ADMIN_ROLE_LEVEL = 6
+
+export function canManageExamByRoleLevel() {
+  const lv = getUserMemberLevel()
+  return lv >= MIN_EXAM_ADMIN_ROLE_LEVEL && lv <= MAX_EXAM_ADMIN_ROLE_LEVEL
+}
+
 // 权限列表：优先从 localStorage 读，保证刷新后不丢失
 export const usePermissions = () => {
   const state = useState("permissions", () => {
@@ -85,6 +125,11 @@ export async function useRefreshUserInfo(){
             user.value = {
                 ...user.value,
                 ...data.value,
+            }
+            if (process.client && data.value.role) {
+              try {
+                localStorage.setItem('__user_role__', JSON.stringify(data.value.role))
+              } catch {}
             }
         }
     }

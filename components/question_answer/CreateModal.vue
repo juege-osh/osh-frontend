@@ -62,37 +62,27 @@
 
       <n-form-item label="标签">
         <div style="width: 100%">
-          <n-space>
-            <n-tag
-              v-for="(tag, i) in formValue.tags"
-              :key="i"
-              closable
-              @close="formValue.tags.splice(i, 1)"
-              type="success"
-            >
-              {{ tag }}
-            </n-tag>
-          </n-space>
-          <n-space style="margin-top: 10px">
-            <n-input
-              v-model:value="newTag"
-              placeholder="输入标签后回车添加（最多5个）"
-              style="width: 300px"
-              maxlength="20"
-              @keyup.enter="addTag"
-            />
-            <n-button @click="addTag" :disabled="formValue.tags.length >= 5">
-              添加
-            </n-button>
-          </n-space>
+          <n-select
+            v-model:value="formValue.tags"
+            multiple
+            filterable
+            tag
+            :max-tag-count="5"
+            :loading="tagsLoading"
+            :options="tagSelectOptions"
+            placeholder="选择推荐标签，或输入自定义标签后回车（最多5个）"
+            :on-create="onCreateTag"
+            @update:value="onTagsChange"
+          />
           <div v-if="suggestTags.length > 0" style="margin-top: 10px">
             <n-text depth="3" style="font-size: 12px">推荐标签：</n-text>
-            <n-space style="margin-top: 6px">
+            <n-space style="margin-top: 6px" :wrap="true">
               <n-tag
                 v-for="t in suggestTags"
                 :key="t"
                 :bordered="false"
                 style="cursor: pointer"
+                :type="formValue.tags.includes(t) ? 'success' : 'default'"
                 @click="addSuggestTag(t)"
               >
                 {{ t }}
@@ -151,15 +141,20 @@ const emit = defineEmits(['update:show', 'success']);
 const { message } = createDiscreteApi(['message']);
 
 const loading = ref(false);
-const newTag = ref('');
 const suggestTags = ref([]);
+const tagsLoading = ref(false);
+
+// 下拉选项：把推荐标签转成 n-select 的 options 格式，value 用标签名（String）
+const tagSelectOptions = computed(() =>
+  suggestTags.value.map(t => ({ label: t, value: t }))
+);
 
 const formValue = reactive({
   resourceType: null,
   resourceNo: null,
   content: '',
   isPaidOnly: 0,
-  tags: [],
+  tags: [],  // 存标签名（String），后端自动 resolve（存在复用，不存在新建）
 });
 
 const resourceTypeOptions = [
@@ -201,48 +196,43 @@ watch(
   }
 )
 
-// 加载推荐标签
+// 加载推荐标签，suggestTags 存标签名字符串列表
 async function loadTags() {
+  tagsLoading.value = true;
   try {
     const res = await apiGetQnaTags();
-    console.log('标签列表响应:', res);
-    
     if (res?.code === 200 && res.data) {
       if (Array.isArray(res.data)) {
         suggestTags.value = res.data
-          .map(t => t.name || t)
+          .map(t => (typeof t === 'string' ? t : t.name))
           .filter(t => t)
-          .slice(0, 10);
+          .slice(0, 20);
       }
     }
   } catch (e) {
     console.error('加载标签失败:', e);
+  } finally {
+    tagsLoading.value = false;
   }
 }
 
-// 添加标签
-function addTag() {
-  const t = newTag.value.trim();
-  if (!t) {
-    return;
-  }
-  if (formValue.tags.length >= 5) {
+// 用户手动输入新标签时的回调（n-select tag 模式），直接用输入的字符串作为 value
+function onCreateTag(inputVal) {
+  const t = inputVal.trim();
+  return t ? { label: t, value: t } : false;
+}
+
+// 标签变化时强制限制最多5个
+function onTagsChange(val) {
+  if (val && val.length > 5) {
     message.warning('最多添加5个标签');
-    return;
+    formValue.tags = val.slice(0, 5);
   }
-  if (formValue.tags.includes(t)) {
-    message.warning('标签已存在');
-    return;
-  }
-  formValue.tags.push(t);
-  newTag.value = '';
 }
 
-// 添加推荐标签
+// 点击推荐标签添加
 function addSuggestTag(t) {
-  if (formValue.tags.includes(t)) {
-    return;
-  }
+  if (formValue.tags.includes(t)) return;
   if (formValue.tags.length >= 5) {
     message.warning('最多添加5个标签');
     return;
@@ -257,7 +247,6 @@ function resetForm() {
   formValue.content = '';
   formValue.isPaidOnly = 0;
   formValue.tags = [];
-  newTag.value = '';
   applyResourcePreset()
 }
 
@@ -297,10 +286,10 @@ async function handlePublish() {
       requestData.resourceNo = Number(formValue.resourceNo);
     }
 
-    // 暂时不传标签，等后端完善
-    // if (formValue.tags.length > 0) {
-    //   requestData.tags = formValue.tags;
-    // }
+    // 可选字段：标签
+    if (formValue.tags.length > 0) {
+      requestData.tags = formValue.tags;
+    }
 
     console.log('创建问题请求数据:', requestData);
 

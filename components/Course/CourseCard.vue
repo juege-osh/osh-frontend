@@ -4,6 +4,7 @@
     :class="{ selected }"
     @click="handleCardClick"
   >
+    
     <!-- 选中勾 测试ce-->
     <div v-if="selectable" class="select-check" @click.stop="$emit('select', item.id)">
       <span class="check-icon">{{ selected ? '✓' : '' }}</span>
