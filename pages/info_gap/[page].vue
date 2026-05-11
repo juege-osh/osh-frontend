@@ -171,7 +171,7 @@
             placeholder="一句话概括你的信息差"
           />
         </n-form-item>
-        <n-form-item label="分类标签">
+        <n-form-item label="信息差分类">
           <n-select
             v-model:value="form.tag"
             :options="[
@@ -189,16 +189,40 @@
             :autosize="{ minRows: 3, maxRows: 6 }"
           />
         </n-form-item>
+
+        <n-form-item label-width="220">
+          <template #label>
+            <div class="tag-label">
+              <span>标签选择</span>
+              <span class="tag-count">已选 {{ selectedTags.length }}/{{ MAX_TAG_COUNT }}</span>
+            </div>
+          </template>
+          <n-space :size="8" wrap>
+            <n-tag
+              v-for="tag in candidateTags"
+              :key="tag"
+              size="large" round
+              :type="isTagSelected(tag) ? 'success' : 'default'"
+              :bordered="!isTagSelected(tag)"
+              :closable="isTagSelected(tag)"
+              :style="{
+                cursor: isTagSelected(tag) || selectedTags.length < MAX_TAG_COUNT ? 'pointer' : 'not-allowed',
+                opacity: isTagSelected(tag) || selectedTags.length < MAX_TAG_COUNT ? 1 : 0.5
+              }"
+              @click="handleTagClick(tag)"
+              @close="handleTagClose(tag, $event)"
+            >
+              {{ tag }}
+            </n-tag>
+          </n-space>
+        </n-form-item>
       </n-form>
 
       <template #footer>
         <n-space justify="end">
-          <n-button @click="showModal = false">取消</n-button>
-          <n-button
-            type="primary"
-            :loading="btnLoading"
-            @click="confirmPublish"
-          >
+          <n-button type="warning" @click="resetPublishForm">重置</n-button>
+          <n-button @click="showModal=false">取消</n-button>
+          <n-button type="primary" :loading="btnLoading" @click="confirmPublish">
             确认发布
           </n-button>
         </n-space>
@@ -228,6 +252,7 @@ import {
   NForm,
   NFormItem,
   NSelect,
+  NTag,
   createDiscreteApi,
 } from 'naive-ui';
 import {
@@ -262,6 +287,7 @@ const form = reactive({
   title: '',
   tag: '技术',
   content: '',
+  tags: []
 });
 
 // 列表请求状态
@@ -269,6 +295,49 @@ const pending = ref(false);
 const error = ref(null);
 const total = ref(0);
 const rows = ref([]);
+
+// 发布信息差表格中标签相关内容
+
+const MAX_TAG_COUNT = 3;
+const selectedTags = ref([]);
+
+const candidateTags = ref([
+  'Mysql', 'Redis', 'Go', 'SpringBoot', 'Nginx', 'Java', 'ElasticSearch', 'K8s',
+  'Mybatis', 'Docker'
+]);
+
+const isTagSelected = (tag) => {
+  return selectedTags.value.includes(tag);
+}
+
+const handleTagClick = (tag) => {
+  if (isTagSelected(tag)) return;
+  if (selectedTags.value.length >= MAX_TAG_COUNT) {
+    const { message } = createDiscreteApi(['message']);
+    message.warning(`最多只能选择 ${MAX_TAG_COUNT} 个标签`);
+    return;
+  }
+  selectedTags.value.push(tag);
+}
+
+const handleTagClose = (tag, e) => {
+  e?.stopPropagation?.(); // 防止 close 触发 click 导致又被加回去
+  selectedTags.value = selectedTags.value.filter((t) => t !== tag);
+}
+
+const resetPublishForm = () => {
+  Object.assign(form, {
+    title: '',
+    tag: '技术',
+    content: '',
+  });
+
+  // 你前面做了标签多选的话，一并清空
+  if (typeof selectedTags !== 'undefined' && selectedTags?.value)
+  {
+    selectedTags.value = [];
+  }
+};
 
 // ==================== 3) 列表数据加载 ====================
 // 读取列表数据，并把后端字段补齐成前端可直接渲染的结构
@@ -415,7 +484,10 @@ const confirmPublish = async () => {
       'add-info-gap',
       '/info_gap/save',
       {
-        body: form,
+        body: {
+          ...form,
+          tags: [...selectedTags.value],
+        },
         $: true,
       }
     );
@@ -427,6 +499,7 @@ const confirmPublish = async () => {
 
     showModal.value = false;
     Object.assign(form, { title: '', tag: '技术', content: '' });
+    selectedTags.value = [];
     await syncToPage(1);
   } catch (err) {
     console.error('发布失败:', err);
@@ -603,6 +676,19 @@ useHead({ title: '信息差 - 开源助手' });
   font-weight: bold;
   color: #165d69;
   white-space: nowrap;
+}
+
+.tag-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.tag-count {
+  font-size: 12px;
+  color: #999;
+  font-weight: 400;
 }
 
 .expand-icon {
