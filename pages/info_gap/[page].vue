@@ -74,9 +74,9 @@
                 <div class="title-section">
                   <span class="tag">【{{ item.tag }}】</span>
                   <span class="main-title">{{ item.title }}</span>
-                  <span class="sub-tag-1"> 标签1 </span>
-                  <span class="sub-tag-2"> 标签2 </span>
-                  <span class="sub-tag-3"> 标签3 </span>
+                  <span class="sub-tag-1"> {{ item.tag1 }} </span>
+                  <span class="sub-tag-2"> {{ item.tag2 }} </span>
+                  <span class="sub-tag-3"> {{ item.tag3 }} </span>
                 </div>
 
                 <div class="meta-group">
@@ -86,7 +86,7 @@
                   </span>
                   <span class="meta-item time">
                     <n-icon><TimeOutline /></n-icon>
-                    {{ formatTime(item.createTime) }}
+                    {{ formatTime(item.updateTime) }}
                   </span>
                 </div>
 
@@ -299,12 +299,17 @@ const loadData = async () => {
       // 统一初始化交互字段，避免模板侧出现 undefined
       rows.value = (data.value.rows || []).map((row) => ({
         ...row,
+        // 显式补齐时间字段，兼容后端仅返回 createTime 的场景
+        updateTime: row.updateTime || row.createTime || '',
         isVoted: row.isVoted || 0,
         goodCount: row.goodCount || 0,
         middleCount: row.middleCount || 0,
         badCount: row.badCount || 0,
         isFollowed: !!row.isFollowed,
         isExpanded: false,
+        tag1: row.tag1 || '',
+        tag2: row.tag2 || '',
+        tag3: row.tag3 || ''
       }));
       total.value = data.value.total || 0;
     } else {
@@ -489,10 +494,10 @@ const handleFollow = async (item) => {
 
     if (error.value) throw error.value;
 
-    message.success(item.isFollowed ? '关注成功' : '已取消关注');
+    message.success(item.isFollowed ? '收藏成功' : '收藏失败！');
   } catch (err) {
     item.isFollowed = originalStatus;
-    message.error('关注操作失败，请检查网络');
+    message.error('收藏失败，请检查网络！！！');
   }
 };
 
