@@ -129,10 +129,23 @@ import { createDiscreteApi, NSwitch } from 'naive-ui';
 import { fetchConfig } from '~/composables/useHttp';
 import { getAuthHeaders, apiUploadVideo } from '~/composables/Api/Course/course';
 import DocEditor from '~/components/Course/edit/DocEditor.vue';
+import { handleAuthExpired } from '~/composables/useAuth';
 
 const route = useRoute();
 const router = useRouter();
 const { message } = createDiscreteApi(['message']);
+
+function isAuthExpiredResponse(res: any, err?: any) {
+  const code = res?.code ?? err?.data?.code;
+  const msg = res?.msg || err?.data?.msg || err?.data?.data || err?.message || '';
+  return code === 401
+    || code === 3100
+    || code === 3101
+    || /认证失败/.test(msg)
+    || /登录已过期/.test(msg)
+    || /用户未登录/.test(msg)
+    || /请先登录/.test(msg);
+}
 
 const sectionId = Number(route.params.id);
 const courseId = Number(route.query.courseId);
@@ -368,10 +381,17 @@ async function handleSave() {
       setTimeout(() => {
         router.push(`/course_detail/${courseId}`);
       }, 800);
+    } else if (isAuthExpiredResponse(res)) {
+      // 保存接口里再兜一层，避免后端返回业务码时被通用请求层漏掉。
+      handleAuthExpired();
     } else {
       message.error(res?.msg || '保存失败');
     }
-  } catch {
+  } catch (err: any) {
+    if (isAuthExpiredResponse(null, err)) {
+      handleAuthExpired();
+      return;
+    }
     message.error('保存失败，请重试');
   } finally {
     saving.value = false;

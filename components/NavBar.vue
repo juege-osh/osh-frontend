@@ -31,20 +31,25 @@
             <span>登录</span>
           </button>
         </nuxt-link>
-        
-        <n-dropdown v-else :options="userOptions" @select="handleSelect" placement="bottom-end">
-          <button class="user-btn">
-            <n-avatar  
-              round
-              size="small"
-              :src="user?.avatar || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'"
-            />
-            <span class="user-name">{{ user?.username || '用户' }}</span>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="chevron">
-              <path d="M4 6l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-        </n-dropdown>
+
+        <template v-else>
+          <!-- 消息通知铃铛 -->
+          <NotificationBell />
+
+          <n-dropdown :options="userOptions" @select="handleSelect" placement="bottom-end">
+            <button class="user-btn">
+              <n-avatar  
+                round
+                size="small"
+                :src="user?.avatar || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'"
+              />
+              <span class="user-name">{{ user?.username || '用户' }}</span>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="chevron">
+                <path d="M4 6l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </n-dropdown>
+        </template>
       </div>
     </div>
   </div>
@@ -58,10 +63,31 @@ import {
   NAvatar,
   createDiscreteApi,
 } from 'naive-ui';
-import { h } from 'vue';
+import { h, watch, onMounted, onBeforeUnmount } from 'vue';
 
 const user = useUser();
 const route = useRoute();
+
+// ── WebSocket：用户登录后自动连接，退出后断开 ──────────────────────────────
+const { connect, disconnect } = useWebSocket();
+
+onMounted(() => {
+  if (user.value) connect();
+});
+
+onBeforeUnmount(() => {
+  // 组件卸载时不主动断开（保持全局连接），退出登录时由 useLogout 断开
+});
+
+watch(user, (newVal, oldVal) => {
+  if (newVal && !oldVal) {
+    // 刚登录
+    connect();
+  } else if (!newVal && oldVal) {
+    // 刚退出
+    disconnect();
+  }
+});
 
 // SVG Icon Components
 const HomeIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', fill: 'none' }, [
@@ -123,6 +149,21 @@ const SiteIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', f
   h('path', { d: 'M3 9h12M9 3c-2 2-2 8 0 12M9 3c2 2 2 8 0 12', stroke: 'currentColor', 'stroke-width': '1.5' })
 ]);
 
+const FeedbackIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', fill: 'none' }, [
+  h('path', { d: 'M3 6a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H9l-3 2v-2H5a2 2 0 01-2-2V6z', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }),
+  h('path', { d: 'M7 8h4M7 11h2', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' })
+]);
+
+const AuditIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', fill: 'none' }, [
+  h('path', { d: 'M5 2h8a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z', stroke: 'currentColor', 'stroke-width': '1.5' }),
+  h('path', { d: 'M7 6h4M7 9h4M7 12l1 1 3-3', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })
+]);
+
+const PlanIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', fill: 'none' }, [
+  h('rect', { x: '2', y: '3', width: '14', height: '12', rx: '2', stroke: 'currentColor', 'stroke-width': '1.5' }),
+  h('path', { d: 'M6 7h6M6 10h4M9 3v2', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' }),
+]);
+
 const menus = ref([
   { name: '首页', path: '/', iconComponent: HomeIcon },
   { name: '课程', path: '/course/1', match: [{ name: 'course-page' }], iconComponent: CourseIcon },
@@ -133,9 +174,11 @@ const menus = ref([
   { name: '拼团', path: '/list/group/1', match: [{ name: 'list-type-page', params: { type: 'group' } }], iconComponent: GroupIcon },
   { name: '开源项目', path: '/openproject/list', match: [{ name: 'openproject-list' }], iconComponent: ProjectIcon },
   { name: '实用网站', path: '/usefull/list', match: [{ name: 'usefull-list' }], iconComponent: LinkIcon },
-  { name: '工具', path: '/tool', match: [{ name: 'tool' }], iconComponent: ToolIcon },
+  { name: '工具', path: '/tool/1', match: [{ name: 'tool-page' }], iconComponent: ToolIcon },
   { name: '信息差', path: '/info_gap/1', match: [{ name: 'info_gap-page' }], iconComponent: InfoIcon },
-  { name: '内部网站', path: '/site', iconComponent: SiteIcon }
+  { name: '反馈', path: '/feedback/list', match: [{ name: 'feedback-list' }], iconComponent: FeedbackIcon },
+  { name: '内部网站', path: '/site', iconComponent: SiteIcon },
+  { name: '审核', path: '/audit', match: [{ name: 'audit' }], iconComponent: AuditIcon }
 ]);
 
 onMounted(() => {
@@ -322,6 +365,9 @@ const handleSelect = (k)=>{
 /* User Section */
 .user-section {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .login-link {
