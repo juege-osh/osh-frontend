@@ -34,6 +34,23 @@ export function useWxpayApi(no){
     })
 }
 
+// 创建微信支付订单（新接口）
+export function useCreatePaymentApi(name, money){
+    return useHttpPost("createPayment", `/pay/create`, {
+        query: {
+            name,
+            money
+        }
+    })
+}
+
+// 查询支付状态（新接口 - GET方式）
+export function useGetPaymentStatusApi(outTradeNo){
+    return useHttpGet("getPaymentStatus", `/pay/status?out_trade_no=${outTradeNo}`, {
+        $: true
+    })
+}
+
 // 查询订单是否支付成功
 export function useGetWxpayStatusApi(no){
     return useHttpPost("getWxpayStatus",`/order/iswxpay`,{

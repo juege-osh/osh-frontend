@@ -96,6 +96,96 @@ export function useHasAuth(callback = null){
     }
 }
 
+// 管理员权限判断（基于用户等级或权限列表）
+// 优先级：
+// 1. 如果用户对象中有 level/userLevel 字段，使用字段值判断
+// 2. 否则使用权限列表判断（有 group:* 或 * 权限视为管理员）
+export function useHasGroupAdminPermission() {
+    const user = useUser()
+    const permissions = usePermissions()
+    
+    return computed(() => {
+        // 未登录用户没有权限
+        if (!user.value) {
+            if (process.client) {
+                console.log('[useHasGroupAdminPermission] 用户未登录')
+            }
+            return false
+        }
+        
+        // 方式1：尝试从用户对象获取等级字段
+        const userLevel = user.value?.userLevel ?? 
+                         user.value?.level ?? 
+                         user.value?.role ?? 
+                         user.value?.type ?? 
+                         user.value?.user_type ?? 
+                         null
+        
+        // 如果有等级字段，使用等级判断
+        if (userLevel !== null && userLevel !== undefined) {
+            const isAdmin = userLevel <= 2
+            if (process.client) {
+                console.log('=== 管理员权限检查（使用等级字段）===')
+                console.log('userLevel:', userLevel)
+                console.log('isAdmin:', isAdmin)
+            }
+            return isAdmin
+        }
+        
+        // 方式2：使用权限列表判断
+        const permList = Array.isArray(permissions.value) ? permissions.value : []
+        
+        // 如果有超级管理员权限（* 或 *:*:*）
+        if (permList.includes('*') || permList.includes('*:*:*')) {
+            if (process.client) {
+                console.log('=== 管理员权限检查（使用权限列表-超级管理员）===')
+                console.log('permissions:', permList)
+                console.log('isAdmin: true (超级管理员)')
+            }
+            return true
+        }
+        
+        // 如果有拼团管理权限（group:* 或 group:admin）
+        const hasGroupPermission = permList.some(perm => 
+            perm === 'group:*' || 
+            perm === 'group:admin' || 
+            (typeof perm === 'string' && perm.startsWith('group:'))
+        )
+        
+        if (process.client) {
+            console.log('=== 管理员权限检查（使用权限列表）===')
+            console.log('permissions:', permList)
+            console.log('hasGroupPermission:', hasGroupPermission)
+            console.log('isAdmin:', hasGroupPermission)
+        }
+        
+        return hasGroupPermission
+    })
+}
+
+// 兼容旧版本：useIsAdmin 映射到 useHasGroupAdminPermission
+export function useIsAdmin() {
+    return useHasGroupAdminPermission()
+}
+
+// 检查管理员权限（带提示）
+export function useCheckAdmin(callback) {
+    const { message } = createDiscreteApi(['message'])
+    const hasPermission = useHasGroupAdminPermission()
+    
+    if (!hasPermission.value) {
+        message.error("需要管理员权限才能操作（用户等级需 ≤ 2）")
+        return false
+    }
+    
+    if (callback && typeof callback === "function") {
+        callback()
+        return true
+    }
+    
+    return true
+}
+
 // 点赞/取消点赞
 export function useHandleSupportPost(){
     const supportLoading = ref(false)

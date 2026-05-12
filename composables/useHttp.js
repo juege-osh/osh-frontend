@@ -4,17 +4,18 @@ import {
 
 // 自动检测环境并设置API地址
 function getBaseURL() {
-    // 服务端渲染时使用默认地址
+    // 服务端渲染时使用完整地址
     if (process.server) {
-        return "http://localhost:8081/pc"
+        return "http://localhost:8080/pc"
     }
     
     // 客户端根据hostname判断
     const hostname = window.location.hostname
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return "http://localhost:8081/pc"
+        // 本地开发：通过 Nuxt 代理 /api → localhost:8080/pc，避免 CORS
+        return "/api"
     } else {
-        return "http://43.242.200.25:8081/pc"
+        return "http://43.242.200.25:8080/pc"
     }
 }
 
@@ -89,7 +90,23 @@ export async function useHttp(key,url,options = {}){
         ...options,
         // 相当于响应拦截器
         transform:(res)=>{
-            return res.data
+            // 调试:打印原始响应结构
+            if (process.client) {
+                console.log('useHttp transform - 原始响应:', res)
+                console.log('useHttp transform - res.data:', res.data)
+                console.log('useHttp transform - res.rows:', res.rows)
+            }
+            
+            // 如果后端直接返回 {total, rows, code, msg},则返回整个res
+            // 如果后端返回 {code, data: {...}},则返回res.data
+            if (res.rows !== undefined) {
+                // 拼团列表等新接口直接返回数据
+                return res
+            } else if (res.data !== undefined) {
+                // 旧接口在data字段中
+                return res.data
+            }
+            return res
         },
     })
 
