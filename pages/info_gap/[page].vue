@@ -74,9 +74,9 @@
                 <div class="title-section">
                   <span class="tag">【{{ item.tag }}】</span>
                   <span class="main-title">{{ item.title }}</span>
-                  <span class="sub-tag-1"> 标签1 </span>
-                  <span class="sub-tag-2"> 标签2 </span>
-                  <span class="sub-tag-3"> 标签3 </span>
+                  <span class="sub-tag-1"> {{ item.tag1 }} </span>
+                  <span class="sub-tag-2"> {{ item.tag2 }} </span>
+                  <span class="sub-tag-3"> {{ item.tag3 }} </span>
                 </div>
 
                 <div class="meta-group">
@@ -86,7 +86,7 @@
                   </span>
                   <span class="meta-item time">
                     <n-icon><TimeOutline /></n-icon>
-                    {{ formatTime(item.createTime) }}
+                    {{ formatTime(item.updateTime) }}
                   </span>
                 </div>
 
@@ -94,8 +94,7 @@
                   <n-space :size="4">
                     <n-button
                       size="tiny"
-                      :color="item.isVoted === 1 ? '#18a058' : '#26a67a'"
-                      text-color="#fff"
+                      :type="item.isVoted === 1 ? 'primary' : 'default'"
                       @click.stop="handleVote(item, 1)"
                     >
                       👍 {{ item.goodCount }}
@@ -103,8 +102,7 @@
 
                     <n-button
                       size="tiny"
-                      :color="item.isVoted === 2 ? '#18a058' : '#718b9c'"
-                      text-color="#fff"
+                      :type="item.isVoted === 2 ? 'info' : 'default'"
                       @click.stop="handleVote(item, 2)"
                     >
                       😐 {{ item.middleCount }}
@@ -112,8 +110,7 @@
 
                     <n-button
                       size="tiny"
-                      :color="item.isVoted === 3 ? '#18a058' : '#e53e3e'"
-                      text-color="#fff"
+                      :type="item.isVoted === 3 ? 'error' : 'default'"
                       @click.stop="handleVote(item, 3)"
                     >
                       👎 {{ item.badCount }}
@@ -122,7 +119,7 @@
                     <n-button
                       size="tiny"
                       :secondary="!item.isFollowed"
-                      :type="item.isFollowed ? 'primary' : 'default'"
+                      :type="item.isFollowed ? 'warning' : 'warning'"
                       strong
                       @click.stop="handleFollow(item)"
                     >
@@ -171,7 +168,7 @@
             placeholder="一句话概括你的信息差"
           />
         </n-form-item>
-        <n-form-item label="分类标签">
+        <n-form-item label="信息差分类">
           <n-select
             v-model:value="form.tag"
             :options="[
@@ -189,16 +186,40 @@
             :autosize="{ minRows: 3, maxRows: 6 }"
           />
         </n-form-item>
+
+        <n-form-item label-width="220">
+          <template #label>
+            <div class="tag-label">
+              <span>标签选择</span>
+              <span class="tag-count">已选 {{ selectedTags.length }}/{{ MAX_TAG_COUNT }}</span>
+            </div>
+          </template>
+          <n-space :size="8" wrap>
+            <n-tag
+              v-for="tag in candidateTags"
+              :key="tag"
+              size="large" round
+              :type="isTagSelected(tag) ? 'success' : 'default'"
+              :bordered="!isTagSelected(tag)"
+              :closable="isTagSelected(tag)"
+              :style="{
+                cursor: isTagSelected(tag) || selectedTags.length < MAX_TAG_COUNT ? 'pointer' : 'not-allowed',
+                opacity: isTagSelected(tag) || selectedTags.length < MAX_TAG_COUNT ? 1 : 0.5
+              }"
+              @click="handleTagClick(tag)"
+              @close="handleTagClose(tag, $event)"
+            >
+              {{ tag.name }}
+            </n-tag>
+          </n-space>
+        </n-form-item>
       </n-form>
 
       <template #footer>
         <n-space justify="end">
-          <n-button @click="showModal = false">取消</n-button>
-          <n-button
-            type="primary"
-            :loading="btnLoading"
-            @click="confirmPublish"
-          >
+          <n-button type="warning" @click="resetPublishForm">重置</n-button>
+          <n-button @click="showModal=false">取消</n-button>
+          <n-button type="primary" :loading="btnLoading" @click="confirmPublish">
             确认发布
           </n-button>
         </n-space>
@@ -228,6 +249,7 @@ import {
   NForm,
   NFormItem,
   NSelect,
+  NTag,
   createDiscreteApi,
 } from 'naive-ui';
 import {
@@ -262,6 +284,7 @@ const form = reactive({
   title: '',
   tag: '技术',
   content: '',
+  tags: []
 });
 
 // 列表请求状态
@@ -269,6 +292,56 @@ const pending = ref(false);
 const error = ref(null);
 const total = ref(0);
 const rows = ref([]);
+
+// 发布信息差表格中标签相关内容
+const MAX_TAG_COUNT = 3;
+const selectedTags = ref([]);
+
+const candidateTags = ref([
+  { id: 116, name: "Mysql" },
+  { id: 115, name: "Redis" },
+  { id: 114, name: "Go" },
+  { id: 117, name: "SpringBoot" },
+  { id: 119, name: "Nginx" },
+  { id: 113, name: "Java" },
+  { id: 121, name: "ElasticSearch" },
+  { id: 120, name: "K8s" },
+  { id: 122, name: "Mybatis" },
+  { id: 118, name: "Docker" }
+]);
+
+const isTagSelected = (tag) => {
+  return selectedTags.value.some((t) => t.id === tag.id);
+}
+
+const handleTagClick = (tag) => {
+  if (isTagSelected(tag)) return;
+  if (selectedTags.value.length >= MAX_TAG_COUNT) {
+    const { message } = createDiscreteApi(['message']);
+    message.warning(`最多只能选择 ${MAX_TAG_COUNT} 个标签`);
+    return;
+  }
+  selectedTags.value.push(tag);
+}
+
+const handleTagClose = (tag, e) => {
+  e?.stopPropagation?.(); // 防止 close 触发 click 导致又被加回去
+  selectedTags.value = selectedTags.value.filter((t) => t.id !== tag.id);
+}
+
+const resetPublishForm = () => {
+  Object.assign(form, {
+    title: '',
+    tag: '技术',
+    content: '',
+  });
+
+  // 你前面做了标签多选的话，一并清空
+  if (typeof selectedTags !== 'undefined' && selectedTags?.value)
+  {
+    selectedTags.value = [];
+  }
+};
 
 // ==================== 3) 列表数据加载 ====================
 // 读取列表数据，并把后端字段补齐成前端可直接渲染的结构
@@ -299,12 +372,17 @@ const loadData = async () => {
       // 统一初始化交互字段，避免模板侧出现 undefined
       rows.value = (data.value.rows || []).map((row) => ({
         ...row,
+        // 显式补齐时间字段，兼容后端仅返回 createTime 的场景
+        updateTime: row.updateTime || row.createTime || '',
         isVoted: row.isVoted || 0,
         goodCount: row.goodCount || 0,
         middleCount: row.middleCount || 0,
         badCount: row.badCount || 0,
         isFollowed: !!row.isFollowed,
         isExpanded: false,
+        tag1: row.tag1 || '',
+        tag2: row.tag2 || '',
+        tag3: row.tag3 || ''
       }));
       total.value = data.value.total || 0;
     } else {
@@ -404,13 +482,26 @@ const confirmPublish = async () => {
     return message.warning('请填写完整内容');
   }
 
+  console.log("selectedTags =", selectedTags.value);
+
   btnLoading.value = true;
+  const tagIds = selectedTags.value
+      .map((tag) => tag.id)
+      .filter((id) => id != null);
+
+  console.log("tagIds =", tagIds);
+
   try {
     const { data, error: postError } = await useHttpPost(
       'add-info-gap',
       '/info_gap/save',
       {
-        body: form,
+        body: {
+          title: form.title,
+          tag: form.tag,
+          content: form.content,
+          tagIds,
+        },
         $: true,
       }
     );
@@ -422,6 +513,7 @@ const confirmPublish = async () => {
 
     showModal.value = false;
     Object.assign(form, { title: '', tag: '技术', content: '' });
+    selectedTags.value = [];
     await syncToPage(1);
   } catch (err) {
     console.error('发布失败:', err);
@@ -481,18 +573,18 @@ const handleFollow = async (item) => {
   item.isFollowed = !item.isFollowed;
 
   try {
-    const { error } = await useHttpPost(
+    const { error } = await useHttpGet(
       'info-follow',
-      `/info_gap/follow/${item.userId}`,
+      `/info_gap/collect/${item.id}`,
       { $: true }
     );
 
     if (error.value) throw error.value;
 
-    message.success(item.isFollowed ? '关注成功' : '已取消关注');
+    message.success(item.isFollowed ? '收藏成功' : '收藏失败！');
   } catch (err) {
     item.isFollowed = originalStatus;
-    message.error('关注操作失败，请检查网络');
+    message.error('收藏失败，请检查网络！！！');
   }
 };
 
@@ -598,6 +690,19 @@ useHead({ title: '信息差 - 开源助手' });
   font-weight: bold;
   color: #165d69;
   white-space: nowrap;
+}
+
+.tag-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.tag-count {
+  font-size: 12px;
+  color: #999;
+  font-weight: 400;
 }
 
 .expand-icon {
