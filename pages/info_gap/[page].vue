@@ -573,9 +573,9 @@ const handleFollow = async (item) => {
   item.isFollowed = !item.isFollowed;
 
   try {
-    const { error } = await useHttpPost(
+    const { error } = await useHttpGet(
       'info-follow',
-      `/info_gap/follow/${item.userId}`,
+      `/info_gap/collect/${item.id}`,
       { $: true }
     );
 
