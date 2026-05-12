@@ -655,6 +655,7 @@ const handleIframeToolMessage = (event) => {
   handleToolUsed(item, data.usageKey);
 };
 
+// TODO 后续改到 子页面直接调用接口先校验再使用,并扣数
 const handleToolUsed = async (item, usageKey) => {
   if (!item || !isPaidResourceType(item.resourceType)) {
     return;
