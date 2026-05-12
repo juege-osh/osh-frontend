@@ -32,8 +32,6 @@ dist/
 .DS_Store
 Thumbs.db
 
-.DS_Store
-
 # Kiro IDE 配置
 .kiro/
 
