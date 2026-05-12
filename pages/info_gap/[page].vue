@@ -212,7 +212,7 @@
               @click="handleTagClick(tag)"
               @close="handleTagClose(tag, $event)"
             >
-              {{ tag }}
+              {{ tag.name }}
             </n-tag>
           </n-space>
         </n-form-item>
@@ -297,17 +297,24 @@ const total = ref(0);
 const rows = ref([]);
 
 // 发布信息差表格中标签相关内容
-
 const MAX_TAG_COUNT = 3;
 const selectedTags = ref([]);
 
 const candidateTags = ref([
-  'Mysql', 'Redis', 'Go', 'SpringBoot', 'Nginx', 'Java', 'ElasticSearch', 'K8s',
-  'Mybatis', 'Docker'
+  { id: 116, name: "Mysql" },
+  { id: 115, name: "Redis" },
+  { id: 114, name: "Go" },
+  { id: 117, name: "SpringBoot" },
+  { id: 119, name: "Nginx" },
+  { id: 113, name: "Java" },
+  { id: 121, name: "ElasticSearch" },
+  { id: 120, name: "K8s" },
+  { id: 122, name: "Mybatis" },
+  { id: 118, name: "Docker" }
 ]);
 
 const isTagSelected = (tag) => {
-  return selectedTags.value.includes(tag);
+  return selectedTags.value.some((t) => t.id === tag.id);
 }
 
 const handleTagClick = (tag) => {
@@ -322,7 +329,7 @@ const handleTagClick = (tag) => {
 
 const handleTagClose = (tag, e) => {
   e?.stopPropagation?.(); // 防止 close 触发 click 导致又被加回去
-  selectedTags.value = selectedTags.value.filter((t) => t !== tag);
+  selectedTags.value = selectedTags.value.filter((t) => t.id !== tag.id);
 }
 
 const resetPublishForm = () => {
@@ -478,15 +485,25 @@ const confirmPublish = async () => {
     return message.warning('请填写完整内容');
   }
 
+  console.log("selectedTags =", selectedTags.value);
+
   btnLoading.value = true;
+  const tagIds = selectedTags.value
+      .map((tag) => tag.id)
+      .filter((id) => id != null);
+
+  console.log("tagIds =", tagIds);
+
   try {
     const { data, error: postError } = await useHttpPost(
       'add-info-gap',
       '/info_gap/save',
       {
         body: {
-          ...form,
-          tags: [...selectedTags.value],
+          title: form.title,
+          tag: form.tag,
+          content: form.content,
+          tagIds,
         },
         $: true,
       }
