@@ -8,17 +8,30 @@
       </div>
 
       <nav class="nav-menu">
-        <a
-          v-for="(item, index) in menus"
-          :key="index"
-          :href="item.path"
-          @click.prevent="handleOpen(item.path)"
-          class="nav-item"
-          :class="{ 'active': isMenuItemActive(item) }"
-        >
-          <component :is="item.iconComponent" class="nav-icon" />
-          <span class="nav-text">{{ item.name }}</span>
-        </a>
+        <template v-for="(item, index) in menus" :key="index">
+          <!-- 有子菜单的项 -->
+          <n-dropdown v-if="item.children" :options="getDropdownOptions(item)" @select="handleDropdownSelect" placement="bottom-start">
+            <a class="nav-item" :class="{ 'active': isChildMenuActive(item) }">
+              <component :is="item.iconComponent" class="nav-icon" />
+              <span class="nav-text">{{ item.name }}</span>
+              <svg class="dropdown-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+          </n-dropdown>
+          
+          <!-- 普通菜单项 -->
+          <a
+            v-else
+            :href="item.path"
+            @click.prevent="handleOpen(item.path)"
+            class="nav-item"
+            :class="{ 'active': isMenuItemActive(item) }"
+          >
+            <component :is="item.iconComponent" class="nav-icon" />
+            <span class="nav-text">{{ item.name }}</span>
+          </a>
+        </template>
       </nav>
 
       <div class="user-section">
@@ -172,21 +185,77 @@ const menus = ref([
   { name: '工具', path: '/tool/1', match: [{ name: 'tool-page' }], iconComponent: ToolIcon },
   { name: '信息差', path: '/info_gap/1', match: [{ name: 'info_gap-page' }], iconComponent: InfoIcon },
   { name: '反馈', path: '/feedback/list', match: [{ name: 'feedback-list' }], iconComponent: FeedbackIcon },
-  { name: '内部网站', path: '/site', iconComponent: SiteIcon }
+  { 
+    name: '内部资源', 
+    iconComponent: SiteIcon,
+    children: [
+      { name: '内部网站', path: '/site' },
+      { name: '内部资源', path: '/resource', match: [{ name: 'resource' }] }
+    ]
+  }
 ]);
 
 onMounted(() => {
   const permissions = usePermissions()
-  if (permissions.value.innerSite == undefined) {
-    const index = menus.value.findIndex(item => item.path === '/site');
-    if (index !== -1) {
-      menus.value.splice(index, 1);
+  const internalMenuIndex = menus.value.findIndex(item => item.name === '内部');
+  
+  if (internalMenuIndex !== -1) {
+    const internalMenu = menus.value[internalMenuIndex];
+    const visibleChildren = [];
+    
+    // 检查内部网站权限
+    if (permissions.value.innerSite !== undefined) {
+      visibleChildren.push(internalMenu.children[0]); // 内部网站
+    }
+    
+    // 检查内部资源权限
+    if (permissions.value.internalResource !== undefined) {
+      visibleChildren.push(internalMenu.children[1]); // 内部资源
+    }
+    
+    // 如果没有任何权限，移除整个内部菜单
+    if (visibleChildren.length === 0) {
+      menus.value.splice(internalMenuIndex, 1);
+    } else if (visibleChildren.length === 1) {
+      // 如果只有一个子项，直接变成普通菜单项
+      menus.value[internalMenuIndex] = {
+        name: visibleChildren[0].name,
+        path: visibleChildren[0].path,
+        match: visibleChildren[0].match,
+        iconComponent: SiteIcon
+      };
+    } else {
+      // 有多个子项，保留下拉菜单
+      internalMenu.children = visibleChildren;
     }
   }
 });
 
 function handleOpen(path) {
   navigateTo(path);
+}
+
+// 获取下拉菜单选项
+function getDropdownOptions(item) {
+  return item.children.map(child => ({
+    label: child.name,
+    key: child.path,
+    icon: () => h('svg', { width: 16, height: 16, viewBox: '0 0 18 18', fill: 'none' }, [
+      h('circle', { cx: '9', cy: '9', r: '6', stroke: 'currentColor', 'stroke-width': '1.5' }),
+      h('path', { d: 'M3 9h12M9 3c-2 2-2 8 0 12M9 3c2 2 2 8 0 12', stroke: 'currentColor', 'stroke-width': '1.5' })
+    ])
+  }));
+}
+
+// 处理下拉菜单选择
+function handleDropdownSelect(key) {
+  handleOpen(key);
+}
+
+// 检查子菜单是否激活
+function isChildMenuActive(item) {
+  if (!item.children) return false;
+  return item.children.some(child => isMenuItemActive(child));
 }
 
 const isMenuItemActive = (item) => {
@@ -252,6 +321,15 @@ const handleSelect = (k)=>{
   background: linear-gradient(180deg, #1a1d29 0%, #252936 100%);
   border-bottom: 1px solid rgba(99, 102, 241, 0.1);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.dropdown-arrow {
+  margin-left: 4px;
+  transition: transform 0.2s;
+}
+
+.nav-item:hover .dropdown-arrow {
+  transform: rotate(180deg);
 }
 
 .container {
