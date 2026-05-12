@@ -25,7 +25,7 @@
     </div>
 
     <div class="dropdown-shell">
-      <button class="dropdown-toggle" @click="expanded = !expanded">
+      <button class="dropdown-toggle" @click="handleToggleExpand">
         <span>{{ expanded ? '收起问题列表' : '下拉查看全部问题' }}</span>
         <span class="toggle-icon" :class="{ expanded }">⌄</span>
       </button>
@@ -74,11 +74,12 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { createDiscreteApi } from 'naive-ui'
 import { useHasAuth } from '~/composables/useAuth'
 import { apiGetQuestionList } from '~/composables/Api/QuestionAnswer/qna'
 
-// 课程资源类型标识，与答疑模块保持一致
-const COURSE_RESOURCE_TYPE = '课程'
+// 课程资源类型标识，与后端 ResourceTypeEnum.COURSE 的 type code 保持一致
+const COURSE_RESOURCE_TYPE = 'course'
 
 const props = defineProps({
   sectionId: {
@@ -88,6 +89,10 @@ const props = defineProps({
   courseId: {
     type: [Number, String],
     default: null,
+  },
+  accessLevel: {
+    type: String,
+    default: 'TRIAL', // FULL=已购买或高权限，TRIAL=仅试看
   },
 })
 
@@ -133,8 +138,43 @@ async function loadQuestions() {
   }
 }
 
+// 提取权限检查逻辑，供展开和提问共用
+function checkVipPermission() {
+  let userLevel = 0
+  if (process.client) {
+    try {
+      const roleStr = localStorage.getItem('__user_role__')
+      const role = roleStr ? JSON.parse(roleStr) : null
+      userLevel = Number(role?.level ?? 0)
+    } catch {}
+  }
+  return userLevel >= 2 || props.accessLevel === 'FULL'
+}
+
+function handleToggleExpand() {
+  // 已展开时直接收起，无需权限
+  if (expanded.value) {
+    expanded.value = false
+    return
+  }
+  // 展开时需要登录 + VIP/付费权限
+  useHasAuth(() => {
+    if (!checkVipPermission()) {
+      const { message } = createDiscreteApi(['message'])
+      message.warning('需要 VIP 及以上等级，或已购买该课程，才能查看提问区')
+      return
+    }
+    expanded.value = true
+  })
+}
+
 function handleOpenCreate() {
   useHasAuth(() => {
+    if (!checkVipPermission()) {
+      const { message } = createDiscreteApi(['message'])
+      message.warning('需要 VIP 及以上等级，或已购买该课程，才能提问')
+      return
+    }
     showCreateModal.value = true
   })
 }

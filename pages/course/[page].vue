@@ -138,7 +138,28 @@ const syncCourseList = (payload) => {
 const loadCourses = async () => {
   await refresh();
   syncCourseList(resData.value);
+  // 批量刷新封面临时 URL（有效期 1440 分钟，避免封面过期破图）
+  await refreshCoverUrls();
 };
+
+async function refreshCoverUrls() {
+  if (!courseList.value.length) return;
+  const ids = courseList.value.map((c) => c.id).filter(Boolean);
+  if (!ids.length) return;
+  try {
+    const res = await apiGetCoverUrls(ids, 1440);
+    if (res?.code === 200 && res.data) {
+      const urlMap = res.data;
+      courseList.value.forEach((course) => {
+        if (urlMap[course.id]) {
+          course.cover = urlMap[course.id];
+        }
+      });
+    }
+  } catch (e) {
+    // 封面刷新失败不影响列表展示，静默处理
+  }
+}
 
 onMounted(() => {
   loadCourses();
