@@ -5,8 +5,8 @@
       <div class="search-left">
         <select v-model="filter.resourceType" class="sel-input">
           <option value="">全部类型</option>
-          <option value="课程">课程</option>
-          <option value="网站">网站</option>
+          <option value="course">课程</option>
+          <option value="website">网站</option>
           <option value="电子书">电子书</option>
         </select>
         <input 
@@ -89,11 +89,11 @@
             </span>
             <span v-if="q.resourceNo" class="meta-resource">
               <span class="resource-icon">📚</span>
-              [{{ q.resourceType || '课程' }}] #{{ q.resourceNo }}
+              [{{ displayResourceType(q.resourceType) || '课程' }}] #{{ q.resourceNo }}
             </span>
             <span v-else-if="q.resourceType" class="meta-resource">
               <span class="resource-icon">📚</span>
-              {{ q.resourceType }}
+              {{ displayResourceType(q.resourceType) }}
             </span>
             <span class="meta-time">
               <span class="time-icon">🕐</span>
@@ -271,6 +271,21 @@ function formatTime(timeStr) {
   } catch {
     return timeStr;
   }
+}
+
+// Resource type code -> display label.
+// Backend stores both English codes (course/website/book) and legacy Chinese values
+// (课程/网站/电子书). Map the codes back to Chinese labels so the UI is consistent
+// regardless of which value the row was saved with.
+const RESOURCE_TYPE_LABEL_MAP = {
+  course: '课程',
+  website: '网站',
+  book: '电子书',
+};
+
+function displayResourceType(type) {
+  if (!type) return '';
+  return RESOURCE_TYPE_LABEL_MAP[type] || type;
 }
 
 // 获取状态文本
