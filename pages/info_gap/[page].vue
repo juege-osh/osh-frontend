@@ -587,7 +587,7 @@ const handleVote = async (item, type) => {
       $: true,
     });
     if (error.value) throw new Error(error.value.message || '后端处理失败');
-    message.success(item.isVoted === 0 ? '已取消评价' : '评价成功');
+    message.success(item.isVoted === 0 ? '已取消点评' : '点评成功');
   } catch (err) {
     item.isVoted = oldVoted;
     item.goodCount = oldCounts[1];
@@ -608,8 +608,11 @@ const handleFollow = async (item) => {
   try {
     const { error } = await useHttpGet(
       'info-follow',
-      `/info_gap/collect/${item.id}`,
-      { $: true }
+      `/info_gap/collect`,
+        {
+          params: { infoGapId: item.id },
+          $: true,
+        }
     );
 
     if (error.value) throw error.value;
