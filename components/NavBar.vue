@@ -170,7 +170,7 @@ const menus = ref([
   { name: '电子书', path: '/list/book/1', match: [{ name: 'list-type-page', params: { type: 'book' } }], iconComponent: BookIcon },
   { name: '考试', path: '/paper/1', match: [{ name: 'paper-page' }], iconComponent: ExamIcon },
   { name: '答疑', path: '/question_answer/1', match: [{ name: 'question_answer-page' }], iconComponent: QAIcon },
-  { name: '秒杀', path: '/list/flashsale/1', match: [{ name: 'list-type-page', params: { type: 'flashsale' } }], iconComponent: FlashIcon },
+  { name: '秒杀', path: '/seckill', match: [{ name: 'seckill' }], iconComponent: FlashIcon },
   { name: '拼团', path: '/list/group/1', match: [{ name: 'list-type-page', params: { type: 'group' } }], iconComponent: GroupIcon },
   { name: '开源项目', path: '/openproject/list', match: [{ name: 'openproject-list' }], iconComponent: ProjectIcon },
   { name: '实用网站', path: '/usefull/list', match: [{ name: 'usefull-list' }], iconComponent: LinkIcon },
@@ -240,7 +240,7 @@ const handleSelect = (k)=>{
             break;
         case "center":
             navigateTo({
-                path:"/user/history/1"
+                name: "user-profile"
             })
             break;
     }
