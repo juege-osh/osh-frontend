@@ -36,7 +36,7 @@
         >
           <n-radio-button value="hot">
             <n-icon :style="{ color: queryParams.type === 'hot' ? '#111827' : '#6366f1' }">
-              <component :is="queryParams.type === 'hot' ? FlashSharp : FlashOutline" />
+              <component :is="queryParams.type === 'hot' ? FlameSharp : FlameOutline" />
             </n-icon> 热门信息差
           </n-radio-button>
 
@@ -45,6 +45,13 @@
               <component :is="queryParams.type === 'latest' ? StarSharp : StarOutline" />
             </n-icon>
             最新发布
+          </n-radio-button>
+
+          <n-radio-button value="myself">
+            <n-icon :style="{ color: queryParams.type === 'myself' ? '#111827' : '#6366f1' }">
+              <component :is="queryParams.type === 'myself' ? PersonSharp : PersonOutline" />
+            </n-icon>
+            我发布的
           </n-radio-button>
 
           <n-radio-button value="follow">
@@ -295,7 +302,7 @@ import {
   RemoveCircleOutline,
   RemoveCircleSharp,
   ThumbsDownOutline,
-  ThumbsDownSharp, PauseCircleOutline, PauseCircleSharp,
+  ThumbsDownSharp, PauseCircleOutline, PauseCircleSharp, FlameSharp, FlameOutline, PersonSharp,
 } from '@vicons/ionicons5';
 import InfoGapHotList from "~/components/InfoGapHotList.vue";
 
