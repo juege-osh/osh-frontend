@@ -76,6 +76,9 @@
                   <div class="feed-title-row" >
                     <span class="feed-tag">[{{ item.tag }}]</span>
                     <span class="feed-title">{{ item.title }}</span>
+                    <span class="feed-title">{{ item.tag1 }}</span>
+                    <span class="feed-title">{{ item.tag2 }}</span>
+                    <span class="feed-title">{{ item.tag3 }}</span>
                   </div>
 
                   <transition name="expand">
@@ -134,12 +137,17 @@
                     <n-icon class="stat-icon">
                       <component :is="item.isFollowed ? Bookmark : BookmarkOutline" />
                     </n-icon>
-                    {{ item.isFollowed ? '已收藏' : '收藏' }} {{ item.collectCount || 0 }}
+                    {{ item.collectCount || 0 }}
                   </span>
 
                   <span class="feed-publisher">
                     <n-icon><PersonOutline /></n-icon>
                     {{ item.nickname || '匿名用户' }}
+                  </span>
+
+                  <span class="feed-publisher">
+                    <n-icon><TimeOutline /></n-icon>
+                    {{ formatTime(item.updateTime) }}
                   </span>
                 </div>
               </div>
