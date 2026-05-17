@@ -391,21 +391,34 @@ const isSearchMode = ref(false);
 // 发布信息差表格中标签相关内容
 const MAX_TAG_COUNT = 3;
 const selectedTags = ref([]);
-
-const candidateTags = ref([
-  { id: 116, name: "Mysql" },
-  { id: 115, name: "Redis" },
-  { id: 114, name: "Go" },
-  { id: 117, name: "SpringBoot" },
-  { id: 119, name: "Nginx" },
-  { id: 113, name: "Java" },
-  { id: 121, name: "ElasticSearch" },
-  { id: 120, name: "K8s" },
-  { id: 122, name: "Mybatis" },
-  { id: 118, name: "Docker" },
-]);
+const candidateTags = ref([]);
 
 const normalizeSearchKeyword = (value) => String(value || '').trim();
+
+const loadCandidateTags = async () => {
+  try {
+    const { data, error: fetchError } = await useHttpGet(
+      'info-gap-tag-list',
+      '/info_gap/tag/list',
+      {
+        watch: false,
+        $: true,
+      }
+    );
+
+    if (fetchError.value) {
+      throw fetchError.value;
+    }
+
+    const list = Array.isArray(data.value) ? data.value : (data.value?.rows || data.value?.data || []);
+    candidateTags.value = list.map((tag) => ({
+      id: Number(tag.id),
+      name: tag.name || tag.tagName || '',
+    })).filter((tag) => tag.id && tag.name);
+  } catch (err) {
+    candidateTags.value = [];
+  }
+};
 
 const findCandidateTagIdByName = (label) => {
   const normalizedLabel = normalizeSearchKeyword(label);
@@ -654,6 +667,7 @@ watch(
   async () => {
     if (!hasHydratedInfoGapRoute.value) {
       hasHydratedInfoGapRoute.value = true;
+      await loadCandidateTags();
 
       if (getRouteSearchMode()) {
         queryParams.type = 'hot';
@@ -681,17 +695,18 @@ watch(
 );
 
 // ==================== 6) 纯工具函数 ====================
-// 时间格式化：2026-03-27T07:48:39 -> 03-27 07:48
+// 时间格式化：2026-03-27T07:48:39 -> 2026-03-27 07:48
 const formatTime = (timeStr) => {
   if (!timeStr) return '';
   const date = new Date(timeStr);
-  return `${(date.getMonth() + 1).toString().padStart(2, '0')}-${date
-    .getDate()
-    .toString()
-    .padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date
-    .getMinutes()
-    .toString()
-    .padStart(2, '0')}`;
+  // 新增 date.getFullYear() 获取年份，拼接在最前面
+  return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date
+      .getDate()
+      .toString()
+      .padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date
+      .getMinutes()
+      .toString()
+      .padStart(2, '0')}`;
 };
 
 // 点开详情页
