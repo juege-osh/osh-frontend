@@ -114,12 +114,31 @@ export function useCollectApi(body) {
     })
 }
 
-// 修改资料
+// 修改资料（avatar、username、sex、introduction）
 export function useUpdateUserInfoApi(body) {
-    return useHttpPost("updateUserInfo", "/update_info", {
+    return useHttpPost("updateUserInfo", "/user/update_info", {
         body
     })
 }
+
+// 上传头像（返回头像 URL）
+export function useUploadAvatarApi(file) {
+    const token = useCookie("token")
+    const formData = new FormData()
+    formData.append('file', file)
+    return $fetch(fetchConfig.baseURL + "/user/upload_avatar", {
+        method: 'POST',
+        headers: {
+            appid: fetchConfig.headers.appid,
+            token: token.value,
+            Authorization: `Bearer ${token.value}`,
+        },
+        body: formData,
+    })
+}
+
+// 默认头像（用户未设置头像时使用）
+export const DEFAULT_AVATAR = '/default-avatar.png'
 
 // 上传图片
 export function useUploadConfig() {
@@ -136,9 +155,28 @@ export function useUploadConfig() {
 
 // 修改密码
 export function useupdatePasswordApi(body) {
-    return useHttpPost("updatePassword", "/update_password", {
+    return useHttpPost("updatePassword", "/user/update_password", {
         body
     })
+}
+
+// 改绑邮箱 - 提交请求（发送验证邮件）
+export function useChangeEmailSubmitApi(body) {
+    return useHttpPost("changeEmailSubmit", "/user/changeEmail/submit", {
+        body
+    })
+}
+
+// 改绑邮箱 - 验证 uniqueId
+export function useChangeEmailVerityApi(body) {
+    return useHttpPost("changeEmailVerity", "/user/changeEmail/verity", {
+        body
+    })
+}
+
+// 注销账号
+export function useDeleteUserApi() {
+    return useHttpPost("deleteUser", "/user/deleteUser")
 }
 
 // 领取优惠券
