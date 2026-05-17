@@ -34,10 +34,6 @@
               <span>剩余次数</span>
               <strong>{{ remainingCountText }}</strong>
             </div>
-            <div class="metric-card">
-              <span>访问方式</span>
-              <strong>站内工具</strong>
-            </div>
           </div>
 
           <div v-if="isPaidTool" class="purchase-row">
@@ -78,8 +74,12 @@
             <strong>{{ resourceTypeLabel }}</strong>
           </div>
           <div class="info-item">
-            <span>好评 / 中评 / 差评</span>
-            <strong>{{ tool.goodCount || 0 }} / {{ tool.neutralCount || 0 }} / {{ tool.badCount || 0 }}</strong>
+            <span>好评数</span>
+            <strong>{{ tool.goodCount || 0 }}</strong>
+          </div>
+          <div class="info-item">
+            <span>差评数</span>
+            <strong>{{ tool.badCount || 0 }}</strong>
           </div>
           <div class="info-item">
             <span>权限等级</span>
@@ -347,6 +347,13 @@ function resetPaymentState() {
   };
 }
 
+function closePurchaseModal() {
+  stopPaymentPolling();
+  purchaseModalVisible.value = false;
+  resetPaymentState();
+  selectedPackage.value = null;
+}
+
 async function submitPurchase() {
   if (!tool.value || !selectedPackage.value) {
     message.warning('请选择套餐');
@@ -425,6 +432,7 @@ function startPaymentPolling() {
         stopPaymentPolling();
         message.success('支付成功，额度已到账');
         await refreshNuxtData(`tool-detail-${route.params.id}`);
+        closePurchaseModal();
         return;
       }
       if (String(data.paymentStatus) === '3' || String(data.orderStatus) === '2') {
@@ -446,6 +454,7 @@ async function handleCancelPayment() {
     stopPaymentPolling();
     await refreshNuxtData(`tool-detail-${route.params.id}`);
     message.success('订单已关闭');
+    closePurchaseModal();
   } catch (e) {
     message.error(e?.message || e?.data?.msg || '关闭订单失败');
   } finally {
@@ -454,9 +463,7 @@ async function handleCancelPayment() {
 }
 
 function handlePurchaseModalClose() {
-  stopPaymentPolling();
-  resetPaymentState();
-  selectedPackage.value = null;
+  closePurchaseModal();
 }
 
 async function toggleFavorite() {
@@ -585,7 +592,7 @@ h1 {
 }
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 .metric-card,
