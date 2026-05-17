@@ -342,6 +342,7 @@ const error = ref(null);
 const total = ref(0);
 const rows = ref([]);
 const activeSearchTagId = ref(null);
+const isSearchMode = ref(false);
 
 // 发布信息差表格中标签相关内容
 const MAX_TAG_COUNT = 3;
@@ -388,9 +389,9 @@ const buildItemSearchTags = (item = {}) => {
 
 const buildListRequestConfig = () => {
   const title = normalizeSearchKeyword(queryParams.title);
-  const hasSearchKeyword = !!title;
+  const shouldUseSearch = isSearchMode.value && !!title;
 
-  if (!hasSearchKeyword) {
+  if (!shouldUseSearch) {
     return {
       method: 'GET',
       key: `info-gap-list-${queryParams.type}-p${queryParams.pageNum}-all`,
@@ -515,6 +516,8 @@ const handlePageChange = (p) => {
 // 切换类型后回到第一页
 const handleTypeChange = async (value) => {
   queryParams.type = value;
+  isSearchMode.value = false;
+  queryParams.title = '';
   activeSearchTagId.value = null;
   await syncToPage(1);
 };
@@ -522,12 +525,14 @@ const handleTypeChange = async (value) => {
 // 搜索时回到第一页
 const handleSearch = async () => {
   queryParams.title = normalizeSearchKeyword(queryParams.title);
+  isSearchMode.value = !!queryParams.title;
   activeSearchTagId.value = null;
   await syncToPage(1);
 };
 
 const handleTagSearch = async (tag) => {
   queryParams.title = normalizeSearchKeyword(tag?.label);
+  isSearchMode.value = !!queryParams.title;
   activeSearchTagId.value = tag?.id ?? null;
   queryParams.type = 'hot';
   await syncToPage(1);
@@ -536,6 +541,7 @@ const handleTagSearch = async (tag) => {
 // ==================== 5) 路由参数与查询参数同步 ====================
 // 从路由读取当前的筛选条件
 const getRouteType = () => route.query.type || 'hot';
+const getRouteSearchMode = () => route.query.search === '1';
 const getRouteTitle = () =>
   typeof route.query.title === 'string' ? normalizeSearchKeyword(route.query.title) : '';
 const getRoutePageNum = () => parseInt(route.params.page) || 1;
@@ -547,10 +553,12 @@ const syncToPage = async (page) => {
 
   const nextType = queryParams.type || 'hot';
   const nextTitle = queryParams.title;
+  const nextSearchMode = isSearchMode.value && !!nextTitle;
   const shouldNavigate =
     getRoutePageNum() !== page ||
     getRouteType() !== nextType ||
-    getRouteTitle() !== nextTitle;
+    getRouteTitle() !== nextTitle ||
+    getRouteSearchMode() !== nextSearchMode;
 
   if (!shouldNavigate) {
     await loadData();
@@ -562,10 +570,12 @@ const syncToPage = async (page) => {
     type: nextType,
   };
 
-  if (nextTitle) {
+  if (isSearchMode.value && nextTitle) {
     nextQuery.title = nextTitle;
+    nextQuery.search = '1';
   } else {
     delete nextQuery.title;
+    delete nextQuery.search;
   }
 
   await navigateTo({
@@ -576,12 +586,13 @@ const syncToPage = async (page) => {
 
 // 监听 URL 页码变化，并把 URL 上的 type/title 同步回查询参数
 watch(
-  () => [route.params.page, route.query.type, route.query.title],
+  () => [route.params.page, route.query.type, route.query.title, route.query.search],
   () => {
     queryParams.pageNum = getRoutePageNum();
     queryParams.type = getRouteType();
     queryParams.title = getRouteTitle();
-    if (!queryParams.title) {
+    isSearchMode.value = getRouteSearchMode() && !!queryParams.title;
+    if (!isSearchMode.value) {
       activeSearchTagId.value = null;
     }
     loadData();
