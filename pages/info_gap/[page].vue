@@ -585,6 +585,16 @@ const handlePageChange = (p) => {
 
 // 切换类型后回到第一页
 const handleTypeChange = async (value) => {
+  if (value === 'myself' || value === 'follow') {
+    return useHasAuth(async () => {
+      queryParams.type = value;
+      isSearchMode.value = false;
+      queryParams.title = '';
+      activeSearchTagId.value = null;
+      await syncToPage(1);
+    });
+  }
+
   queryParams.type = value;
   isSearchMode.value = false;
   queryParams.title = '';
@@ -715,8 +725,10 @@ const handleDetail = (id) => navigateTo(`/detail/info_gap/${id}`);
 // ==================== 7) 发布弹窗与发布流程 ====================
 // 打开发布弹窗
 const handlePublish = () => {
-  resetPublishForm();
-  showModal.value = true;
+  useHasAuth(() => {
+    resetPublishForm();
+    showModal.value = true;
+  });
 };
 
 const handleEditInfoGap = (item) => {
@@ -834,79 +846,82 @@ const handleDeleteInfoGap = (item) => {
 };
 
 const handleVote = async (item, type) => {
-  const { message } = createDiscreteApi(['message']);
+  useHasAuth(async () => {
+    const { message } = createDiscreteApi(['message']);
 
-  // 先存快照，用于失败时回滚
-  const oldVoted = item.isVoted;
-  const oldCounts = {
-    1: item.goodCount,
-    2: item.middleCount,
-    3: item.badCount,
-  };
+    // 先存快照，用于失败时回滚
+    const oldVoted = item.isVoted;
+    const oldCounts = {
+      1: item.goodCount,
+      2: item.middleCount,
+      3: item.badCount,
+    };
 
-  // 本地先更新 UI
-  if (oldVoted === type) {
-    updateCount(item, type, -1);
-    item.isVoted = 0;
-  } else {
-    if (oldVoted !== 0) {
-      updateCount(item, oldVoted, -1);
+    // 本地先更新 UI
+    if (oldVoted === type) {
+      updateCount(item, type, -1);
+      item.isVoted = 0;
+    } else {
+      if (oldVoted !== 0) {
+        updateCount(item, oldVoted, -1);
+      }
+      updateCount(item, type, 1);
+      item.isVoted = type;
     }
-    updateCount(item, type, 1);
-    item.isVoted = type;
-  }
 
-  // 再发请求，失败则回滚
-  try {
-    const { error } = await useHttpPost('info-vote', '/info_gap/vote', {
-      query: { id: item.id, type: type },
-      $: true,
-    });
-    if (error.value) throw new Error(error.value.message || '后端处理失败');
-    message.success(item.isVoted === 0 ? '已取消点评' : '点评成功');
-  } catch (err) {
-    item.isVoted = oldVoted;
-    item.goodCount = oldCounts[1];
-    item.middleCount = oldCounts[2];
-    item.badCount = oldCounts[3];
-    message.error('操作失败：' + err.message);
-  }
+    // 再发请求，失败则回滚
+    try {
+      const { error } = await useHttpPost('info-vote', '/info_gap/vote', {
+        query: { id: item.id, type: type },
+        $: true,
+      });
+      if (error.value) throw new Error(error.value.message || '后端处理失败');
+      message.success(item.isVoted === 0 ? '已取消点评' : '点评成功');
+    } catch (err) {
+      item.isVoted = oldVoted;
+      item.goodCount = oldCounts[1];
+      item.middleCount = oldCounts[2];
+      item.badCount = oldCounts[3];
+      message.error('操作失败：' + err.message);
+    }
+  });
 };
 
 // 关注动作：乐观更新 + 请求失败回滚
 const handleFollow = async (item) => {
-  const { message } = createDiscreteApi(['message']);
+  useHasAuth(async () => {
+    const { message } = createDiscreteApi(['message']);
 
-  // 本地先更新 UI，失败再回滚
-  const originalStatus = item.isFollowed;
-  const originalCollectCount = Number(item.collectCount || 0);
-  item.isFollowed = !item.isFollowed;
-  item.collectCount = Math.max(
-    0,
-    originalCollectCount + (item.isFollowed ? 1 : -1)
-  );
-
-  try {
-    const { error } = await useHttpGet(
-      `info-follow-${item.id}`,
-      `/info_gap/collect`,
-        {
-          params: { infoGapId: item.id },
-          $: true,
-        }
+    // 本地先更新 UI，失败再回滚
+    const originalStatus = item.isFollowed;
+    const originalCollectCount = Number(item.collectCount || 0);
+    item.isFollowed = !item.isFollowed;
+    item.collectCount = Math.max(
+      0,
+      originalCollectCount + (item.isFollowed ? 1 : -1)
     );
 
-    if (error.value) throw error.value;
+    try {
+      const { error } = await useHttpGet(
+        `info-follow-${item.id}`,
+        `/info_gap/collect`,
+          {
+            params: { infoGapId: item.id },
+            $: true,
+          }
+      );
 
-    message.success(item.isFollowed ? '收藏成功' : '取消收藏成功');
-  } catch (err) {
-    item.isFollowed = originalStatus;
-    item.collectCount = originalCollectCount;
-    message.error('收藏失败，请检查网络！！！');
-  }
+      if (error.value) throw error.value;
+
+      message.success(item.isFollowed ? '收藏成功' : '取消收藏成功');
+    } catch (err) {
+      item.isFollowed = originalStatus;
+      item.collectCount = originalCollectCount;
+      message.error('收藏失败，请检查网络！！！');
+    }
+  });
 };
 
-// 展开/收起单条内容
 const toggleExpand = async (item) => {
   item.isExpanded = !item.isExpanded;
 
