@@ -18,6 +18,7 @@
               v-model:value="queryParams.title"
               placeholder="搜索信息差..."
               clearable
+              @clear="handleClearSearch"
               @keyup.enter="handleSearch"
             />
             <n-button ghost @click="handleSearch">
@@ -349,6 +350,7 @@ import InfoGapHotList from "~/components/InfoGapHotList.vue";
 // ==================== 2) 页面状态 ====================
 // 路由对象：用于读取 page 参数和 query 参数
 const route = useRoute();
+const hasHydratedInfoGapRoute = ref(false);
 
 // 列表查询参数：同时驱动 UI、URL 和后端请求
 const queryParams = reactive({
@@ -397,6 +399,17 @@ const candidateTags = ref([
 
 const normalizeSearchKeyword = (value) => String(value || '').trim();
 
+const findCandidateTagIdByName = (label) => {
+  const normalizedLabel = normalizeSearchKeyword(label);
+  if (!normalizedLabel) return null;
+
+  const matchedTag = candidateTags.value.find(
+    (tag) => normalizeSearchKeyword(tag.name).toLowerCase() === normalizedLabel.toLowerCase()
+  );
+
+  return matchedTag?.id ?? null;
+};
+
 const resolveTagMeta = (item = {}, index) => {
   const label = normalizeSearchKeyword(item[`tag${index}`]);
   const candidates = [
@@ -407,7 +420,7 @@ const resolveTagMeta = (item = {}, index) => {
   const matchedId = candidates.find((value) => value !== null && value !== undefined && value !== '');
 
   return label ? {
-    id: matchedId !== undefined ? Number(matchedId) : null,
+    id: matchedId !== undefined ? Number(matchedId) : findCandidateTagIdByName(label),
     label,
   } : null;
 };
@@ -423,7 +436,7 @@ const buildItemSearchTags = (item = {}) => {
 
 const buildListRequestConfig = () => {
   const title = normalizeSearchKeyword(queryParams.title);
-  const shouldUseSearch = isSearchMode.value && !!title;
+  const shouldUseSearch = isSearchMode.value && (!!title || activeSearchTagId.value != null);
 
   if (!shouldUseSearch) {
     return {
@@ -439,12 +452,12 @@ const buildListRequestConfig = () => {
 
   return {
     method: 'POST',
-    key: `info-gap-search-${queryParams.type}-p${queryParams.pageNum}-${encodeURIComponent(title)}`,
+    key: `info-gap-search-${queryParams.type}-p${queryParams.pageNum}-${activeSearchTagId.value ?? 'keyword'}-${encodeURIComponent(title || 'all')}`,
     url: '/info_gap/search',
     payload: {
       pageNum: queryParams.pageNum,
       pageSize: queryParams.pageSize,
-      keyword: title,
+      keyword: activeSearchTagId.value != null ? undefined : title,
       tagId: activeSearchTagId.value,
       category: '',
     },
@@ -566,6 +579,13 @@ const handleSearch = async () => {
   await syncToPage(1);
 };
 
+const handleClearSearch = async () => {
+  queryParams.title = '';
+  isSearchMode.value = false;
+  activeSearchTagId.value = null;
+  await syncToPage(1);
+};
+
 const handleTagSearch = async (tag) => {
   queryParams.title = normalizeSearchKeyword(tag?.label);
   isSearchMode.value = !!queryParams.title;
@@ -623,7 +643,23 @@ const syncToPage = async (page) => {
 // 监听 URL 页码变化，并把 URL 上的 type/title 同步回查询参数
 watch(
   () => [route.params.page, route.query.type, route.query.title, route.query.search],
-  () => {
+  async () => {
+    if (!hasHydratedInfoGapRoute.value) {
+      hasHydratedInfoGapRoute.value = true;
+
+      if (getRouteSearchMode()) {
+        queryParams.type = 'hot';
+        queryParams.title = '';
+        isSearchMode.value = false;
+        activeSearchTagId.value = null;
+        await navigateTo({
+          path: '/info_gap/1',
+          query: { type: 'hot' },
+        }, { replace: true });
+        return;
+      }
+    }
+
     queryParams.pageNum = getRoutePageNum();
     queryParams.type = getRouteType();
     queryParams.title = getRouteTitle();
