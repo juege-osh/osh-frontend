@@ -83,9 +83,17 @@
                   <div class="feed-title-row" >
                     <span class="feed-tag">[{{ item.tag }}]</span>
                     <span class="feed-title">{{ item.title }}</span>
-                    <span class="feed-title">{{ item.tag1 }}</span>
-                    <span class="feed-title">{{ item.tag2 }}</span>
-                    <span class="feed-title">{{ item.tag3 }}</span>
+                    <div v-if="item.searchTags?.length" class="feed-tag-actions">
+                      <button
+                        v-for="tag in item.searchTags"
+                        :key="`${item.id}-${tag.id ?? tag.label}`"
+                        type="button"
+                        class="feed-search-tag-button"
+                        @click.stop="handleTagSearch(tag)"
+                      >
+                        {{ tag.label }}
+                      </button>
+                    </div>
                   </div>
 
                   <transition name="expand">
@@ -333,6 +341,7 @@ const pending = ref(false);
 const error = ref(null);
 const total = ref(0);
 const rows = ref([]);
+const activeSearchTagId = ref(null);
 
 // 发布信息差表格中标签相关内容
 const MAX_TAG_COUNT = 3;
@@ -350,6 +359,62 @@ const candidateTags = ref([
   { id: 122, name: "Mybatis" },
   { id: 118, name: "Docker" },
 ]);
+
+const normalizeSearchKeyword = (value) => String(value || '').trim();
+
+const resolveTagMeta = (item = {}, index) => {
+  const label = normalizeSearchKeyword(item[`tag${index}`]);
+  const candidates = [
+    item[`tag${index}Id`],
+    item[`tag${index}_id`],
+    item[`tagId${index}`],
+  ];
+  const matchedId = candidates.find((value) => value !== null && value !== undefined && value !== '');
+
+  return label ? {
+    id: matchedId !== undefined ? Number(matchedId) : null,
+    label,
+  } : null;
+};
+
+const buildItemSearchTags = (item = {}) => {
+  return [1, 2, 3]
+    .map((index) => resolveTagMeta(item, index))
+    .filter((tag, index, list) => {
+      if (!tag) return false;
+      return list.findIndex((current) => current?.label === tag.label) === index;
+    });
+};
+
+const buildListRequestConfig = () => {
+  const title = normalizeSearchKeyword(queryParams.title);
+  const hasSearchKeyword = !!title;
+
+  if (!hasSearchKeyword) {
+    return {
+      method: 'GET',
+      key: `info-gap-list-${queryParams.type}-p${queryParams.pageNum}-all`,
+      url: '/info_gap/list',
+      payload: {
+        ...queryParams,
+        title: undefined,
+      },
+    };
+  }
+
+  return {
+    method: 'POST',
+    key: `info-gap-search-${queryParams.type}-p${queryParams.pageNum}-${encodeURIComponent(title)}`,
+    url: '/info_gap/search',
+    payload: {
+      pageNum: queryParams.pageNum,
+      pageSize: queryParams.pageSize,
+      keyword: title,
+      tagId: activeSearchTagId.value,
+      category: '',
+    },
+  };
+};
 
 const isTagSelected = (tag) => {
   return selectedTags.value.some((t) => t.id === tag.id);
@@ -392,16 +457,19 @@ const loadData = async () => {
 
   try {
     // 使用动态 key，按分类 + 页码区分请求缓存
-    const dynamicKey = `info-gap-list-${queryParams.type}-p${queryParams.pageNum}`;
-    const { data, error: fetchError } = await useHttpGet(
-      dynamicKey,
-      '/info_gap/list',
-      {
-        query: queryParams,
-        watch: false,
-        $: true,
-      }
-    );
+    const requestConfig = buildListRequestConfig();
+    const request = requestConfig.method === 'POST'
+      ? useHttpPost(requestConfig.key, requestConfig.url, {
+          body: requestConfig.payload,
+          watch: false,
+          $: true,
+        })
+      : useHttpGet(requestConfig.key, requestConfig.url, {
+          query: requestConfig.payload,
+          watch: false,
+          $: true,
+        });
+    const { data, error: fetchError } = await request;
 
     if (fetchError.value) {
       error.value = fetchError.value;
@@ -424,6 +492,7 @@ const loadData = async () => {
         tag1: row.tag1 || '',
         tag2: row.tag2 || '',
         tag3: row.tag3 || '',
+        searchTags: buildItemSearchTags(row),
       }));
       total.value = data.value.total || 0;
     } else {
@@ -446,11 +515,21 @@ const handlePageChange = (p) => {
 // 切换类型后回到第一页
 const handleTypeChange = async (value) => {
   queryParams.type = value;
+  activeSearchTagId.value = null;
   await syncToPage(1);
 };
 
 // 搜索时回到第一页
 const handleSearch = async () => {
+  queryParams.title = normalizeSearchKeyword(queryParams.title);
+  activeSearchTagId.value = null;
+  await syncToPage(1);
+};
+
+const handleTagSearch = async (tag) => {
+  queryParams.title = normalizeSearchKeyword(tag?.label);
+  activeSearchTagId.value = tag?.id ?? null;
+  queryParams.type = 'hot';
   await syncToPage(1);
 };
 
@@ -458,36 +537,53 @@ const handleSearch = async () => {
 // 从路由读取当前的筛选条件
 const getRouteType = () => route.query.type || 'hot';
 const getRouteTitle = () =>
-  typeof route.query.title === 'string' ? route.query.title : '';
+  typeof route.query.title === 'string' ? normalizeSearchKeyword(route.query.title) : '';
 const getRoutePageNum = () => parseInt(route.params.page) || 1;
 
 // 同步到目标页：同页则直接刷新，不同页则更新 URL
 const syncToPage = async (page) => {
   queryParams.pageNum = page;
+  queryParams.title = normalizeSearchKeyword(queryParams.title);
 
-  if (getRoutePageNum() === page) {
+  const nextType = queryParams.type || 'hot';
+  const nextTitle = queryParams.title;
+  const shouldNavigate =
+    getRoutePageNum() !== page ||
+    getRouteType() !== nextType ||
+    getRouteTitle() !== nextTitle;
+
+  if (!shouldNavigate) {
     await loadData();
     return;
   }
 
+  const nextQuery = {
+    ...route.query,
+    type: nextType,
+  };
+
+  if (nextTitle) {
+    nextQuery.title = nextTitle;
+  } else {
+    delete nextQuery.title;
+  }
+
   await navigateTo({
     path: `/info_gap/${page}`,
-    query: {
-      ...route.query,
-      type: queryParams.type,
-      title: queryParams.title || undefined,
-    },
+    query: nextQuery,
   });
 };
 
 // 监听 URL 页码变化，并把 URL 上的 type/title 同步回查询参数
 watch(
-  () => route.params.page,
-  (newP) => {
-    const p = parseInt(newP) || 1;
-    queryParams.pageNum = p;
+  () => [route.params.page, route.query.type, route.query.title],
+  () => {
+    queryParams.pageNum = getRoutePageNum();
     queryParams.type = getRouteType();
     queryParams.title = getRouteTitle();
+    if (!queryParams.title) {
+      activeSearchTagId.value = null;
+    }
     loadData();
   },
   { immediate: true }
@@ -726,6 +822,7 @@ useHead({ title: '信息差 - 开源助手' });
 .feed-title-row {
   display: flex;
   align-items: flex-start;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 4px;
 }
@@ -744,6 +841,31 @@ useHead({ title: '信息差 - 开源助手' });
   font-weight: 700;
   color: #111827;
   word-break: break-word;
+}
+
+.feed-tag-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.feed-search-tag-button {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  line-height: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.feed-search-tag-button:hover {
+  border-color: #0f766e;
+  color: #0f766e;
+  background: #ecfeff;
 }
 
 .detail-content-area {
