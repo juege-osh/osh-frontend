@@ -320,6 +320,15 @@ export async function apiGetCoverUrls(courseIds, minute = 30) {
   });
 }
 
+/** 按相对路径批量获取封面临时URL GET /pc/course/cover/urls?paths=xxx&minute=1440 */
+export async function apiGetCoverUrlsByPaths(paths, minute = 1440) {
+  return $fetch('/course/cover/urls', {
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    params: { paths: paths.join(','), minute },
+  });
+}
+
 /** 获取章节视频临时URL GET /pc/course/section/video-urls?sectionIds=4&minute=60 */
 export async function apiGetVideoUrls(sectionIds, minute = 60) {
   return $fetch('/course/section/video-urls', {
