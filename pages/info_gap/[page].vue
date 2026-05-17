@@ -83,6 +83,14 @@
                 <div class="feed-main-area" @click="toggleExpand(item)">
                   <div class="feed-title-row" >
                     <div class="feed-title-main">
+                      <span class="feed-expand-toggle" aria-hidden="true">
+                        <n-icon
+                          class="feed-expand-arrow"
+                          :class="{ 'is-expanded': item.isExpanded }"
+                        >
+                          <ChevronForwardOutline />
+                        </n-icon>
+                      </span>
                       <span class="feed-tag">[{{ item.tag }}]</span>
                       <span class="feed-title">{{ item.title }}</span>
                       <div v-if="item.searchTags?.length" class="feed-tag-actions">
@@ -982,6 +990,26 @@ useHead({ title: '信息差 - 开源助手' });
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.feed-expand-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 28px;
+  color: #98a2b3;
+  flex-shrink: 0;
+}
+
+.feed-expand-arrow {
+  font-size: 16px;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.feed-expand-arrow.is-expanded {
+  transform: rotate(90deg);
+  color: #0f766e;
 }
 
 .feed-tag {
