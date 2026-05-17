@@ -81,18 +81,49 @@
               <div class="feed-card-body">
                 <div class="feed-main-area" @click="toggleExpand(item)">
                   <div class="feed-title-row" >
-                    <span class="feed-tag">[{{ item.tag }}]</span>
-                    <span class="feed-title">{{ item.title }}</span>
-                    <div v-if="item.searchTags?.length" class="feed-tag-actions">
-                      <button
-                        v-for="tag in item.searchTags"
-                        :key="`${item.id}-${tag.id ?? tag.label}`"
-                        type="button"
-                        class="feed-search-tag-button"
-                        @click.stop="handleTagSearch(tag)"
-                      >
-                        {{ tag.label }}
-                      </button>
+                    <div class="feed-title-main">
+                      <span class="feed-tag">[{{ item.tag }}]</span>
+                      <span class="feed-title">{{ item.title }}</span>
+                      <div v-if="item.searchTags?.length" class="feed-tag-actions">
+                        <button
+                          v-for="tag in item.searchTags"
+                          :key="`${item.id}-${tag.id ?? tag.label}`"
+                          type="button"
+                          class="feed-search-tag-button"
+                          @click.stop="handleTagSearch(tag)"
+                        >
+                          {{ tag.label }}
+                        </button>
+                      </div>
+                    </div>
+                    <div v-if="queryParams.type === 'myself'" class="feed-more-actions">
+                      <n-popover trigger="hover" placement="bottom-end">
+                        <template #trigger>
+                          <button
+                            type="button"
+                            class="feed-more-button"
+                            @click.stop
+                          >
+                            更多
+                          </button>
+                        </template>
+                        <div class="feed-more-menu">
+                          <button
+                            type="button"
+                            class="feed-more-menu-item"
+                            @click.stop
+                          >
+                            修改
+                          </button>
+                          <button
+                            type="button"
+                            class="feed-more-menu-item danger"
+                            @click.stop="handleDeleteInfoGap(item)"
+                          >
+                            删除
+                          </button>
+                        </div>
+                      </n-popover>
                     </div>
                   </div>
 
@@ -289,6 +320,7 @@ import {
   NFormItem,
   NSelect,
   NTag,
+  NPopover,
   createDiscreteApi,
 } from 'naive-ui';
 import {
@@ -672,6 +704,38 @@ const confirmPublish = async () => {
 
 // ==================== 8) 列表交互动作 ====================
 // 评价动作：乐观更新 + 请求失败回滚
+const handleDeleteInfoGap = (item) => {
+  const { dialog, message } = createDiscreteApi(['dialog', 'message']);
+
+  dialog.warning({
+    title: '确认删除',
+    content: `确定删除「${item?.title || '这条信息差'}」吗？`,
+    positiveText: '确认',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const { error: deleteError } = await useHttpGet(
+          `delete-info-gap-${item.id}`,
+          '/info_gap/delete',
+          {
+            query: { infoGapId: item.id },
+            $: true,
+          }
+        );
+
+        if (deleteError.value) {
+          throw new Error(deleteError.value);
+        }
+
+        message.success('删除成功');
+        await loadData();
+      } catch (err) {
+        message.error(err?.message || '删除失败');
+      }
+    },
+  });
+};
+
 const handleVote = async (item, type) => {
   const { message } = createDiscreteApi(['message']);
 
@@ -833,9 +897,17 @@ useHead({ title: '信息差 - 开源助手' });
 .feed-title-row {
   display: flex;
   align-items: flex-start;
-  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 4px;
+}
+
+.feed-title-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .feed-tag {
@@ -894,6 +966,63 @@ useHead({ title: '信息差 - 开源助手' });
   align-items: center;
   gap: 18px;
   flex-wrap: wrap;
+}
+
+.feed-more-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.feed-more-button {
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: #475467;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.feed-more-button:hover {
+  border-color: #98a2b3;
+  color: #111827;
+  background: #f8fafc;
+}
+
+.feed-more-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 88px;
+}
+
+.feed-more-menu-item {
+  border: 1px solid #e4e7ec;
+  background: #fff;
+  color: #344054;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.feed-more-menu-item:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #111827;
+}
+
+.feed-more-menu-item.danger:hover {
+  border-color: #fda4af;
+  background: #fff1f2;
+  color: #be123c;
 }
 
 .feed-stat {
