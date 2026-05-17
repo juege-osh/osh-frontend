@@ -20,14 +20,14 @@
  * @returns {Object} { data, error, pending, refresh }
  * 
  * 后端接口文档:
- * GET /pc/group/activity/list?page={page}&status={status}&type={type}
+ * GET /pc/group/activity/initiated/list?page={page}&status={status}&type={type}
  */
 export function useGetGroupActivityListApi(params = {}, page = 1) {
     const { status, type } = params
-    let url = `/group/activity/list?page=${page}`
+    let url = `/group/activity/initiated/list?page=${page}`
     
-    // 状态筛选: 只支持 1(进行中) 和 2(已成功)
-    if (status !== undefined && status !== null && [1, 2].includes(status)) {
+    // 状态筛选: 支持 1(进行中), 2(已成功), 3(已结束)
+    if (status !== undefined && status !== null && [1, 2, 3].includes(status)) {
         url += `&status=${status}`
     }
     
@@ -316,5 +316,30 @@ export function useJoinGroupPaymentApi({ orderNo, payMethod = 'wechat', name = '
     
     return useHttpPost("JoinGroupPayment", url, {
         body: {}  // POST请求但参数在URL中
+    })
+}
+
+/**
+ * 12. 查询订单支付状态
+ * @param {String} orderNo - 订单号
+ * @returns {Object} { data, error, pending, refresh }
+ * 
+ * 后端接口文档:
+ * GET /pc/group/order/status?orderNo={orderNo}
+ * 
+ * 期望返回字段：
+ * - orderNo: 订单号
+ * - status: 订单状态 (0-待支付, 1-已支付, 2-已取消, 3-已退款)
+ * - payTime: 支付时间
+ * - price: 订单金额
+ * - needPay: 是否需要支付 (true/false)
+ */
+export function useGetOrderStatusApi(orderNo) {
+    return useHttpGet("GetOrderStatus", `/group/order/status?orderNo=${orderNo}`, {
+        lazy: true,
+        initialCache: false,
+        onResponseError({ response }) {
+            console.warn('订单状态查询失败:', response.status)
+        }
     })
 }

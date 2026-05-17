@@ -27,7 +27,7 @@
                             
                             <div v-if="data.memberPrice !== undefined && data.memberPrice !== null" class="meta-item member-price">
                                 <span class="meta-label">会员价</span>
-                                <Price :value="data.memberPrice" class="text-2xl text-orange-500 font-bold"/>
+                                <span class="text-2xl text-orange-500 font-bold">￥{{ data.memberPrice }}</span>
                             </div>
                             
                             <div class="meta-item">
@@ -246,8 +246,8 @@
                     </template>
                 </n-modal>
 
-                <!-- 拼团成功 - 服务器详情 -->
-                <n-card v-if="data.status === 2 && data.server_info" class="server-card">
+                <!-- 拼团成功 - 服务器详情（仅已参团用户可见） -->
+                <n-card v-if="isCurrentUserJoined && data.status === 2 && data.server_info" class="server-card">
                     <template #header>
                         <div class="flex items-center gap-2">
                             <n-icon :component="CheckmarkCircle" size="24" color="#18a058"/>
@@ -318,9 +318,9 @@
 
                 <!-- 操作按钮 -->
                 <div class="action-bar">
-                    <!-- 拼团状态标识：已成团 -->
+                    <!-- 拼团状态标识：已成团（仅已参团用户可见） -->
                     <n-tag
-                        v-if="data.status === 2"
+                        v-if="isCurrentUserJoined && data.status === 2"
                         type="success"
                         size="large"
                         :bordered="false"
@@ -440,8 +440,25 @@ try {
 // 页面激活时自动刷新（从支付页面返回时）
 onActivated(async () => {
     if (process.client && refresh) {
-        console.log('[拼团详情页] 页面激活，刷新数据')
-        await refresh()
+        console.log('[拼团详情页] 页面激活，检查是否需要刷新')
+        
+        // 检查是否有refresh参数（支付成功后返回）
+        if (route.query.refresh === 'true') {
+            console.log('[拼团详情页] 检测到refresh参数，刷新数据并显示成功提示')
+            
+            // 刷新数据
+            await refresh()
+            
+            // 显示支付成功提示
+            const { message } = createDiscreteApi(["message"])
+            message.success('支付成功，您已参与拼团！')
+            
+            // 清除URL中的refresh参数，避免重复提示
+            navigateTo(`/group/work/${groupWorkId}`, { replace: true })
+        } else {
+            // 普通激活（如从其他页面返回），也刷新数据
+            await refresh()
+        }
     }
 })
 
@@ -590,19 +607,33 @@ const isCurrentUserJoined = computed(() => {
         console.log('username:', username)
         console.log('nickname:', nickname)
         console.log('users 列表:', users)
+        console.log('参团用户IDs:', users.map(u => u.userId || u.id))
+        console.log('参团用户用户名:', users.map(u => u.username))
     }
     
+    // 严格匹配：只匹配 ID 或 username（移除宽松的 nickname 交叉匹配）
     const isJoined = users.some(u => {
-        // 支持多种字段名匹配：userId, id, username, nickname
-        const match = u.userId === uid || 
-                     u.id === uid || 
-                     u.username === username || 
-                     u.nickname === username ||  // 后端可能用 nickname 存储用户名
-                     u.nickname === nickname ||  // 匹配昵称
-                     u.username === nickname     // 交叉匹配
-        if (match && process.client) {
-            console.log('匹配到用户:', u)
+        const userId = u.userId || u.id
+        const userName = u.username
+        
+        // 匹配用户 ID
+        const matchById = uid && userId && String(uid) === String(userId)
+        
+        // 匹配用户名（完全匹配，不区分大小写）
+        const matchByUsername = username && userName && 
+            username.toLowerCase() === userName.toLowerCase()
+        
+        const match = matchById || matchByUsername
+        
+        if (process.client && match) {
+            console.log('✅ 匹配成功:', {
+                '匹配方式': matchById ? 'ID匹配' : '用户名匹配',
+                '参团用户': u,
+                '当前用户ID': uid,
+                '当前用户名': username
+            })
         }
+        
         return match
     })
     
@@ -643,11 +674,18 @@ function handleJoin() {
     useHasAuth(async () => {
         const { message } = createDiscreteApi(["message"])
         
+        // 1. 校验拼团状态
         const canJoin = data.value?.can_join || (data.value?.status === 2 && data.value?.current_num < data.value?.total)
         if (!canJoin) {
             return message.error('该拼团已满员或结束')
         }
         
+        // 2. 检查是否已参团
+        if (isCurrentUserJoined.value) {
+            return message.warning('您已参与此拼团')
+        }
+        
+        // 3. 显示loading状态
         joinLoading.value = true
         
         try {
@@ -664,38 +702,46 @@ function handleJoin() {
                 console.log('result.error.value:', result.error.value)
             }
             
+            // 检查是否有网络错误
+            if (result.error.value) {
+                const errorMsg = result.error.value?.data?.msg || result.error.value?.message || '参团失败'
+                message.error(errorMsg)
+                joinLoading.value = false
+                return
+            }
+            
             // 检查后端返回的 code 字段
             const responseCode = result.data.value?.code
             const responseMsg = result.data.value?.msg
             const responseData = result.data.value?.data
             
-            // 调试：打印关键字段
-            if (process.client) {
-                console.log('responseCode:', responseCode)
-                console.log('responseMsg:', responseMsg)
-                console.log('responseData:', responseData)
-                console.log('order_no:', responseData?.order_no || result.data.value?.order_no)
-            }
-            
             // code: 200 表示成功，其他值表示错误
             if (responseCode === 200 || responseCode === undefined) {
                 // 成功情况
                 
-                // 如果需要支付（后端返回了订单号）
+                // 提取订单号和needPay标识
                 // 支持多种数据结构：data.order_no, data.orderNo, data.data.order_no 等
                 const orderNo = responseData?.orderNo || responseData?.order_no || 
                                result.data.value?.orderNo || result.data.value?.order_no
                 
+                const needPay = responseData?.needPay !== false  // 默认为需要支付
+                const price = responseData?.price || data.value?.memberPrice || 0
+                
                 if (process.client) {
                     console.log('最终使用的 orderNo:', orderNo)
-                    console.log('是否需要支付:', responseData?.needPay)
+                    console.log('是否需要支付:', needPay)
+                    console.log('价格:', price)
                 }
                 
-                // 如果有订单号且需要支付
-                if (orderNo && (responseData?.needPay !== false)) {
-                    // 立即跳转到支付页面，不显示成功提示
-                    // 添加 type=group 和 activityId 参数
-                    navigateTo(`/pay?no=${orderNo}&name=${encodeURIComponent(data.value?.activity?.title || '拼团支付')}&money=${responseData?.price || 0}&type=group&activityId=${route.params.id}`)
+                // 判断是否需要支付
+                if (needPay && orderNo) {
+                    // 需要支付 → 跳转到支付页面
+                    message.info('请完成支付以确认参团')
+                    
+                    // 延迟跳转，让用户看到提示
+                    setTimeout(() => {
+                        navigateTo(`/pay?no=${orderNo}&name=${encodeURIComponent(data.value?.activity?.title || '拼团支付')}&price=${price}&type=group&activityId=${route.params.id}`)
+                    }, 800)
                 } else {
                     // 无需支付（免费活动或已支付）
                     message.success('参团成功！')
@@ -707,12 +753,18 @@ function handleJoin() {
                 if (responseMsg) {
                     message.error(responseMsg)
                 } else {
-                    message.error(result.error.value?.data?.msg || '参团失败')
+                    message.error('参团失败，请重试')
                 }
             }
         } catch (err) {
             console.error('参团操作失败:', err)
-            message.error('参团失败，请重试')
+            
+            // 网络异常处理
+            if (err?.message?.includes('Network Error') || err?.message?.includes('Failed to fetch')) {
+                message.error('网络异常，请检查网络连接后重试')
+            } else {
+                message.error('参团失败，请重试')
+            }
         } finally {
             joinLoading.value = false
         }
@@ -827,43 +879,6 @@ async function handleAddUser() {
     } finally {
         addUserLoading.value = false
     }
-}
-
-// 复制到剪贴板
-function copyToClipboard(text) {
-    if (!text) return
-    
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-            const { message } = createDiscreteApi(["message"])
-            message.success('复制成功')
-        }).catch(() => {
-            fallbackCopy(text)
-        })
-    } else {
-        fallbackCopy(text)
-    }
-}
-
-// 备用复制方法
-function fallbackCopy(text) {
-    const textarea = document.createElement('textarea')
-    textarea.value = text
-    textarea.style.position = 'fixed'
-    textarea.style.opacity = '0'
-    document.body.appendChild(textarea)
-    textarea.select()
-    
-    try {
-        document.execCommand('copy')
-        const { message } = createDiscreteApi(["message"])
-        message.success('复制成功')
-    } catch (err) {
-        const { message } = createDiscreteApi(["message"])
-        message.error('复制失败')
-    }
-    
-    document.body.removeChild(textarea)
 }
 </script>
 

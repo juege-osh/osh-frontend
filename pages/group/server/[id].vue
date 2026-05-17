@@ -64,14 +64,68 @@
 
                         <n-divider />
 
-                        <!-- ====================================================
-                             TODO: 后端实现后在此展示 SSH 连接信息
-                             接口示例：GET /pc/group/server/info?activityId={id}
-                             期望返回字段：ip, port, username, password, remark
-                             ==================================================== -->
-                        <div class="ssh-block placeholder">
+                        <!-- SSH 连接信息 -->
+                        <div class="ssh-block" v-if="sshInfo">
+                            <div class="ssh-header">
+                                <n-icon :component="TerminalOutline" size="18" class="ssh-icon" />
+                                <span class="ssh-title">SSH 连接信息</span>
+                            </div>
+                            
+                            <div class="ssh-info-list">
+                                <!-- IP 地址 -->
+                                <div class="ssh-info-item">
+                                    <span class="ssh-label">服务器 IP：</span>
+                                    <span class="ssh-value">{{ sshInfo.ip || '-' }}</span>
+                                    <n-button size="tiny" @click="copyToClipboard(sshInfo.ip, 'IP地址')">
+                                        复制
+                                    </n-button>
+                                </div>
+                                
+                                <!-- SSH 端口 -->
+                                <div class="ssh-info-item">
+                                    <span class="ssh-label">SSH 端口：</span>
+                                    <span class="ssh-value">{{ sshInfo.port || '-' }}</span>
+                                    <n-button size="tiny" @click="copyToClipboard(sshInfo.port, '端口')">
+                                        复制
+                                    </n-button>
+                                </div>
+                                
+                                <!-- 用户名 -->
+                                <div class="ssh-info-item">
+                                    <span class="ssh-label">用户名：</span>
+                                    <span class="ssh-value">{{ sshInfo.username || '-' }}</span>
+                                    <n-button size="tiny" @click="copyToClipboard(sshInfo.username, '用户名')">
+                                        复制
+                                    </n-button>
+                                </div>
+                                
+                                <!-- 密码 -->
+                                <div class="ssh-info-item">
+                                    <span class="ssh-label">密码：</span>
+                                    <span class="ssh-value">
+                                        <span v-if="showPassword">{{ sshInfo.password }}</span>
+                                        <span v-else>********</span>
+                                    </span>
+                                    <n-button size="tiny" @click="showPassword = !showPassword">
+                                        {{ showPassword ? '隐藏' : '显示' }}
+                                    </n-button>
+                                    <n-button size="tiny" @click="copyToClipboard(sshInfo.password, '密码')">
+                                        复制
+                                    </n-button>
+                                </div>
+                                
+                                <!-- 备注 -->
+                                <div v-if="sshInfo.remark" class="ssh-info-item">
+                                    <span class="ssh-label">备注：</span>
+                                    <span class="ssh-value">{{ sshInfo.remark }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 暂无 SSH 信息提示 -->
+                        <div v-else class="ssh-block placeholder">
                             <n-icon :component="LockClosedOutline" size="18" class="lock-icon" />
-                            <p class="placeholder-text">SSH 连接信息将在后端接口实现后展示</p>
+                            <p class="placeholder-text">暂无 SSH 连接信息，请稍后刷新或联系管理员</p>
                         </div>
 
                         <n-button
@@ -376,40 +430,27 @@ function formatTime(time) {
 }
 
 // 复制到剪贴板
-function copyToClipboard(text) {
-    if (!text) return
-    
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-            const { message } = createDiscreteApi(["message"])
-            message.success('复制成功')
-        }).catch(() => {
-            fallbackCopy(text)
-        })
-    } else {
-        fallbackCopy(text)
-    }
-}
-
-// 备用复制方法
-function fallbackCopy(text) {
-    const textarea = document.createElement('textarea')
-    textarea.value = text
-    textarea.style.position = 'fixed'
-    textarea.style.opacity = '0'
-    document.body.appendChild(textarea)
-    textarea.select()
-    
-    try {
-        document.execCommand('copy')
-        const { message } = createDiscreteApi(["message"])
-        message.success('复制成功')
-    } catch (err) {
-        const { message } = createDiscreteApi(["message"])
-        message.error('复制失败')
+function copyToClipboard(text, label = '') {
+    if (!text || text === '-') {
+        const { message } = createDiscreteApi(['message'])
+        message.warning('暂无内容可复制')
+        return
     }
     
-    document.body.removeChild(textarea)
+    if (process.client) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                const { message } = createDiscreteApi(['message'])
+                message.success(`${label || '内容'}已复制到剪贴板`)
+            }).catch(() => {
+                const { message } = createDiscreteApi(['message'])
+                message.error('复制失败，请手动复制')
+            })
+        } else {
+            const { message } = createDiscreteApi(['message'])
+            message.error('浏览器不支持复制功能')
+        }
+    }
 }
 </script>
 
@@ -667,28 +708,81 @@ function fallbackCopy(text) {
 }
 
 /* SSH连接信息样式 */
-.ssh-details {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+.ssh-block {
+    padding: 1rem;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
 }
 
-.ssh-row {
+.ssh-block.placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+    background: #fef3c7;
+    border-color: #fcd34d;
+}
+
+.lock-icon {
+    color: #f59e0b;
+    margin-bottom: 0.5rem;
+}
+
+.placeholder-text {
+    color: #92400e;
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.ssh-header {
     display: flex;
     align-items: center;
-    font-size: 0.9rem;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.ssh-icon {
+    color: #3b82f6;
+}
+
+.ssh-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.ssh-info-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ssh-info-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: #ffffff;
+    border-radius: 4px;
 }
 
 .ssh-label {
-    min-width: 100px;
+    min-width: 90px;
     color: #6b7280;
     font-weight: 500;
+    font-size: 0.875rem;
 }
 
 .ssh-value {
     flex: 1;
     color: #374151;
     font-weight: 500;
+    font-size: 0.875rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;

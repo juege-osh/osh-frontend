@@ -7,16 +7,16 @@ import { handleAuthExpired } from "~/composables/useAuth"
 function getBaseURL() {
     // 服务端渲染时使用完整地址
     if (process.server) {
-        return "http://localhost:8080/pc"
+        return "http://localhost:8081/pc"
     }
     
     // 客户端根据hostname判断
     const hostname = window.location.hostname
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        // 本地开发：通过 Nuxt 代理 /api → localhost:8080/pc，避免 CORS
+        // 本地开发：通过 Nuxt 代理 /api → localhost:8081/pc，避免 CORS
         return "/api"
     } else {
-        return "http://43.242.200.25:8080/pc"
+        return "http://43.242.200.25:8081/pc"
     }
 }
 
@@ -118,6 +118,7 @@ export async function useHttp(key,url,options = {}){
                 console.log('useHttp transform - 原始响应:', res)
                 console.log('useHttp transform - res.data:', res.data)
                 console.log('useHttp transform - res.rows:', res.rows)
+                console.log('useHttp transform - res.code:', res.code)
             }
             
             // 如果后端直接返回 {total, rows, code, msg},则返回整个res
@@ -127,6 +128,11 @@ export async function useHttp(key,url,options = {}){
                 return res
             } else if (res.data !== undefined) {
                 // 旧接口在data字段中
+                // 但如果 data 为 null 且存在 code 字段（业务错误），返回整个 res 保留错误信息
+                if (res.data === null && res.code !== undefined) {
+                    console.log('useHttp transform - data为null但存在code，返回整个res以保留错误信息')
+                    return res
+                }
                 return res.data
             }
             return res

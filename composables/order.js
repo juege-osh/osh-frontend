@@ -47,7 +47,8 @@ export function useCreatePaymentApi(name, money){
 // 查询支付状态（新接口 - GET方式）
 export function useGetPaymentStatusApi(outTradeNo){
     return useHttpGet("getPaymentStatus", `/pay/status?out_trade_no=${outTradeNo}`, {
-        $: true
+        // 不使用 $: true，因为后端直接返回 {payStatus: true}
+        // 而不是 {code: 200, data: {payStatus: true}}
     })
 }
 

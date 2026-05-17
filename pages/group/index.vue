@@ -142,7 +142,7 @@
                     v-for="item in rows" 
                     :key="item.id"
                     class="activity-card"
-                    :class="{ 'activity-disabled': item.status !== 1 }"
+                    :class="{ 'activity-disabled': item.status === 3 }"
                     @click="openActivityDetail(item)"
                 >
                     <div class="activity-header">
@@ -168,7 +168,7 @@
                             
                             <div v-if="item.memberPrice !== undefined && item.memberPrice !== null" class="meta-item member-price">
                                 <span class="meta-label">会员价</span>
-                                <Price :value="item.memberPrice" class="text-lg text-orange-500 font-bold"/>
+                                <span class="text-lg text-orange-500 font-bold">￥{{ item.memberPrice }}</span>
                             </div>
                             
                             <div class="meta-item">
@@ -221,7 +221,7 @@
                                 :percentage="useGroupProgress(item.joined_count, item.total)"
                                 :show-indicator="false"
                                 :height="8"
-                                :color="item.status === 1 ? '#18a058' : '#d0d0d0'"
+                                :color="(item.status === 1 || item.status === 2) ? '#18a058' : '#d0d0d0'"
                             />
                             <span class="progress-text">{{ item.joined_count }}/{{ item.total }}</span>
                         </div>
@@ -231,10 +231,10 @@
                                 <n-button 
                                     type="primary" 
                                     size="large"
-                                    :disabled="!item.can_join && !(item.status === 2 && item.joined_count < item.total)"
+                                    :disabled="item.status === 3 || (!item.can_join && !(item.status === 2 && item.joined_count < item.total))"
                                     @click.stop="handleJoinActivity(item)"
                                 >
-                                    {{ (item.can_join || (item.status === 2 && item.joined_count < item.total)) ? '立即参团' : '无法参团' }}
+                                    {{ item.status === 3 ? '已结束' : ((item.can_join || (item.status === 2 && item.joined_count < item.total)) ? '立即参团' : '无法参团') }}
                                 </n-button>
                                 <!-- 手动添加按钮：需要管理员权限 + 进行中或已成功时显示 -->
                                 <n-button
@@ -584,7 +584,7 @@ function handleJoinActivity(item) {
     useHasAuth(async () => {
         const { message } = createDiscreteApi(["message"])
         
-        const canJoin = item.can_join || (item.status === 2 && item.joined_count < item.total)
+        const canJoin = (item.status !== 3) && (item.can_join || (item.status === 2 && item.joined_count < item.total))
         if (!canJoin) {
             return message.error('该活动已满员或已结束')
         }
