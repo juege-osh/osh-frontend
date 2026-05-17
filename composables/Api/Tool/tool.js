@@ -134,3 +134,39 @@ export async function apiVoteBadTool(toolId) {
     body: { toolId },
   });
 }
+
+export async function apiToolPurchaseDetail(toolId) {
+  return $fetch('/tool/purchase/detail', {
+    method: 'GET',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    params: { toolId },
+  });
+}
+
+export async function apiCreateToolPurchaseOrder(body) {
+  return $fetch('/tool/purchase/create', {
+    method: 'POST',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    body,
+  });
+}
+
+export async function apiCancelToolPurchaseOrder(paymentNo) {
+  return $fetch('/tool/purchase/cancel', {
+    method: 'POST',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    body: { paymentNo },
+  });
+}
+
+export async function apiPayStatus(outTradeNo) {
+  return $fetch('/pay/status', {
+    method: 'GET',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    params: { outTradeNo },
+  });
+}
