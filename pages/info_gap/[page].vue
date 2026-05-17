@@ -892,8 +892,32 @@ const handleFollow = async (item) => {
 };
 
 // 展开/收起单条内容
-const toggleExpand = (item) => {
+const toggleExpand = async (item) => {
   item.isExpanded = !item.isExpanded;
+
+  if (!item.isExpanded) {
+    return;
+  }
+
+  const originalReadCount = Number(item.readCount || item.viewCount || 0);
+  item.readCount = originalReadCount + 1;
+
+  try {
+    const { error } = await useHttpGet(
+      `info-gap-view-${item.id}`,
+      '/info_gap/view',
+      {
+        query: { infoGapId: item.id },
+        $: true,
+      }
+    );
+
+    if (error.value) {
+      throw error.value;
+    }
+  } catch (err) {
+    item.readCount = originalReadCount;
+  }
 };
 
 // 统一更新三种评价计数
