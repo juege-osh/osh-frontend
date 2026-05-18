@@ -61,7 +61,7 @@
                         <template v-if="menus.length > 0">
                             <n-button type="primary" size="large" :loading="loading" @click="buy" class="primary-btn">
                                 <template #icon><n-icon><BookOutline /></n-icon></template>
-                                立即学习
+                                {{ bookActionLabel }}
                             </n-button>
                             <n-button v-if="freeId" size="large" strong secondary type="primary" @click="learn({ id:freeId })" class="secondary-btn">
                                 <template #icon><n-icon><EyeOutline /></n-icon></template>
@@ -130,7 +130,7 @@
                 <div class="book-pay-info">
                     <p class="book-pay-label">订单商品</p>
                     <h3>{{ data?.title }}</h3>
-                    <p class="book-pay-tip">请在30分钟内完成支付，超时订单将自动关闭</p>
+                    <p class="book-pay-tip">请在{{ bookPayCountdownText }}内完成支付，超时订单将自动关闭。若支付过程中取消支付，请关闭弹窗并重新发起购买。</p>
                 </div>
                 <div class="book-pay-amount">
                     <span>应付金额</span>
@@ -141,9 +141,14 @@
             <section class="book-pay-section">
                 <div class="book-pay-section-head">
                     <h4>支付方式</h4>
-                    <span v-if="isPayChannelLocked">已锁定 {{ selectedChannelLabel }}</span>
+                    <span v-if="isPayChannelLocked">当前 {{ selectedChannelLabel }}</span>
                 </div>
-                <NRadioGroup v-model:value="payChannel" class="book-pay-methods" :disabled="payLoading || isPayChannelLocked">
+                <NRadioGroup
+                    :value="payChannel"
+                    class="book-pay-methods"
+                    :disabled="payLoading"
+                    @update:value="handlePayChannelChange"
+                >
                     <NRadio
                         v-for="channel in channelOptions"
                         :key="channel.value"
@@ -155,7 +160,7 @@
                         <small>{{ channel.desc }}</small>
                     </NRadio>
                 </NRadioGroup>
-                <p class="book-pay-lock-tip">生成支付二维码后将锁定当前方式，避免频繁切换导致订单异常。</p>
+                <p class="book-pay-lock-tip">支付二维码生成后切换方式，将取消当前支付并重新生成。</p>
             </section>
 
             <section class="book-pay-qrcode-panel">
@@ -164,7 +169,7 @@
                         <QrCode :data="payQrcode" />
                     </div>
                     <p class="book-pay-scan-title">请使用{{ selectedChannelLabel }}扫码支付</p>
-                    <p class="book-pay-scan-tip">正在等待支付结果，请勿关闭当前弹窗</p>
+                    <p class="book-pay-scan-tip">正在等待支付结果，剩余 {{ bookPayCountdownText }}</p>
                 </template>
 
                 <template v-else>
@@ -245,6 +250,14 @@
             return "立即秒杀"
         }
         return "立即学习"
+    })
+
+    const bookActionLabel = computed(() => {
+        console.log('bookActionLabel', data.value.isbuy)
+        if (type === 'book' && data.value && !data.value.isbuy && Number(data.value.price) > 0) {
+            return '立即购买'
+        }
+        return '立即学习'
     })
 
     const detailContent = computed(() => {
@@ -492,23 +505,52 @@
     const payQrcode = ref('')
     const payPaymentNo = ref('')
     const payLoading = ref(false)
+    const BOOK_PAY_POLLING_INTERVAL = 2000
+    const BOOK_PAY_ORDER_EXPIRE_SECONDS = 30 * 60
+    const bookPayRemainingSeconds = ref(BOOK_PAY_ORDER_EXPIRE_SECONDS)
     let payPollingTimer = null
+    let payCountdownTimer = null
     const isPayChannelLocked = computed(() => Boolean(payQrcode.value || payPaymentNo.value))
+    const bookPayCountdownText = computed(() => {
+        const minutes = String(Math.floor(bookPayRemainingSeconds.value / 60)).padStart(2, '0')
+        const seconds = String(bookPayRemainingSeconds.value % 60).padStart(2, '0')
+        return `${minutes}:${seconds}`
+    })
 
     const channelOptions = [
         { label: '微信支付', value: 'wxpay', desc: '微信扫码' },
         { label: '支付宝', value: 'alipay', desc: '支付宝扫码' },
-        { label: '银联支付', value: 'bank', desc: '银行卡支付' },
     ]
     const selectedChannelLabel = computed(() => {
         return channelOptions.find(item => item.value === payChannel.value)?.label || '当前方式'
     })
 
-    async function confirmBookPay() {
-        if (isPayChannelLocked.value) {
-            createDiscreteApi(['message']).message.warning('当前支付方式已锁定，请继续完成支付')
+    function handlePayChannelChange(nextChannel) {
+        if (nextChannel === payChannel.value || payLoading.value) {
             return
         }
+
+        if (!isPayChannelLocked.value) {
+            payChannel.value = nextChannel
+            return
+        }
+
+        const nextChannelLabel = channelOptions.find(item => item.value === nextChannel)?.label || '新的支付方式'
+        const { dialog } = createDiscreteApi(['dialog'])
+        dialog.warning({
+            title: '切换支付方式',
+            content: `当前支付已生成，切换为${nextChannelLabel}后将取消当前支付并重新创建支付单。是否继续？`,
+            positiveText: '继续切换',
+            negativeText: '取消',
+            onPositiveClick: async () => {
+                await cancelCurrentBookPayment()
+                payChannel.value = nextChannel
+                await confirmBookPay()
+            }
+        })
+    }
+
+    async function confirmBookPay() {
         payLoading.value = true
         try {
             const res = await $fetch('/book/relation/purchase', {
@@ -532,10 +574,35 @@
             payQrcode.value = result.payment?.qrcode || result.payment?.payUrl || ''
             payPaymentNo.value = result.paymentNo
             startBookPayPolling(result.paymentNo)
+            startBookPayCountdown(result.paymentNo)
         } catch(e) {
             createDiscreteApi(['message']).message.error(e.data?.msg || '网络错误')
         } finally {
             payLoading.value = false
+        }
+    }
+
+    async function cancelCurrentBookPayment() {
+        stopBookPayPolling()
+        stopBookPayCountdown()
+        const paymentNo = payPaymentNo.value
+        payQrcode.value = ''
+        payPaymentNo.value = ''
+        bookPayRemainingSeconds.value = BOOK_PAY_ORDER_EXPIRE_SECONDS
+
+        if (!paymentNo) {
+            return
+        }
+
+        try {
+            await $fetch('/pay/cancel', {
+                method: 'POST',
+                baseURL: fetchConfig.baseURL,
+                headers: getAuthHeaders(),
+                params: { outTradeNo: paymentNo }
+            })
+        } catch (e) {
+            // 取消失败不阻断用户重新选择支付方式，后端幂等处理最终状态
         }
     }
 
@@ -548,14 +615,46 @@
                     headers: getAuthHeaders(),
                     params: { outTradeNo: paymentNo }
                 })
+                if (payPaymentNo.value !== paymentNo) {
+                    return
+                }
                 if (res.payStatus) {
                     stopBookPayPolling()
+                    stopBookPayCountdown()
+                    payQrcode.value = ''
+                    payPaymentNo.value = ''
+                    bookPayRemainingSeconds.value = BOOK_PAY_ORDER_EXPIRE_SECONDS
                     showPayModal.value = false
                     createDiscreteApi(['message']).message.success('支付成功！')
                     refresh()
                 }
             } catch(e) { /* 轮询失败静默忽略 */ }
-        }, 2000)
+        }, BOOK_PAY_POLLING_INTERVAL)
+    }
+
+    function startBookPayCountdown(paymentNo) {
+        stopBookPayCountdown()
+        bookPayRemainingSeconds.value = BOOK_PAY_ORDER_EXPIRE_SECONDS
+        payCountdownTimer = setInterval(async () => {
+            if (payPaymentNo.value !== paymentNo) {
+                stopBookPayCountdown()
+                return
+            }
+            bookPayRemainingSeconds.value = Math.max(bookPayRemainingSeconds.value - 1, 0)
+            if (bookPayRemainingSeconds.value === 0) {
+                await handleBookPayOrderExpired(paymentNo)
+            }
+        }, 1000)
+    }
+
+    async function handleBookPayOrderExpired(paymentNo) {
+        if (payPaymentNo.value !== paymentNo) {
+            return
+        }
+
+        await cancelCurrentBookPayment()
+        showPayModal.value = false
+        createDiscreteApi(['message']).message.warning('订单已超时关闭，请重新发起购买。')
     }
 
     function stopBookPayPolling() {
@@ -565,22 +664,22 @@
         }
     }
 
-    function handleClosePayModal() {
-        stopBookPayPolling()
-        if (payPaymentNo.value) {
-            $fetch('/pay/cancel', {
-                method: 'POST',
-                baseURL: fetchConfig.baseURL,
-                headers: getAuthHeaders(),
-                params: { outTradeNo: payPaymentNo.value }
-            }).catch(() => {})
+    function stopBookPayCountdown() {
+        if (payCountdownTimer) {
+            clearInterval(payCountdownTimer)
+            payCountdownTimer = null
         }
-        payQrcode.value = ''
-        payPaymentNo.value = ''
+    }
+
+    async function handleClosePayModal() {
+        await cancelCurrentBookPayment()
         showPayModal.value = false
     }
 
-    onUnmounted(() => stopBookPayPolling())
+    onUnmounted(() => {
+        stopBookPayPolling()
+        stopBookPayCountdown()
+    })
 
 </script>
 <style>
