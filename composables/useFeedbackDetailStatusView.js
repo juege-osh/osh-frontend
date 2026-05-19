@@ -1,52 +1,64 @@
 import { computed } from 'vue'
-import { resolveFeedbackStatusText } from '~/composables/assistant'
+import {
+  FEEDBACK_STATUS_CONFIG,
+  resolveFeedbackStatusText,
+  resolveFeedbackStatusStepIndex,
+  resolveFeedbackStatusTone
+} from '~/composables/assistant'
 
 export function useFeedbackDetailStatusView(detail) {
-  const statusSteps = [
-    { label: '提交', value: 'PENDING' },
-    { label: '处理中', value: 'PROCESSING' },
-    { label: '已解决', value: 'RESOLVED' }
-  ]
+  // 进度条节点：从配置中提取 stepIndex >= 0 的状态，按顺序排列，去重
+  const statusSteps = Object.entries(FEEDBACK_STATUS_CONFIG)
+    .filter(([, cfg]) => cfg.stepIndex >= 0)
+    .reduce((acc, [value, cfg]) => {
+      if (!acc.some(s => s.stepIndex === cfg.stepIndex)) {
+        acc.push({ label: cfg.label, value, stepIndex: cfg.stepIndex })
+      }
+      return acc
+    }, [])
+    .sort((a, b) => a.stepIndex - b.stepIndex)
 
-  const currentStepIndex = computed(() => {
-    const currentStatus = detail.value?.status
-    if (currentStatus === 'PENDING') return 0
-    if (currentStatus === 'PROCESSING') return 1
-    if (currentStatus === 'RESOLVED' || currentStatus === 'CLOSED') return 2
-    return 0
-  })
+  const currentStepIndex = computed(() => resolveFeedbackStatusStepIndex(detail.value?.status))
 
   const isFeedbackClosed = computed(() => {
-    return detail.value?.status === 'CLOSED' || detail.value?.status === 'RESOLVED'
+    return ['CLOSED', 'RESOLVED', 'REJECTED'].includes(detail.value?.status)
   })
 
   const operationLogs = computed(() => {
+    const submitterName = detail.value?.userName || ''
+
+    /** 将操作人名称规范化：提交人用"提交人"，其余原样显示 */
+    const resolveOperatorLabel = (operatorName) => {
+      const name = operatorName || '系统'
+      return submitterName && name === submitterName ? '提交人' : name
+    }
+
     if (detail.value?.processRecords?.length) {
       return detail.value.processRecords.map(record => {
-        const operator = record.operatorName || '系统'
+        const operator = resolveOperatorLabel(record.operatorName)
         if (!record.fromStatus) {
           return {
-            text: `【${operator}】${record.remark || '提交了反馈'}`,
+            text: `【${operator}】提交了反馈`,
             time: formatAbsoluteTime(record.createTime),
             type: 'system',
-            remark: record.remark
+            remark: record.remark,
+            recordId: record.id,
+            toStatus: null,
+            toStatusText: null
           }
         }
 
-        const fromText = resolveFeedbackStatusText(record.fromStatus)
         const toText = resolveFeedbackStatusText(record.toStatus)
-        let logType = 'operation'
-        if (record.toStatus === 'CLOSED') {
-          logType = 'close'
-        } else if (record.toStatus === 'RESOLVED') {
-          logType = 'resolve'
-        }
+        const logType = resolveFeedbackStatusTone(record.toStatus)
 
         return {
-          text: `【${operator}】${fromText} → ${toText}`,
+          text: `【${operator}】变更为`,
           time: formatAbsoluteTime(record.createTime),
           type: logType,
-          remark: record.remark
+          remark: record.remark,
+          recordId: record.id,
+          toStatus: record.toStatus,
+          toStatusText: toText
         }
       })
     }
@@ -54,7 +66,9 @@ export function useFeedbackDetailStatusView(detail) {
     return [{
       text: '【系统】创建反馈',
       time: formatAbsoluteTime(detail.value?.createTime),
-      type: 'system'
+      type: 'system',
+      toStatus: null,
+      toStatusText: null
     }]
   })
 
@@ -62,14 +76,34 @@ export function useFeedbackDetailStatusView(detail) {
     const currentStatus = detail.value?.status
     if (currentStatus === 'PENDING') {
       return [
-        { label: '标记为处理中', value: 'PROCESSING', type: 'primary', placeholder: '请输入开始处理说明' },
-        { label: '关闭反馈', value: 'CLOSED', type: 'default', placeholder: '请输入关闭原因' }
+        { label: '关闭', value: 'CLOSED', type: 'default', placeholder: '请输入关闭原因' },
+        { label: '驳回', value: 'REJECTED', type: 'warning', placeholder: '请输入驳回原因' },
+        { label: '开始处理', value: 'PROCESSING', type: 'primary', placeholder: '请输入处理说明' },
+        { label: '提交用户确认', value: 'PENDING_CONFIRM', type: 'primary', placeholder: '问题已处理完成，请输入说明，将通知用户确认是否已解决' }
+      ]
+    }
+    // TRIAGED 历史数据兼容：和 PENDING 一样，允许直接推进到 PROCESSING 或 PENDING_CONFIRM
+    if (currentStatus === 'TRIAGED') {
+      return [
+        { label: '关闭', value: 'CLOSED', type: 'default', placeholder: '请输入关闭原因' },
+        { label: '驳回', value: 'REJECTED', type: 'warning', placeholder: '请输入驳回原因' },
+        { label: '开始处理', value: 'PROCESSING', type: 'primary', placeholder: '请输入处理说明' },
+        { label: '提交用户确认', value: 'PENDING_CONFIRM', type: 'primary', placeholder: '问题已处理完成，请输入说明，将通知用户确认是否已解决' }
       ]
     }
     if (currentStatus === 'PROCESSING') {
       return [
-        { label: '完成处理', value: 'RESOLVED', type: 'primary', placeholder: '请输入处理完成说明' },
-        { label: '关闭反馈', value: 'CLOSED', type: 'default', placeholder: '请输入关闭原因' }
+        { label: '关闭', value: 'CLOSED', type: 'default', placeholder: '请输入关闭原因' },
+        { label: '驳回', value: 'REJECTED', type: 'warning', placeholder: '请输入驳回原因' },
+        { label: '提交用户确认', value: 'PENDING_CONFIRM', type: 'primary', placeholder: '请输入说明，将通知用户确认问题是否已解决' }
+      ]
+    }
+    if (currentStatus === 'REOPENED') {
+      return [
+        { label: '关闭', value: 'CLOSED', type: 'default', placeholder: '请输入关闭原因' },
+        { label: '驳回', value: 'REJECTED', type: 'warning', placeholder: '请输入驳回原因' },
+        { label: '开始处理', value: 'PROCESSING', type: 'primary', placeholder: '请输入继续处理说明，处理完成后可再次提交用户确认' },
+        { label: '提交用户确认', value: 'PENDING_CONFIRM', type: 'primary', placeholder: '问题已处理完成，请输入说明，将通知用户确认是否已解决' }
       ]
     }
     return []
