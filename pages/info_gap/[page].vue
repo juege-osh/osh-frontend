@@ -631,6 +631,12 @@ const getRouteType = () => route.query.type || 'hot';
 const getRouteSearchMode = () => route.query.search === '1';
 const getRouteTitle = () =>
   typeof route.query.title === 'string' ? normalizeSearchKeyword(route.query.title) : '';
+const getRouteTagId = () => {
+  const raw = route.query.tagId;
+  if (raw === undefined || raw === null || raw === '') return null;
+  const parsed = Number(Array.isArray(raw) ? raw[0] : raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
 const getRoutePageNum = () => parseInt(route.params.page) || 1;
 
 // 同步到目标页：同页则直接刷新，不同页则更新 URL
@@ -641,11 +647,13 @@ const syncToPage = async (page) => {
   const nextType = queryParams.type || 'hot';
   const nextTitle = queryParams.title;
   const nextSearchMode = isSearchMode.value && !!nextTitle;
+  const nextTagId = activeSearchTagId.value;
   const shouldNavigate =
     getRoutePageNum() !== page ||
     getRouteType() !== nextType ||
     getRouteTitle() !== nextTitle ||
-    getRouteSearchMode() !== nextSearchMode;
+    getRouteSearchMode() !== nextSearchMode ||
+    getRouteTagId() !== nextTagId;
 
   if (!shouldNavigate) {
     await loadData();
@@ -660,9 +668,15 @@ const syncToPage = async (page) => {
   if (isSearchMode.value && nextTitle) {
     nextQuery.title = nextTitle;
     nextQuery.search = '1';
+    if (nextTagId != null) {
+      nextQuery.tagId = String(nextTagId);
+    } else {
+      delete nextQuery.tagId;
+    }
   } else {
     delete nextQuery.title;
     delete nextQuery.search;
+    delete nextQuery.tagId;
   }
 
   await navigateTo({
@@ -673,7 +687,7 @@ const syncToPage = async (page) => {
 
 // 监听 URL 页码变化，并把 URL 上的 type/title 同步回查询参数
 watch(
-  () => [route.params.page, route.query.type, route.query.title, route.query.search],
+  () => [route.params.page, route.query.type, route.query.title, route.query.search, route.query.tagId],
   async () => {
     if (!hasHydratedInfoGapRoute.value) {
       hasHydratedInfoGapRoute.value = true;
@@ -696,9 +710,7 @@ watch(
     queryParams.type = getRouteType();
     queryParams.title = getRouteTitle();
     isSearchMode.value = getRouteSearchMode() && !!queryParams.title;
-    if (!isSearchMode.value) {
-      activeSearchTagId.value = null;
-    }
+    activeSearchTagId.value = isSearchMode.value ? getRouteTagId() : null;
     loadData();
   },
   { immediate: true }
