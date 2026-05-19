@@ -27,7 +27,7 @@
     </div>
 
     <div v-else class="content-wrapper">
-      <!-- 反馈详情 -->
+      <!-- 工单详情 -->
       <div class="detail-card">
         <div class="detail-header">
           <div class="detail-header-left">
@@ -43,111 +43,41 @@
           </div>
 
           <div class="detail-header-right">
-            <div
-              v-if="!showAdminActions"
-              class="status-badge"
-              :class="`status-${detail.status}`"
-            >
-              {{ detail.statusText || resolveFeedbackStatusText(detail.status) }}
-            </div>
-            <n-popover
-              v-if="showAdminActions"
-              v-model:show="managementPanelVisible"
-              :trigger="managementPanelTrigger"
-              placement="bottom-end"
-              :show-arrow="false"
-              raw
-              class="feedback-management-popover"
-            >
-              <template #trigger>
-                <button
-                  type="button"
-                  class="management-status-trigger"
-                  :class="[managementStatusTriggerClass, { 'is-open': managementPanelVisible }]"
+            <!-- 管理员：操作按钮（弱→强从左到右）+ 状态标签 -->
+            <template v-if="showAdminActions">
+              <template v-if="!isFeedbackClosed">
+                <n-button
+                  v-for="action in availableStatusActions"
+                  :key="action.value"
+                  size="small"
+                  :type="action.type === 'primary' ? 'primary' : 'default'"
+                  :class="action.type === 'warning' ? 'header-btn-warning' : ''"
+                  :disabled="adminUpdating"
+                  @click="openStatusModal(action)"
                 >
-                  <span class="management-status-indicator" />
-                  <span class="management-status-trigger-value">{{ currentStatusText }}</span>
-                  <span class="management-status-trigger-caret" aria-hidden="true">▾</span>
-                </button>
+                  {{ action.label }}
+                </n-button>
               </template>
-
-              <div class="management-popover-panel">
-                <div class="management-header">
-                  <span class="title">反馈流转</span>
-                  <n-button
-                    v-if="isFeedbackClosed"
-                    type="primary"
-                    size="small"
-                    :loading="adminUpdating"
-                    @click="handleReopenFeedback"
-                  >
-                    <template #icon>
-                      <span>↻</span>
-                    </template>
-                    重新打开
-                  </n-button>
+              <n-button
+                v-else
+                size="small"
+                type="primary"
+                :loading="adminUpdating"
+                @click="handleReopenFeedback"
+              >
+                重新打开处理
+              </n-button>
+            </template>
+            <FeedbackStatusPopover :item="detail">
+              <template #trigger>
+                <div
+                  class="status-badge"
+                  :class="`status-${detail.status}`"
+                >
+                  {{ resolveStatusTextForCurrentUser(detail.status) }}
                 </div>
-                <div class="management-body">
-                  <div class="management-left">
-                    <div class="steps-wrapper vertical-layout">
-                      <div
-                        v-for="(step, index) in statusSteps"
-                        :key="step.value"
-                        class="step-item"
-                        :class="{
-                          'is-active': currentStepIndex === index,
-                          'is-completed': currentStepIndex > index,
-                          'is-pending': currentStepIndex < index
-                        }"
-                      >
-                        <div class="step-icon-wrapper">
-                          <div class="step-icon">
-                            <span v-if="currentStepIndex > index" class="check-icon">✓</span>
-                            <span v-else-if="currentStepIndex === index" class="current-icon">●</span>
-                            <span v-else class="step-dot" />
-                          </div>
-                          <div v-if="index < statusSteps.length - 1" class="step-line" />
-                        </div>
-                        <div class="step-label">{{ step.label }}</div>
-                      </div>
-                    </div>
-                    <div class="action-buttons-row">
-                      <n-button
-                        v-for="action in availableStatusActions"
-                        :key="action.value"
-                        :type="action.type"
-                        size="small"
-                        :disabled="adminUpdating"
-                        @click="openStatusModal(action)"
-                      >
-                        {{ action.label }}
-                      </n-button>
-                    </div>
-                  </div>
-                  <div class="management-right">
-                    <div class="log-header">历史操作日志</div>
-                    <div class="log-timeline-wrapper">
-                      <div class="log-timeline">
-                        <div
-                          v-for="(record, index) in operationLogs"
-                          :key="index"
-                          class="log-item"
-                        >
-                          <div class="log-dot" :class="`type-${record.type}`" />
-                          <div class="log-content">
-                            <div class="log-text">{{ record.text }}</div>
-                            <div v-if="record.remark" class="log-remark">
-                              💬 {{ record.remark }}
-                            </div>
-                            <div class="log-time">{{ record.time }}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </n-popover>
+              </template>
+            </FeedbackStatusPopover>
           </div>
         </div>
 
@@ -172,13 +102,37 @@
             <span>{{ detail.viewCount }} 浏览</span>
           </span>
           <span class="meta-item">
-            <span class="icon">💬</span>
-            <span>{{ detail.commentCount }} 评论</span>
+            <span class="icon">🧭</span>
+            <span>{{ operationLogs.length }} 条进展</span>
           </span>
         </div>
 
         <div class="detail-content">
           {{ detail.content }}
+        </div>
+
+        <div v-if="resolutionSourceText" class="resolution-source">
+          {{ resolutionSourceText }}
+        </div>
+
+        <div v-if="canConfirmPending" class="confirm-panel">
+          <div class="confirm-panel-header">
+            <div class="confirm-panel-title">⏳ 请确认处理结果</div>
+            <span class="confirm-panel-deadline">
+              {{ pendingConfirmLeftDays > 0 ? `还剩 ${pendingConfirmLeftDays} 天自动关闭` : '今天将自动确认为已解决' }}
+            </span>
+          </div>
+          <div class="confirm-panel-desc">
+            处理团队已完成处理，请确认问题是否已解决。
+          </div>
+          <div class="confirm-panel-actions">
+            <n-button type="primary" :loading="submitterConfirming" @click="handleResolveBySubmitter">
+              ✅ 问题已解决
+            </n-button>
+            <n-button :loading="submitterConfirming" @click="handleReopenBySubmitter">
+              🔄 问题仍在，需继续处理
+            </n-button>
+          </div>
         </div>
 
         <!-- 互动操作：点赞 / 收藏 -->
@@ -205,6 +159,46 @@
             <span class="action-label">{{ isFavorited ? '已收藏' : '收藏' }}</span>
             <span class="action-count">{{ detail.favoriteCount || 0 }}</span>
           </button>
+        </div>
+      </div>
+
+      <div class="timeline-section">
+        <div class="timeline-header">
+          <h2 class="timeline-title">处理进展</h2>
+          <span class="timeline-subtitle">反馈的完整状态变更记录</span>
+        </div>
+        <div class="timeline-list">
+          <div v-for="(record, index) in operationLogs" :key="index" class="timeline-item">
+            <div class="timeline-track">
+              <div class="timeline-dot" :class="`type-${record.type}`" />
+              <div v-if="index < operationLogs.length - 1" class="timeline-line" />
+            </div>
+            <div class="timeline-body">
+              <div class="timeline-row">
+                <div class="timeline-main">
+                  <span class="timeline-operator">{{ extractOperator(record.text) }}</span>
+                  <span class="timeline-action">{{ extractAction(record.text) }}</span>
+                  <span v-if="record.toStatus" class="timeline-status-tag" :class="`tag-${record.type}`">
+                    {{ record.toStatusText }}
+                  </span>
+                </div>
+                <div class="timeline-row-right">
+                  <span class="timeline-time">{{ record.time }}</span>
+                  <button
+                    v-if="showAdminActions && record.recordId"
+                    type="button"
+                    class="timeline-edit-btn"
+                    title="修改备注"
+                    @click.stop="openEditRemarkModal(record)"
+                  >✏️</button>
+                </div>
+              </div>
+              <div v-if="record.remark" class="timeline-remark">
+                <span class="remark-icon">💬</span>
+                <span class="remark-text">{{ record.remark }}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -275,7 +269,7 @@
           </div>
 
           <!-- 高级选项 -->
-          <div class="advanced-options">
+          <div v-if="false" class="advanced-options">
             <div class="option-item" @click="syncToComment = !syncToComment">
               <div class="option-checkbox" :class="{ 'is-checked': syncToComment }">
                 <span v-if="syncToComment" class="check-icon">✓</span>
@@ -311,8 +305,39 @@
         </template>
       </n-modal>
 
+      <!-- 编辑备注模态框 -->
+      <n-modal
+        v-model:show="editRemarkModalVisible"
+        title="修改备注"
+        preset="card"
+        :style="{ width: '480px' }"
+        :mask-closable="false"
+        :closable="!editRemarkUpdating"
+      >
+        <n-input
+          v-model:value="editRemarkContent"
+          type="textarea"
+          :rows="4"
+          placeholder="请输入备注内容..."
+          maxlength="500"
+          show-count
+          :disabled="editRemarkUpdating"
+        />
+        <template #footer>
+          <div class="modal-footer">
+            <n-button :disabled="editRemarkUpdating" @click="editRemarkModalVisible = false">取消</n-button>
+            <n-button
+              type="primary"
+              :loading="editRemarkUpdating"
+              :disabled="!editRemarkContent.trim()"
+              @click="confirmEditRemark"
+            >保存</n-button>
+          </div>
+        </template>
+      </n-modal>
+
       <!-- 评论区 -->
-      <div v-if="detail.allowComment" ref="commentSectionRef" class="comment-section">
+      <div v-if="false && detail.allowComment" ref="commentSectionRef" class="comment-section">
         <h2 class="comment-title">💬 评论 ({{ detail.commentCount }})</h2>
 
         <!-- 反馈已关闭提示 -->
@@ -439,9 +464,10 @@
 import { ref, onMounted, computed, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
-import { NButton, NInput, NSpin, NEmpty, NBreadcrumb, NBreadcrumbItem, NModal, NTag, NPopover } from 'naive-ui'
+import { NButton, NInput, NSpin, NEmpty, NBreadcrumb, NBreadcrumbItem, NModal, NTag } from 'naive-ui'
 import {
   assertAssistantResponseSuccess,
+  apiConfirmFeedbackStatus,
   apiGetFeedbackDetail,
   apiGetFeedbackComments,
   apiGetFeedbackProcessRecords,
@@ -452,6 +478,7 @@ import {
   apiUnfavoriteFeedback,
   apiGetFeedbackInteractionStatus,
   apiUpdateFeedbackStatus,
+  apiUpdateProcessRecordRemark,
   resolveFeedbackCategoryIcon,
   resolveFeedbackStatusText,
   resolveFeedbackErrorMessage
@@ -459,6 +486,7 @@ import {
 import { patchFeedbackInteraction } from '~/composables/useFeedbackState'
 import { useFeedbackDetailStatusView } from '~/composables/useFeedbackDetailStatusView'
 import { usePermission } from '~/composables/usePermission'
+import FeedbackStatusPopover from '~/components/feedback/FeedbackStatusPopover.vue'
 
 // 使用全局用户状态（响应式，登录状态变化会自动更新）
 const user = useUser()
@@ -498,8 +526,15 @@ const favoritingLoading = ref(false)
 const likeAnimating = ref(false)
 const favoriteAnimating = ref(false)
 const adminUpdating = ref(false)
+const submitterConfirming = ref(false)
 const viewportWidth = ref(process.client ? window.innerWidth : 1200)
 const managementPanelVisible = ref(false)
+
+// 编辑备注模态框
+const editRemarkModalVisible = ref(false)
+const editRemarkRecordId = ref(null)
+const editRemarkContent = ref('')
+const editRemarkUpdating = ref(false)
 
 // 状态变更模态框
 const statusModalVisible = ref(false)
@@ -542,6 +577,46 @@ const isLoggedIn = computed(() => {
 const showAdminActions = computed(() => {
   return !!detail.value && hasPermission('system:feedback:manage')
 })
+const isSubmitter = computed(() => {
+  const currentUserId = user.value?.id || user.value?.userId || user.value?.uid
+  return !!detail.value && !!currentUserId && String(detail.value.userId) === String(currentUserId)
+})
+const canConfirmPending = computed(() => {
+  return isSubmitter.value && detail.value?.status === 'PENDING_CONFIRM'
+})
+
+/** PENDING_CONFIRM 状态进入时间，用于计算剩余确认天数 */
+const pendingConfirmEntryTime = computed(() => {
+  const record = [...(detail.value?.processRecords || [])]
+    .filter(r => r?.toStatus === 'PENDING_CONFIRM')
+    .sort((a, b) => new Date(b.createTime) - new Date(a.createTime))[0]
+  return record?.createTime ? new Date(record.createTime) : null
+})
+
+/** 距自动确认还剩几天（7天窗口），最小为 0 */
+const pendingConfirmLeftDays = computed(() => {
+  if (!pendingConfirmEntryTime.value) return 7
+  const elapsed = Math.floor((Date.now() - pendingConfirmEntryTime.value.getTime()) / (1000 * 60 * 60 * 24))
+  return Math.max(0, 7 - elapsed)
+})
+const resolutionSourceText = computed(() => {
+  if (detail.value?.status !== 'RESOLVED') {
+    return ''
+  }
+  const latestResolvedRecord = [...(detail.value?.processRecords || [])]
+    .filter(record => record?.toStatus === 'RESOLVED')
+    .sort((left, right) => new Date(right.createTime) - new Date(left.createTime))[0]
+  if (!latestResolvedRecord) {
+    return '闭环来源：已解决'
+  }
+  if ((latestResolvedRecord.operatorName || '') === '系统' || (latestResolvedRecord.remark || '').includes('自动确认')) {
+    return '闭环来源：系统自动确认'
+  }
+  if (isSubmitter.value && (latestResolvedRecord.remark || '').includes('提交人确认')) {
+    return '闭环来源：用户确认'
+  }
+  return '闭环来源：已解决'
+})
 const managementPanelTrigger = computed(() => viewportWidth.value <= 768 ? 'click' : 'hover')
 const managementStatusTriggerClass = computed(() => {
   const currentStatus = detail.value?.status || 'default'
@@ -559,6 +634,52 @@ const {
 function assertFeedbackSuccess(res, fallbackMessage) {
   if (res?.code === 200) return
   throw new Error(res?.msg || fallbackMessage)
+}
+
+/**
+ * 根据当前用户身份返回状态文本：
+ * PENDING_CONFIRM 对提交人显示"待你确认"，对其他人显示"待用户确认"，避免误导
+ */
+function resolveStatusTextForCurrentUser(status) {
+  if (status === 'PENDING_CONFIRM') {
+    return isSubmitter.value ? '待你确认' : '待用户确认'
+  }
+  return resolveFeedbackStatusText(status)
+}
+
+/** 从 "【操作人】动作" 格式的 text 中提取操作人 */
+function extractOperator(text) {
+  const match = text?.match(/^【(.+?)】/)
+  return match ? match[1] : ''
+}
+
+/** 从 "【操作人】动作" 格式的 text 中提取动作部分 */
+function extractAction(text) {
+  return text?.replace(/^【.+?】/, '').trim() || ''
+}
+
+/** 打开编辑备注模态框 */
+function openEditRemarkModal(record) {
+  editRemarkRecordId.value = record.recordId
+  editRemarkContent.value = record.remark || ''
+  editRemarkModalVisible.value = true
+}
+
+/** 提交备注修改 */
+async function confirmEditRemark() {
+  if (!editRemarkRecordId.value || !editRemarkContent.value.trim()) return
+  try {
+    editRemarkUpdating.value = true
+    const res = await apiUpdateProcessRecordRemark(editRemarkRecordId.value, editRemarkContent.value.trim())
+    assertAssistantResponseSuccess(res, '修改备注失败')
+    message.success('备注已修改')
+    editRemarkModalVisible.value = false
+    await loadDetail()
+  } catch (error) {
+    message.error(resolveFeedbackErrorMessage(error, '修改备注失败'))
+  } finally {
+    editRemarkUpdating.value = false
+  }
 }
 
 function getCommentUserName(comment) {
@@ -1085,45 +1206,16 @@ async function confirmStatusUpdate() {
 
   const toStatus = currentAction.value.value
   const remark = statusRemark.value.trim()
-  const shouldSyncComment = syncToComment.value
 
   try {
     adminUpdating.value = true
-
-    // 1. 更新反馈状态
-    const res = await apiUpdateFeedbackStatus(route.params.id, {
-      toStatus,
-      remark
-    })
+    const res = await apiUpdateFeedbackStatus(route.params.id, { toStatus, remark })
     assertAssistantResponseSuccess(res, '更新状态失败')
-
-    // 2. 如果勾选了同步到评论区，发布评论
-    if (shouldSyncComment) {
-      try {
-        await apiCreateComment(route.params.id, {
-          content: `【${currentAction.value.label}】${remark}`,
-          parentId: 0,
-          isAdminReply: true
-        })
-      } catch (commentError) {
-        console.error('同步评论失败:', commentError)
-      }
-    }
-
     message.success('状态更新成功')
     closeStatusModal()
-
-    // 3. 刷新页面数据（步骤条和日志会自动更新）
     await loadDetail()
-
-    // 4. 如果同步了评论，刷新评论列表
-    if (shouldSyncComment) {
-      commentPageNum.value = 1
-      commentsLoaded.value = false
-      await loadComments()
-    }
   } catch (error) {
-    message.error(resolveFeedbackErrorMessage(error, '更新状态失败'))
+    message.error(resolveFeedbackErrorMessage(error, '操作失败'))
   } finally {
     adminUpdating.value = false
   }
@@ -1138,16 +1230,50 @@ async function handleReopenFeedback() {
     managementPanelVisible.value = false
     adminUpdating.value = true
     const res = await apiUpdateFeedbackStatus(route.params.id, {
-      toStatus: 'PROCESSING',
-      remark: '管理员重新打开反馈'
+      toStatus: 'REOPENED',
+      remark: '管理员重新打开工单'
     })
     assertAssistantResponseSuccess(res, '重新打开失败')
-    message.success('反馈已重新打开')
+    message.success('已重新打开')
     await loadDetail()
   } catch (error) {
     message.error(resolveFeedbackErrorMessage(error, '重新打开失败'))
   } finally {
     adminUpdating.value = false
+  }
+}
+
+async function handleResolveBySubmitter() {
+  await submitterConfirm('RESOLVED', '提交人确认已解决', '已确认问题解决')
+}
+
+async function handleReopenBySubmitter() {
+  await submitterConfirm('REOPENED', '提交人反馈问题仍在', '已反馈问题仍在，将继续处理')
+}
+
+async function submitterConfirm(toStatus, remark, successMessage) {
+  if (!detail.value) {
+    return
+  }
+  // 前端守卫：只有 PENDING_CONFIRM 状态才允许提交人确认，避免重复提交或状态已变更时的无效请求
+  if (detail.value.status !== 'PENDING_CONFIRM') {
+    message.warning('当前反馈状态已变更，请刷新页面后重试')
+    await loadDetail()
+    return
+  }
+  try {
+    submitterConfirming.value = true
+    const res = await apiConfirmFeedbackStatus(route.params.id, {
+      toStatus,
+      remark
+    })
+    assertAssistantResponseSuccess(res, '确认失败')
+    message.success(successMessage)
+    await loadDetail()
+  } catch (error) {
+    message.error(resolveFeedbackErrorMessage(error, '确认失败'))
+  } finally {
+    submitterConfirming.value = false
   }
 }
 
@@ -1179,6 +1305,8 @@ function formatTime(time) {
   background: #f8f9fa;
   min-height: calc(100vh - 40px);
 }
+
+
 
 .breadcrumb-box {
   margin-bottom: 20px;
@@ -1226,8 +1354,19 @@ function formatTime(time) {
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* 驳回按钮：橙色线框，视觉上比关闭弱、比主操作弱 */
+.header-btn-warning {
+  border-color: #f59e0b !important;
+  color: #b45309 !important;
+}
+
+.header-btn-warning:hover {
+  background: #fffbeb !important;
 }
 
 .category-badge {
@@ -1278,6 +1417,11 @@ function formatTime(time) {
   animation: breathing 2s ease-in-out infinite;
 }
 
+.status-TRIAGED {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 @keyframes breathing {
   0%, 100% {
     box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4);
@@ -1288,18 +1432,33 @@ function formatTime(time) {
 }
 
 .status-PROCESSING {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status-PENDING_CONFIRM {
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .status-RESOLVED {
-  background: #dcfce7;
-  color: #15803d;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status-REOPENED {
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .status-CLOSED {
-  background: #f3f4f6;
-  color: #4b5563;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.status-REJECTED {
+  background: #f1f5f9;
+  color: #64748b;
 }
 
 .detail-title-row {
@@ -1365,6 +1524,62 @@ function formatTime(time) {
   margin-bottom: 20px;
 }
 
+.resolution-source {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f0fdf4;
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.confirm-panel {
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid #f6d08a;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #fff8e8 0%, #fffef9 100%);
+}
+
+.confirm-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.confirm-panel-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #9a6700;
+}
+
+.confirm-panel-deadline {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.confirm-panel-desc {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #7c5b12;
+  margin-bottom: 14px;
+}
+
+.confirm-panel-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 /* 互动操作 */
 .detail-actions {
   display: flex;
@@ -1419,6 +1634,196 @@ function formatTime(time) {
 
 .action-chip.is-active .action-count {
   color: #1d4ed8;
+}
+
+.timeline-section {
+  background: #fff;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.timeline-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.timeline-title {
+  margin: 0;
+  font-size: 20px;
+  color: #111827;
+}
+
+.timeline-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 每条记录：左侧轨道 + 右侧内容 */
+.timeline-item {
+  display: flex;
+  gap: 12px;
+}
+
+/* 左侧轨道：圆点 + 竖线 */
+.timeline-track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 10px;
+  padding-top: 5px;
+}
+
+.timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  flex-shrink: 0;
+}
+
+.timeline-dot.type-system   { background: #93c5fd; }
+.timeline-dot.type-operation { background: #3b82f6; }
+.timeline-dot.type-pending  { background: #3b82f6; }
+.timeline-dot.type-resolve  { background: #3b82f6; }
+.timeline-dot.type-reopen   { background: #3b82f6; }
+.timeline-dot.type-close    { background: #cbd5e1; }
+
+.timeline-line {
+  flex: 1;
+  width: 2px;
+  background: #e5e7eb;
+  margin: 4px 0;
+  min-height: 16px;
+}
+
+/* 右侧内容区 */
+.timeline-body {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 20px;
+}
+
+/* 主行：操作人 + 动作 + 状态 tag + 时间 */
+.timeline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.timeline-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.timeline-operator {
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.timeline-action {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* 状态 tag */
+.timeline-status-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── 全局状态色盘：统一蓝色调，关闭/驳回用浅灰区分 ──────────── */
+.tag-operation { background: #eff6ff; color: #1d4ed8; }
+.tag-reopen    { background: #eff6ff; color: #1d4ed8; }
+.tag-pending   { background: #eff6ff; color: #1d4ed8; }
+.tag-resolve   { background: #eff6ff; color: #1d4ed8; }
+.tag-close     { background: #f1f5f9; color: #64748b; }
+.tag-system    { background: #f1f5f9; color: #64748b; }
+
+.timeline-time {
+  font-size: 11px;
+  color: #9ca3af;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.timeline-row-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.timeline-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  padding: 0;
+  border-radius: 4px;
+}
+
+.timeline-item:hover .timeline-edit-btn {
+  opacity: 1;
+}
+
+.timeline-edit-btn:hover {
+  background: #f1f5f9;
+}
+
+/* 处理意见 */
+.timeline-remark {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 8px 14px 8px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border-left: 3px solid #e2e8f0;
+}
+
+.remark-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.remark-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #374151;
+  font-weight: 500;
+  white-space: pre-wrap;
+  padding-left: 2px;
 }
 
 .management-status-trigger {
@@ -1481,6 +1886,19 @@ function formatTime(time) {
   color: #b45309;
 }
 
+.management-status-trigger.tone-TRIAGED {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.management-status-trigger.tone-TRIAGED .management-status-indicator {
+  background: #4f46e5;
+}
+
+.management-status-trigger.tone-TRIAGED .management-status-trigger-value {
+  color: #4338ca;
+}
+
 .management-status-trigger.tone-PROCESSING {
   background: #f5f9ff;
   border-color: #c8dcfb;
@@ -1492,6 +1910,19 @@ function formatTime(time) {
 
 .management-status-trigger.tone-PROCESSING .management-status-trigger-value {
   color: #1d4ed8;
+}
+
+.management-status-trigger.tone-PENDING_CONFIRM {
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+
+.management-status-trigger.tone-PENDING_CONFIRM .management-status-indicator {
+  background: #d97706;
+}
+
+.management-status-trigger.tone-PENDING_CONFIRM .management-status-trigger-value {
+  color: #b45309;
 }
 
 .management-status-trigger.tone-RESOLVED {
@@ -1517,6 +1948,32 @@ function formatTime(time) {
 }
 
 .management-status-trigger.tone-CLOSED .management-status-trigger-value {
+  color: #475569;
+}
+
+.management-status-trigger.tone-REOPENED {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.management-status-trigger.tone-REOPENED .management-status-indicator {
+  background: #2563eb;
+}
+
+.management-status-trigger.tone-REOPENED .management-status-trigger-value {
+  color: #1d4ed8;
+}
+
+.management-status-trigger.tone-REJECTED {
+  background: #f8fafc;
+  border-color: #d5dde8;
+}
+
+.management-status-trigger.tone-REJECTED .management-status-indicator {
+  background: #64748b;
+}
+
+.management-status-trigger.tone-REJECTED .management-status-trigger-value {
   color: #475569;
 }
 
@@ -1629,6 +2086,14 @@ function formatTime(time) {
   transition: all 0.3s ease;
   margin-top: 8px;
   text-align: center;
+}
+
+.step-reopen-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  color: #3b82f6;
+  font-weight: 500;
 }
 
 .step-line {
@@ -2067,18 +2532,38 @@ function formatTime(time) {
 }
 
 .to-status.status-PROCESSING {
-  background: #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.to-status.status-TRIAGED {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.to-status.status-PENDING_CONFIRM {
+  background: #eff6ff;
   color: #1d4ed8;
 }
 
 .to-status.status-RESOLVED {
-  background: #dcfce7;
-  color: #15803d;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.to-status.status-REOPENED {
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .to-status.status-CLOSED {
-  background: #fee2e2;
-  color: #dc2626;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.to-status.status-REJECTED {
+  background: #f1f5f9;
+  color: #64748b;
 }
 
 /* 输入区域 */

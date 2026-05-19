@@ -14,7 +14,7 @@
 
     <div class="form-container">
       <h1 class="page-title">✍️ 提交反馈</h1>
-      <p class="page-desc">感谢您的反馈！您的意见对我们非常重要。</p>
+      <p class="page-desc">请尽量完整描述问题，我们会持续跟进处理。</p>
 
       <n-form ref="formRef" :model="form" :rules="rules" label-placement="top">
         <!-- 分类选择 -->
@@ -36,19 +36,19 @@
         <n-form-item label="标题" path="title">
           <n-input
             v-model:value="form.title"
-            placeholder="请输入反馈标题（最多128字符）"
+            placeholder="请输入标题（最多128字符）"
             maxlength="128"
             show-count
           />
         </n-form-item>
 
         <!-- 内容 -->
-        <n-form-item label="详细描述" path="content">
+        <n-form-item label="问题描述" path="content">
           <n-input
             v-model:value="form.content"
             type="textarea"
             :rows="8"
-            placeholder="请详细描述您的反馈（最多1000字符）"
+            placeholder="请详细描述你遇到的问题或诉求（最多1000字符）"
             maxlength="1000"
             show-count
           />

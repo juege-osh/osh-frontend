@@ -120,7 +120,7 @@ export function useSeckillActivityDeleteApi(ids) {
 }
 
 // 2-7 查询秒杀订单列表（管理端）
-// GET /pc/seckill/order/list
+// GET /pc/seckill/activity/order/list
 export async function fetchSeckillOrderList(query = {}) {
   const baseURL = process.client
     ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -140,9 +140,12 @@ export async function fetchSeckillOrderList(query = {}) {
   const headers = { appid: 'bd9d01ecc75dbbaaefce' }
   if (token) { headers.token = token; headers.Authorization = `Bearer ${token}` }
 
-  return $fetch('/seckill/order/list', {
+  return $fetch('/seckill/activity/order/list', {
     baseURL, headers, method: 'GET', query,
-  }).catch(() => ({ rows: [], total: 0 }))
+  }).catch((e) => {
+    console.error('[seckill] fetchSeckillOrderList error:', e?.data || e)
+    return { rows: [], total: 0 }
+  })
 }
 
 // 3-1 查询进行中的活动列表（用户端）
