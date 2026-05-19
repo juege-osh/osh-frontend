@@ -11,7 +11,20 @@
     </div>
     <FeedbackStatusPopover :item="item" @updated="$emit('updated')">
       <template #trigger>
-        <span class="status-badge" :class="`status-${item.status}`" @click.stop>
+        <span
+          class="status-badge"
+          :class="{
+            'status-PENDING': item.status === 'PENDING',
+            'status-TRIAGED': item.status === 'TRIAGED',
+            'status-PROCESSING': item.status === 'PROCESSING',
+            'status-PENDING_CONFIRM': item.status === 'PENDING_CONFIRM',
+            'status-RESOLVED': item.status === 'RESOLVED',
+            'status-REOPENED': item.status === 'REOPENED',
+            'status-CLOSED': item.status === 'CLOSED',
+            'status-REJECTED': item.status === 'REJECTED'
+          }"
+          @click.stop
+        >
           {{ statusChipText }}
         </span>
       </template>
@@ -50,7 +63,7 @@
  * - 点击整张卡片向父级 emit('click', id) 由父级负责跳转,保持组件无路由耦合
  */
 import { computed } from 'vue'
-import FeedbackStatusPopover from '~/components/Feedback/FeedbackStatusPopover.vue'
+import FeedbackStatusPopover from '~/components/feedback/FeedbackStatusPopover.vue'
 import {
   resolveFeedbackCategoryIcon,
   resolveFeedbackStatusText

@@ -55,7 +55,16 @@
         </div>
         <div v-else class="event-list">
           <div v-for="event in recentEvents" :key="event.key" class="event-item">
-            <span class="event-dot" :class="`tone-${event.type}`" />
+            <span
+              class="event-dot"
+              :class="{
+                'tone-status': event.type === 'status',
+                'tone-pending': event.type === 'pending',
+                'tone-resolved': event.type === 'resolved',
+                'tone-reopen': event.type === 'reopen',
+                'tone-closed': event.type === 'closed'
+              }"
+            />
             <div class="event-body">
               <div class="event-text">{{ event.text }}</div>
               <div class="event-time">{{ event.time }}</div>
@@ -421,6 +430,10 @@ function formatRelativeTime(value) {
 
 .event-dot.tone-resolved {
   background: #16a34a;
+}
+
+.event-dot.tone-reopen {
+  background: #ea580c;
 }
 
 .event-dot.tone-closed {

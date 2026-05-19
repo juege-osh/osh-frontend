@@ -168,7 +168,7 @@
 import { ref, onMounted, computed, onActivated, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
-import { NButton, NInput, NSpace, NBreadcrumb, NBreadcrumbItem, NSpin, NEmpty, NSelect, NTabs, NTab } from 'naive-ui'
+import { NButton, NInput, NBreadcrumb, NBreadcrumbItem, NSpin, NEmpty, NSelect, NTabs, NTab } from 'naive-ui'
 import { 
   apiGetFeedbackCategories, 
   apiGetFeedbackTags,
@@ -180,8 +180,8 @@ import {
 } from '~/composables/assistant'
 import { sortFeedbackTags } from '~/composables/feedbackTag'
 import { applyFeedbackInteractionPatches } from '~/composables/useFeedbackState'
-import FeedbackCard from '~/components/Feedback/FeedbackCard.vue'
-import AnnouncementMarquee from '~/components/Feedback/AnnouncementMarquee.vue'
+import FeedbackCard from '~/components/feedback/FeedbackCard.vue'
+import AnnouncementMarquee from '~/components/feedback/AnnouncementMarquee.vue'
 
 const router = useRouter()
 const message = useMessage()
@@ -801,12 +801,6 @@ function destroyLoadMoreObserver() {
   justify-content: center;
   align-items: center;
   padding: 60px 0;
-}
-
-.load-more-box {
-  display: flex;
-  justify-content: center;
-  margin-top: 24px;
 }
 
 /* 响应式 */
