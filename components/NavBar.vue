@@ -76,7 +76,7 @@ import {
   NAvatar,
   createDiscreteApi,
 } from 'naive-ui';
-import { computed, h, watch, onBeforeUnmount } from 'vue';
+import { h, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const user = useUser();
 const route = useRoute();
@@ -182,7 +182,7 @@ const PlanIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', f
 const AUDIT_MENU_PERMISSION = 'audit';
 const TOOL_MENU_PERMISSION = 'tool';
 
-const baseMenus = [
+const menus = ref([
   { name: '首页', path: '/', iconComponent: HomeIcon },
   { name: '课程', path: '/course/1', match: [{ name: 'course-page' }], iconComponent: CourseIcon },
   { name: '电子书', path: '/list/book/1', match: [{ name: 'list-type-page', params: { type: 'book' } }], iconComponent: BookIcon },
@@ -204,22 +204,24 @@ const baseMenus = [
     ]
   },
   { name: '审核', path: '/audit', match: [{ name: 'audit' }], iconComponent: AuditIcon }
-];
+]);
 
-const canAccessInnerSite = computed(() => permissions.value?.innerSite !== undefined);
-const canAccessTool = computed(() => hasAnyPermission(TOOL_MENU_PERMISSION));
-const canAccessAudit = computed(() => hasAnyPermission(AUDIT_MENU_PERMISSION));
-
-const menus = computed(() => baseMenus.filter((item) => {
-  if (item.path === '/site') {
-    return canAccessInnerSite.value;
-  }
-  if (item.path === '/tool') {
-    return canAccessTool.value;
 onMounted(() => {
-  const permissions = usePermissions()
-  const internalMenuIndex = menus.value.findIndex(item => item.name === '内部');
+  if (!hasAnyPermission(TOOL_MENU_PERMISSION)) {
+    const toolMenuIndex = menus.value.findIndex(item => item.path === '/tool');
+    if (toolMenuIndex !== -1) {
+      menus.value.splice(toolMenuIndex, 1);
+    }
+  }
 
+  if (!hasAnyPermission(AUDIT_MENU_PERMISSION)) {
+    const auditMenuIndex = menus.value.findIndex(item => item.path === '/audit');
+    if (auditMenuIndex !== -1) {
+      menus.value.splice(auditMenuIndex, 1);
+    }
+  }
+
+  const internalMenuIndex = menus.value.findIndex(item => item.name === '内部资源');
   if (internalMenuIndex !== -1) {
     const internalMenu = menus.value[internalMenuIndex];
     const visibleChildren = [];
@@ -250,11 +252,7 @@ onMounted(() => {
       internalMenu.children = visibleChildren;
     }
   }
-  if (item.path === '/audit') {
-    return canAccessAudit.value;
-  }
-  return true;
-}));
+});
 
 function handleOpen(path) {
   navigateTo(path);
