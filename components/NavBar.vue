@@ -221,7 +221,6 @@ onMounted(() => {
     }
   }
 
-  const internalMenuIndex = menus.value.findIndex(item => item.name === '内部资源');
   const permissions = usePermissions()
   const internalMenuIndex = menus.value.findIndex(item => item.name === '内部资源');
 
