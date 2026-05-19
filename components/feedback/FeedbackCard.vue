@@ -32,11 +32,11 @@
         <span class="stat-chip" title="点赞数">
           <span class="stat-icon">👍</span>{{ item.likeCount || 0 }}
         </span>
-        <span class="stat-chip" :title="statusSignalTitle">
-          <span class="stat-icon">🧭</span>{{ statusSignalText }}
+        <span class="stat-chip" title="收藏数">
+          <span class="stat-icon">⭐</span>{{ item.favoriteCount || 0 }}
         </span>
         <span class="stat-chip" title="浏览数">
-          <span class="stat-icon">👁</span>{{ item.viewCount || 0 }}
+          <span class="stat-icon">📖</span>{{ item.viewCount || 0 }}
         </span>
       </div>
     </div>
@@ -101,8 +101,7 @@ const statusSignalText = computed(() => {
   }
   return resolveFeedbackStatusText(status)
 })
-const statusSignalTitle = computed(() => `当前处理阶段：${statusSignalText.value}`)
-// badge 与底部信号 chip 展示同一语义，直接复用，避免二次拼接产生重复文本
+// badge 文本复用状态信号语义，避免二次拼接产生重复文本
 const statusChipText = computed(() => statusSignalText.value)
 
 /** 相对时间格式化:今天 / 昨天 / N 天前 / 具体日期 */

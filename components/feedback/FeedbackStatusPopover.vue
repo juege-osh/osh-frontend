@@ -74,7 +74,11 @@ import {
   apiConfirmFeedbackStatus,
   apiGetFeedbackStatusSummary,
   assertAssistantResponseSuccess,
+  FEEDBACK_STATUS_CONFIG,
   resolveFeedbackStatusText,
+  resolveFeedbackStatusSlaHours,
+  resolveFeedbackStatusTone,
+  resolveFeedbackStatusStepIndex,
   resolveFeedbackErrorMessage
 } from '~/composables/assistant'
 
@@ -94,13 +98,16 @@ const confirming = ref(false)
 const detail = ref(null)
 const DEFAULT_PENDING_CONFIRM_WINDOW_DAYS = 7
 
-const displaySteps = [
-  { label: '已提交', value: 'PENDING' },
-  { label: '已受理', value: 'TRIAGED' },
-  { label: '处理中', value: 'PROCESSING' },
-  { label: '待确认', value: 'PENDING_CONFIRM' },
-  { label: '已解决', value: 'RESOLVED' }
-]
+// 进度条节点：从配置中提取主流程节点（stepIndex >= 0），去重后按顺序排列
+const displaySteps = Object.entries(FEEDBACK_STATUS_CONFIG)
+  .filter(([, cfg]) => cfg.stepIndex >= 0)
+  .reduce((acc, [value, cfg]) => {
+    if (!acc.some(s => s.stepIndex === cfg.stepIndex)) {
+      acc.push({ label: cfg.label, value, stepIndex: cfg.stepIndex })
+    }
+    return acc
+  }, [])
+  .sort((a, b) => a.stepIndex - b.stepIndex)
 
 const currentStatus = computed(() => detail.value?.status || props.item?.status)
 const currentStatusText = computed(() => {
@@ -110,13 +117,7 @@ const currentStatusText = computed(() => {
   }
   return resolveFeedbackStatusText(currentStatus.value)
 })
-const currentStepIndex = computed(() => {
-  if (currentStatus.value === 'PENDING') return 0
-  if (currentStatus.value === 'TRIAGED') return 1
-  if (currentStatus.value === 'PROCESSING' || currentStatus.value === 'REOPENED') return 2
-  if (currentStatus.value === 'PENDING_CONFIRM') return 3
-  return 4
-})
+const currentStepIndex = computed(() => resolveFeedbackStatusStepIndex(currentStatus.value))
 const currentHandlerText = computed(() => detail.value?.handlerName || props.item?.handlerName || '待处理团队')
 const currentDeadlineText = computed(() => {
   const baseTime = resolveCurrentStageTime()
@@ -201,24 +202,11 @@ function resolveCurrentStageTime() {
 }
 
 function resolveSlaHours() {
-  if (currentStatus.value === 'PENDING') return 24
-  if (currentStatus.value === 'TRIAGED') return 24
-  if (currentStatus.value === 'PROCESSING' || currentStatus.value === 'REOPENED') return 72
-  if (currentStatus.value === 'PENDING_CONFIRM') return DEFAULT_PENDING_CONFIRM_WINDOW_DAYS * 24
-  return 24
+  return resolveFeedbackStatusSlaHours(currentStatus.value)
 }
 
 function resolveEventType(record) {
-  if (record?.toStatus === 'PENDING_CONFIRM') {
-    return 'pending'
-  }
-  if (record?.toStatus === 'RESOLVED') {
-    return 'resolved'
-  }
-  if (record?.toStatus === 'CLOSED' || record?.toStatus === 'REJECTED') {
-    return 'closed'
-  }
-  return 'status'
+  return resolveFeedbackStatusTone(record?.toStatus)
 }
 
 function buildEventText(record) {

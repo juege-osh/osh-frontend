@@ -175,7 +175,8 @@ import {
   apiPageFeedback,
   apiGetPendingConfirmCount,
   resolveFeedbackCategoryIcon,
-  resolveFeedbackErrorMessage
+  resolveFeedbackErrorMessage,
+  FEEDBACK_STATUS_CONFIG
 } from '~/composables/assistant'
 import { sortFeedbackTags } from '~/composables/feedbackTag'
 import { applyFeedbackInteractionPatches } from '~/composables/useFeedbackState'
@@ -253,14 +254,10 @@ const queryModeOptions = [
   { label: '我的反馈', value: 'mine' },
   { label: '我的收藏', value: 'favorite' }
 ]
-const statusOptions = [
-  { label: '已提交', value: 'PENDING' },
-  { label: '处理中', value: 'PROCESSING' },
-  { label: '待用户确认', value: 'PENDING_CONFIRM' },
-  { label: '已解决', value: 'RESOLVED' },
-  { label: '已关闭', value: 'CLOSED' },
-  { label: '已驳回', value: 'REJECTED' }
-]
+const statusOptions = Object.entries(FEEDBACK_STATUS_CONFIG).map(([value, cfg]) => ({
+  label: cfg.label,
+  value
+}))
 const tagOptions = computed(() => feedbackTags.value.map(tag => ({
   label: tag.name,
   value: tag.id
