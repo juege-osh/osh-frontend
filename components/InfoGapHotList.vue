@@ -24,30 +24,41 @@
             v-for="(item, index) in items"
             :key="item.id ?? `origin-${index}`"
             class="hot-slide"
-            @click="handleDetail(item.id)"
+            @click="toggleContent(item, index)"
           >
-            <div class="slide-title">
-              <span class="slide-order">{{ index + 1 }}.</span>
-              <span>{{ item.title || '未命名信息差' }}</span>
+            <div class="slide-title-row">
+              <button
+                type="button"
+                class="slide-toggle"
+                :class="{ 'is-expanded': isExpanded(item, index) }"
+                @click.stop="toggleContent(item, index)"
+              >
+                <span class="slide-toggle-icon">&gt;</span>
+              </button>
+
+              <div class="slide-title">
+                <span class="slide-order">{{ index + 1 }}.</span>
+                <span class="slide-title-text">{{ item.title || '未命名信息差' }}</span>
+              </div>
             </div>
 
             <div class="slide-tag-row">
-              <span
-                class="slide-category"
-                @click.stop="handleTagSearch(item.tag)"
-              >
-                [{{ item.tag || '未分类' }}]
-              </span>
-              <div v-if="item.extraTags.length" class="slide-extra-tags">
-                <span
-                  v-for="tag in item.extraTags"
-                  :key="`${item.id}-${tag}`"
-                  class="slide-extra-tag"
+              <span class="slide-category">[{{ item.tag || '未分类' }}]</span>
+              <div v-if="item.searchTags.length" class="slide-search-tags">
+                <button
+                  v-for="tag in item.searchTags"
+                  :key="`${item.id}-${tag.id ?? tag.label}`"
+                  type="button"
+                  class="slide-search-tag-button"
                   @click.stop="handleTagSearch(tag)"
                 >
-                  {{ tag }}
-                </span>
+                  {{ tag.label }}
+                </button>
               </div>
+            </div>
+
+            <div v-if="isExpanded(item, index)" class="slide-content">
+              {{ item.content || '暂无内容' }}
             </div>
 
             <div class="slide-footer">
@@ -69,30 +80,41 @@
             v-for="(item, index) in items"
             :key="`clone-${item.id ?? index}-${index}`"
             class="hot-slide"
-            @click="handleDetail(item.id)"
+            @click="toggleContent(item, index)"
           >
-            <div class="slide-title">
-              <span class="slide-order">{{ index + 1 }}.</span>
-              <span>{{ item.title || '未命名信息差' }}</span>
+            <div class="slide-title-row">
+              <button
+                type="button"
+                class="slide-toggle"
+                :class="{ 'is-expanded': isExpanded(item, index) }"
+                @click.stop="toggleContent(item, index)"
+              >
+                <span class="slide-toggle-icon">&gt;</span>
+              </button>
+
+              <div class="slide-title">
+                <span class="slide-order">{{ index + 1 }}.</span>
+                <span class="slide-title-text">{{ item.title || '未命名信息差' }}</span>
+              </div>
             </div>
 
             <div class="slide-tag-row">
-              <span
-                class="slide-category"
-                @click.stop="handleTagSearch(item.tag)"
-              >
-                [{{ item.tag || '未分类' }}]
-              </span>
-              <div v-if="item.extraTags.length" class="slide-extra-tags">
-                <span
-                  v-for="tag in item.extraTags"
-                  :key="`clone-${item.id}-${tag}`"
-                  class="slide-extra-tag"
+              <span class="slide-category">[{{ item.tag || '未分类' }}]</span>
+              <div v-if="item.searchTags.length" class="slide-search-tags">
+                <button
+                  v-for="tag in item.searchTags"
+                  :key="`clone-${item.id}-${tag.id ?? tag.label}`"
+                  type="button"
+                  class="slide-search-tag-button"
                   @click.stop="handleTagSearch(tag)"
                 >
-                  {{ tag }}
-                </span>
+                  {{ tag.label }}
+                </button>
               </div>
+            </div>
+
+            <div v-if="isExpanded(item, index)" class="slide-content">
+              {{ item.content || '暂无内容' }}
             </div>
 
             <div class="slide-footer">
@@ -114,78 +136,131 @@
 </template>
 
 <script setup>
-const SCROLL_SPEED = 100; // px/s，数值越大滚动越快
+const SCROLL_SPEED = 100;
 const LIST_GAP = 8;
 const VIEWPORT_OFFSET = 128;
 
 const pending = ref(false);
 const items = ref([]);
+const candidateTags = ref([]);
 const viewportRef = ref(null);
 const listRef = ref(null);
 const scrollOffset = ref(0);
 const originalListHeight = ref(0);
 const viewportHeight = ref(0);
 const isPaused = ref(false);
+const expandedMap = ref({});
 
 let rafId = null;
 let lastFrameTime = 0;
 
 const normalizeText = (value) => {
-  const text = String(value ?? '').trim();
-  return text.toLowerCase() === 'null' ? '' : text;
+  const text = String(value ?? "").trim();
+  return text.toLowerCase() === "null" ? "" : text;
 };
 
-const loopDistance = computed(() => (
-  originalListHeight.value > 0 ? originalListHeight.value + LIST_GAP : 0
-));
+const normalizeTagId = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
 
-const shouldLoop = computed(() => (
+const getItemKey = (item, index) => item.id ?? `idx-${index}`;
+
+const isExpanded = (item, index) => !!expandedMap.value[getItemKey(item, index)];
+
+const loopDistance = computed(() =>
+  originalListHeight.value > 0 ? originalListHeight.value + LIST_GAP : 0
+);
+
+const shouldLoop = computed(() =>
   items.value.length > 1 && loopDistance.value > viewportHeight.value
-));
+);
 
 const trackStyle = computed(() => ({
   transform: `translate3d(0, -${scrollOffset.value}px, 0)`,
 }));
 
-const viewportStyle = computed(() => (
+const viewportStyle = computed(() =>
   viewportHeight.value > 0 ? { height: `${viewportHeight.value}px` } : {}
-));
+);
 
 const formatTime = (timeStr) => {
-  if (!timeStr) return '';
+  if (!timeStr) return "";
   const date = new Date(timeStr);
-  return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date
+  return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date
     .getDate()
     .toString()
-    .padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date
+    .padStart(2, "0")} ${date.getHours().toString().padStart(2, "0")}:${date
     .getMinutes()
     .toString()
-    .padStart(2, '0')}`;
+    .padStart(2, "0")}`;
 };
 
-const buildExtraTags = (item = {}) => {
-  return [item.tag1, item.tag2, item.tag3]
-    .map((tag) => normalizeText(tag))
-    .filter(Boolean);
+const findCandidateTagIdByName = (label) => {
+  const normalizedLabel = normalizeText(label).toLowerCase();
+  if (!normalizedLabel) return null;
+
+  const matchedTag = candidateTags.value.find(
+    (tag) => normalizeText(tag.name).toLowerCase() === normalizedLabel
+  );
+
+  return matchedTag?.id ?? null;
 };
 
-const handleDetail = (id) => {
-  if (!id) return;
-  navigateTo(`/detail/info_gap/${id}`);
+const resolveTagMeta = (item = {}, index) => {
+  const label = normalizeText(item[`tag${index}`]);
+  if (!label) return null;
+
+  const candidates = [
+    item[`tag${index}Id`],
+    item[`tag${index}_id`],
+    item[`tagId${index}`],
+  ];
+  const directId = candidates
+    .map((value) => normalizeTagId(value))
+    .find((value) => value != null);
+
+  return {
+    id: directId ?? findCandidateTagIdByName(label),
+    label,
+  };
 };
+
+const buildSearchTags = (item = {}) =>
+  [1, 2, 3]
+    .map((index) => resolveTagMeta(item, index))
+    .filter((tag, index, list) => {
+      if (!tag) return false;
+      return list.findIndex((current) => current?.label === tag.label) === index;
+    });
 
 const handleTagSearch = (tag) => {
-  const keyword = normalizeText(tag);
-  if (!keyword) return;
+  const label = normalizeText(tag?.label);
+  if (!label) return;
+
+  const query = {
+    type: "hot",
+    title: label,
+    search: "1",
+  };
+
+  if (tag?.id != null) {
+    query.tagId = String(tag.id);
+  }
 
   navigateTo({
-    path: '/info_gap/1',
-    query: {
-      type: 'hot',
-      title: keyword,
-      search: '1',
-    },
+    path: "/info_gap/1",
+    query,
   });
+};
+
+const toggleContent = async (item, index) => {
+  const key = getItemKey(item, index);
+  expandedMap.value = {
+    ...expandedMap.value,
+    [key]: !expandedMap.value[key],
+  };
+  await measureScroll();
 };
 
 const stopAutoScroll = () => {
@@ -211,7 +286,6 @@ const tick = (timestamp) => {
 
   if (!isPaused.value) {
     scrollOffset.value += (SCROLL_SPEED * delta) / 1000;
-
     if (scrollOffset.value >= loopDistance.value) {
       scrollOffset.value -= loopDistance.value;
     }
@@ -242,9 +316,10 @@ const measureScroll = async () => {
   const maxVisibleHeight = process.client
     ? Math.max(window.innerHeight - VIEWPORT_OFFSET, 0)
     : originalListHeight.value;
-  viewportHeight.value = maxVisibleHeight > 0
-    ? Math.min(originalListHeight.value, maxVisibleHeight)
-    : originalListHeight.value;
+  viewportHeight.value =
+    maxVisibleHeight > 0
+      ? Math.min(originalListHeight.value, maxVisibleHeight)
+      : originalListHeight.value;
 
   if (!shouldLoop.value) {
     scrollOffset.value = 0;
@@ -265,18 +340,42 @@ const handleResize = () => {
   measureScroll();
 };
 
+const loadCandidateTags = async () => {
+  try {
+    const { data, error } = await useHttpGet("info-gap-hot-tag-list", "/info_gap/tag/list", {
+      watch: false,
+      $: true,
+    });
+
+    if (error.value) {
+      throw error.value;
+    }
+
+    const list = Array.isArray(data.value)
+      ? data.value
+      : data.value?.rows || data.value?.data || [];
+
+    candidateTags.value = list
+      .map((tag) => ({
+        id: normalizeTagId(tag.id),
+        name: normalizeText(tag.name || tag.tagName),
+      }))
+      .filter((tag) => tag.id != null && tag.name);
+  } catch (err) {
+    candidateTags.value = [];
+  }
+};
+
 const loadHotInfoGapList = async () => {
   pending.value = true;
 
   try {
-    const { data, error } = await useHttpGet(
-      'info-gap-hot-widget',
-      '/info_gap/recommend',
-      {
-        watch: false,
-        $: true,
-      }
-    );
+    await loadCandidateTags();
+
+    const { data, error } = await useHttpGet("info-gap-hot-widget", "/info_gap/recommend", {
+      watch: false,
+      $: true,
+    });
 
     if (error.value) {
       throw error.value;
@@ -284,32 +383,38 @@ const loadHotInfoGapList = async () => {
 
     const rows = Array.isArray(data.value)
       ? data.value
-      : (data.value?.rows || data.value?.data || []);
+      : data.value?.rows || data.value?.data || [];
 
+    expandedMap.value = {};
     items.value = rows.map((item) => ({
       ...item,
-      extraTags: buildExtraTags(item),
+      searchTags: buildSearchTags(item),
     }));
   } catch (err) {
     items.value = [];
+    expandedMap.value = {};
   } finally {
     pending.value = false;
   }
 };
 
-watch(items, () => {
-  measureScroll();
-}, { flush: 'post' });
+watch(
+  items,
+  () => {
+    measureScroll();
+  },
+  { flush: "post" }
+);
 
 onMounted(() => {
   measureScroll();
-  window.addEventListener('resize', handleResize);
+  window.addEventListener("resize", handleResize);
 });
 
 onBeforeUnmount(() => {
   stopAutoScroll();
   if (process.client) {
-    window.removeEventListener('resize', handleResize);
+    window.removeEventListener("resize", handleResize);
   }
 });
 
@@ -382,7 +487,15 @@ await loadHotInfoGapList();
   transform: translateY(-1px);
 }
 
+.slide-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
 .slide-title {
+  flex: 1;
+  min-width: 0;
   font-size: 18px;
   font-weight: 700;
   color: #111827;
@@ -390,9 +503,42 @@ await loadHotInfoGapList();
   word-break: break-word;
 }
 
+.slide-title-text {
+  word-break: break-word;
+}
+
 .slide-order {
   margin-right: 6px;
   color: #64748b;
+}
+
+.slide-toggle {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slide-toggle:hover {
+  color: #0f172a;
+}
+
+.slide-toggle-icon {
+  display: inline-block;
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.slide-toggle.is-expanded .slide-toggle-icon {
+  transform: rotate(90deg);
 }
 
 .slide-tag-row {
@@ -407,21 +553,15 @@ await loadHotInfoGapList();
   color: #0b7285;
   font-weight: 700;
   white-space: nowrap;
-  cursor: pointer;
-  transition: color 0.2s ease;
 }
 
-.slide-category:hover {
-  color: #095c6b;
-}
-
-.slide-extra-tags {
+.slide-search-tags {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.slide-extra-tag {
+.slide-search-tag-button {
   border: 1px solid #cbd5e1;
   background: #f8fafc;
   color: #0f172a;
@@ -430,13 +570,23 @@ await loadHotInfoGapList();
   font-size: 12px;
   line-height: 20px;
   cursor: pointer;
+  font: inherit;
+  white-space: nowrap;
   transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 }
 
-.slide-extra-tag:hover {
+.slide-search-tag-button:hover {
   border-color: #94a3b8;
   background: #e2e8f0;
   color: #0f172a;
+}
+
+.slide-content {
+  font-size: 14px;
+  color: #475467;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .slide-footer {

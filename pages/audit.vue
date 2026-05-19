@@ -60,6 +60,7 @@ const resourceOptions = [
   { label: '工具', value: 'tool' },
   { label: '实用网站', value: 'website' },
   { label: '开源项目', value: 'open_project' },
+  { label: '信息差', value: 'info_gap' },
 ];
 
 const query = reactive({
