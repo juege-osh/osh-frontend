@@ -22,8 +22,12 @@
             <span class="info-value origin-price-text">¥{{ originPrice }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">秒杀价</span>
-            <span class="info-value price-text">¥{{ price }}</span>
+            <span class="info-label">单件秒杀价</span>
+            <span class="info-value">¥{{ price }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">应付金额</span>
+            <span class="info-value price-text">¥{{ payAmount }}</span>
           </div>
           <div class="info-row" v-if="seckillNo">
             <span class="info-label">秒杀单号</span>
@@ -51,7 +55,7 @@
           <template v-if="!payData">
             <button class="btn-primary" :disabled="payLoading" @click="handlePay">
               <span v-if="payLoading">⏳ 正在获取支付码...</span>
-              <span v-else>立即支付 ¥{{ price }}</span>
+              <span v-else>立即支付 ¥{{ payAmount }}</span>
             </button>
           </template>
           <!-- 已获取二维码 -->
@@ -94,7 +98,10 @@
 import { createDiscreteApi } from 'naive-ui'
 
 const route = useRoute()
-const { status, title, cover, price, originPrice, seckillNo, payExpireTime } = route.query
+const { status, title, cover, price, totalAmount, originPrice, seckillNo, payExpireTime } = route.query
+
+// 应付金额：优先用 totalAmount（单价×数量），没有则降级用 price（单件价）
+const payAmount = computed(() => totalAmount || price)
 
 const { message, dialog } = createDiscreteApi(['message', 'dialog'])
 

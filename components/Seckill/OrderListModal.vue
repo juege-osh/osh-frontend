@@ -160,11 +160,15 @@ const columns = [
   },
   {
     title: '价格',
-    key: 'seckillPrice',
+    key: 'totalAmount',
     width: 110,
     render: row => h('div', [
-      h('div', { style: 'font-size:14px;font-weight:700;color:#e1251b' }, `¥${row.seckillPrice}`),
-      h('div', { style: 'font-size:11px;color:#bbb;text-decoration:line-through' }, `¥${row.originPrice}`),
+      h('div', { style: 'font-size:14px;font-weight:700;color:#e1251b' },
+        `¥${row.totalAmount ?? row.seckillPrice}`),
+      h('div', { style: 'font-size:11px;color:#9ca3af;margin-top:2px' },
+        `单价 ¥${row.seckillPrice}`),
+      h('div', { style: 'font-size:11px;color:#bbb;text-decoration:line-through' },
+        `¥${row.originPrice}`),
     ]),
   },
   {
