@@ -307,12 +307,6 @@ const columns = computed(() => {
       render: row => h('span', { style: 'font-size:14px;font-weight:700;color:#e1251b' }, `¥${row.minSeckillPrice}`),
     },
     {
-      title: '库存/已售',
-      key: 'totalStock',
-      width: 90,
-      render: row => h('span', { style: 'font-size:12px;color:#374151' }, `${row.totalStock ?? '—'} / ${row.soldCount ?? 0}`),
-    },
-    {
       title: '状态',
       key: 'status',
       width: 70,
@@ -320,15 +314,6 @@ const columns = computed(() => {
         const s = statusMap[row.status] ?? { label: '未知', type: 'default' }
         return h(NTag, { type: s.type, size: 'small', round: true }, { default: () => s.label })
       },
-    },
-    {
-      title: '秒杀时间',
-      key: 'startTime',
-      width: 200,
-      render: row => h('div', [
-        h('div', { style: 'font-size:11px;color:#374151' }, row.startTime || '—'),
-        h('div', { style: 'font-size:11px;color:#9ca3af' }, row.endTime || ''),
-      ]),
     },
   ]
 

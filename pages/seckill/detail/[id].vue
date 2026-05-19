@@ -317,6 +317,7 @@ function startPolling(seckillNo) {
         `&title=${encodeURIComponent(result.data.goodsTitle || goods.value?.title || '')}` +
         `&cover=${encodeURIComponent(result.data.goodsCover || '')}` +
         `&price=${result.data.seckillPrice ?? goods.value?.seckillPrice}` +
+        `&totalAmount=${result.data.totalAmount ?? result.data.seckillPrice ?? goods.value?.seckillPrice}` +
         `&originPrice=${result.data.originPrice ?? goods.value?.originPrice}` +
         `&payExpireTime=${encodeURIComponent(result.data.payExpireTime || '')}`
       )
