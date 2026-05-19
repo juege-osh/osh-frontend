@@ -8,10 +8,14 @@
     <div class="card-header">
       <span class="category-icon">{{ resolveFeedbackCategoryIcon(item) }}</span>
       <span class="category-name">{{ item.categoryName }}</span>
-      <span class="status-badge" :class="`status-${item.status}`">
-        {{ resolveFeedbackStatusText(item.status) }}
-      </span>
     </div>
+    <FeedbackStatusPopover :item="item" @updated="$emit('updated')">
+      <template #trigger>
+        <span class="status-badge" :class="`status-${item.status}`" @click.stop>
+          {{ statusChipText }}
+        </span>
+      </template>
+    </FeedbackStatusPopover>
     <h3 class="card-title">{{ item.title }}</h3>
     <div v-if="item.tags?.length" class="tag-row">
       <span v-for="tag in item.tags" :key="tag.id" class="feedback-tag">{{ tag.name }}</span>
@@ -28,8 +32,8 @@
         <span class="stat-chip" title="点赞数">
           <span class="stat-icon">👍</span>{{ item.likeCount || 0 }}
         </span>
-        <span class="stat-chip" title="评论数">
-          <span class="stat-icon">💬</span>{{ item.commentCount || 0 }}
+        <span class="stat-chip" :title="statusSignalTitle">
+          <span class="stat-icon">🧭</span>{{ statusSignalText }}
         </span>
         <span class="stat-chip" title="浏览数">
           <span class="stat-icon">👁</span>{{ item.viewCount || 0 }}
@@ -46,6 +50,7 @@
  * - 点击整张卡片向父级 emit('click', id) 由父级负责跳转,保持组件无路由耦合
  */
 import { computed } from 'vue'
+import FeedbackStatusPopover from '~/components/Feedback/FeedbackStatusPopover.vue'
 import {
   resolveFeedbackCategoryIcon,
   resolveFeedbackStatusText
@@ -64,13 +69,41 @@ const props = defineProps({
   }
 })
 
-defineEmits(['click'])
+defineEmits(['click', 'updated'])
+
+const user = useUser()
+
+/** 当前登录用户是否是该工单的提交人 */
+const isSubmitter = computed(() => {
+  const currentUserId = user.value?.id || user.value?.userId || user.value?.uid
+  return !!currentUserId && String(currentUserId) === String(props.item?.userId)
+})
 
 const resolvedUserName = computed(() =>
   props.item?.userName || `用户${props.item?.userId || ''}`
 )
 
 const resolvedTime = computed(() => formatTime(props.item?.createTime))
+const statusSignalText = computed(() => {
+  const status = props.item?.status
+  if (status === 'PENDING_CONFIRM') {
+    // 提交人看到"待你确认"，其他人看到"待用户确认"，避免误导
+    return isSubmitter.value ? '待你确认' : '待用户确认'
+  }
+  if (status === 'TRIAGED') {
+    return '已受理'
+  }
+  if (status === 'PROCESSING') {
+    return buildProcessingDayText(props.item?.createTime, '处理中')
+  }
+  if (status === 'REOPENED') {
+    return buildProcessingDayText(props.item?.createTime, '重新处理中')
+  }
+  return resolveFeedbackStatusText(status)
+})
+const statusSignalTitle = computed(() => `当前处理阶段：${statusSignalText.value}`)
+// badge 与底部信号 chip 展示同一语义，直接复用，避免二次拼接产生重复文本
+const statusChipText = computed(() => statusSignalText.value)
 
 /** 相对时间格式化:今天 / 昨天 / N 天前 / 具体日期 */
 function formatTime(time) {
@@ -86,6 +119,16 @@ function formatTime(time) {
 
   return date.toLocaleDateString('zh-CN')
 }
+
+function buildProcessingDayText(time, prefix = '处理中') {
+  if (!time) {
+    return prefix
+  }
+  const startTime = new Date(time)
+  const now = new Date()
+  const days = Math.max(1, Math.floor((now - startTime) / (1000 * 60 * 60 * 24)) + 1)
+  return `${prefix} Day${days}`
+}
 </script>
 
 <style scoped>
@@ -100,6 +143,7 @@ function formatTime(time) {
   transition: box-shadow 0.2s ease, transform 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   overflow: hidden;
+  position: relative;
 }
 
 .feedback-card:hover {
@@ -148,32 +192,54 @@ function formatTime(time) {
 }
 
 .status-badge {
-  margin-left: auto;
+  position: absolute;
+  top: 12px;
+  right: 12px;
   padding: 2px 10px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  flex-shrink: 0;
+  cursor: pointer;
 }
 
 .status-PENDING {
-  background: #fff7e6;
-  color: #d97706;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status-TRIAGED {
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .status-PROCESSING {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status-PENDING_CONFIRM {
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .status-RESOLVED {
-  background: #dcfce7;
-  color: #15803d;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status-REOPENED {
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .status-CLOSED {
-  background: #f3f4f6;
-  color: #4b5563;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.status-REJECTED {
+  background: #f1f5f9;
+  color: #64748b;
 }
 
 .card-title {
@@ -186,6 +252,7 @@ function formatTime(time) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding-right: 80px;
 }
 
 .tag-row {

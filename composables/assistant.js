@@ -12,16 +12,22 @@ const feedbackCategoryIconMap = {
 }
 
 const feedbackStatusTextMap = {
-  PENDING: '待处理',
+  PENDING: '已提交',
+  TRIAGED: '处理中',   // 历史数据兼容，已受理合并显示为处理中
   PROCESSING: '处理中',
+  PENDING_CONFIRM: '待用户确认',
   RESOLVED: '已解决',
   CLOSED: '已关闭',
-  submitted: '待处理',
+  REOPENED: '重新处理中',
+  REJECTED: '已驳回',
+  submitted: '已提交',
   triaged: '处理中',
   in_progress: '处理中',
+  pending_confirm: '待用户确认',
   resolved: '已解决',
   closed: '已关闭',
-  rejected: '已关闭',
+  reopened: '重新处理中',
+  rejected: '已驳回',
 }
 
 const assistantHeaders = () => {
@@ -112,6 +118,10 @@ export function apiGetMyAssistantFeedback() {
   })
 }
 
+export function apiGetPendingConfirmCount() {
+  return assistantFetch('/assistant/feedback/pending-confirm/count')
+}
+
 // ==================== 反馈系统 - 公开接口 ====================
 
 /**
@@ -154,6 +164,10 @@ export function apiPageFeedback(params) {
  */
 export function apiGetFeedbackDetail(id) {
   return assistantFetch(`/public/feedback/detail/${id}`)
+}
+
+export function apiGetFeedbackStatusSummary(id) {
+  return assistantFetch(`/public/feedback/status-summary/${id}`)
 }
 
 /**
@@ -249,6 +263,36 @@ export function apiUnpinFeedback(feedbackId) {
  */
 export function apiUpdateFeedbackStatus(feedbackId, payload) {
   return assistantFetch(`/admin/feedback/${feedbackId}/status`, {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+/**
+ * 追加处理备注（不改变状态）
+ */
+export function apiAppendFeedbackRemark(feedbackId, remark) {
+  return assistantFetch(`/admin/feedback/${feedbackId}/remark`, {
+    method: 'POST',
+    body: { remark },
+  })
+}
+
+/**
+ * 修改处理记录备注
+ */
+export function apiUpdateProcessRecordRemark(recordId, remark) {
+  return assistantFetch(`/admin/feedback/process-record/${recordId}/remark`, {
+    method: 'PUT',
+    body: { remark },
+  })
+}
+
+/**
+ * 提交人确认工单结果
+ */
+export function apiConfirmFeedbackStatus(feedbackId, payload) {
+  return assistantFetch(`/assistant/feedback/${feedbackId}/confirm`, {
     method: 'POST',
     body: payload,
   })

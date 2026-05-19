@@ -33,6 +33,11 @@
           :name="option.value"
         >
           {{ option.label }}
+          <span
+            v-if="option.value === 'mine' && pendingConfirmCount > 0"
+            class="tab-pending-dot"
+            :title="`${pendingConfirmCount} 条反馈待你确认`"
+          >{{ pendingConfirmCount }}</span>
         </n-tab>
       </n-tabs>
       <n-button type="primary" class="view-mode-action" @click="goToCreate">提交反馈</n-button>
@@ -118,6 +123,7 @@
           :item="item"
           pinned
           @click="goToDetail"
+          @updated="handleFeedbackUpdated"
         />
       </div>
     </div>
@@ -144,6 +150,7 @@
           :key="item.id"
           :item="item"
           @click="goToDetail"
+          @updated="handleFeedbackUpdated"
         />
       </div>
 
@@ -166,6 +173,7 @@ import {
   apiGetFeedbackCategories, 
   apiGetFeedbackTags,
   apiPageFeedback,
+  apiGetPendingConfirmCount,
   resolveFeedbackCategoryIcon,
   resolveFeedbackErrorMessage
 } from '~/composables/assistant'
@@ -194,6 +202,8 @@ const pageSize = ref(9)
 const total = ref(0)
 const loading = ref(false)
 const loadingMore = ref(false)
+/** 当前用户待确认工单数，用于"我的反馈"tab 角标提示 */
+const pendingConfirmCount = ref(0)
 // ─────────────────────────────────────────────────────────────────────────────
 // 无限滚动加载机制（改动前务必读完）
 // ─────────────────────────────────────────────────────────────────────────────
@@ -236,8 +246,7 @@ const hasUserScrolled = ref(false)
 // 排序选项
 const sortOptions = [
   { label: '🔥 最热', value: 'hot' },
-  { label: '🆕 最新', value: 'latest' },
-  { label: '💬 最多评论', value: 'comment' }
+  { label: '🆕 最新', value: 'latest' }
 ]
 const queryModeOptions = [
   { label: '全部反馈', value: 'all' },
@@ -245,10 +254,12 @@ const queryModeOptions = [
   { label: '我的收藏', value: 'favorite' }
 ]
 const statusOptions = [
-  { label: '待处理', value: 'PENDING' },
+  { label: '已提交', value: 'PENDING' },
   { label: '处理中', value: 'PROCESSING' },
+  { label: '待用户确认', value: 'PENDING_CONFIRM' },
   { label: '已解决', value: 'RESOLVED' },
-  { label: '已关闭', value: 'CLOSED' }
+  { label: '已关闭', value: 'CLOSED' },
+  { label: '已驳回', value: 'REJECTED' }
 ]
 const tagOptions = computed(() => feedbackTags.value.map(tag => ({
   label: tag.name,
@@ -277,6 +288,7 @@ onMounted(() => {
   loadTags()
   loadAnnouncements()
   loadFeedback()
+  loadPendingConfirmCount()
 })
 
 onActivated(() => {
@@ -324,6 +336,16 @@ async function loadCategories() {
   } catch (error) {
     message.error(resolveFeedbackErrorMessage(error, '加载分类失败'))
     console.error('加载分类失败:', error)
+  }
+}
+
+async function loadPendingConfirmCount() {
+  try {
+    const res = await apiGetPendingConfirmCount()
+    pendingConfirmCount.value = res?.data ?? 0
+  } catch {
+    // 静默失败，角标不显示即可，不影响主流程
+    pendingConfirmCount.value = 0
   }
 }
 
@@ -475,6 +497,10 @@ function goToCreate() {
   router.push('/feedback/create')
 }
 
+function handleFeedbackUpdated() {
+  loadFeedback()
+}
+
 /**
  * 监听 window 滚动,翻转 hasUserScrolled 一次。
  *
@@ -585,6 +611,24 @@ function destroyLoadMoreObserver() {
 .view-mode-action {
   flex-shrink: 0;
   margin-bottom: 8px;
+}
+
+/* "我的反馈" tab 待确认角标 */
+.tab-pending-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 .feedback-skeleton-list {
