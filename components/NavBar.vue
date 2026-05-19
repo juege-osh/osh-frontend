@@ -63,10 +63,12 @@ import {
   NAvatar,
   createDiscreteApi,
 } from 'naive-ui';
-import { h, watch, onMounted, onBeforeUnmount } from 'vue';
+import { computed, h, watch, onBeforeUnmount } from 'vue';
 
 const user = useUser();
 const route = useRoute();
+const permissions = usePermissions();
+const { hasAnyPermission } = usePermission();
 
 // ── WebSocket：用户登录后自动连接，退出后断开 ──────────────────────────────
 const { connect, disconnect } = useWebSocket();
@@ -164,7 +166,10 @@ const PlanIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', f
   h('path', { d: 'M6 7h6M6 10h4M9 3v2', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' }),
 ]);
 
-const menus = ref([
+const AUDIT_MENU_PERMISSION = 'audit';
+const TOOL_MENU_PERMISSION = 'tool';
+
+const baseMenus = [
   { name: '首页', path: '/', iconComponent: HomeIcon },
   { name: '课程', path: '/course/1', match: [{ name: 'course-page' }], iconComponent: CourseIcon },
   { name: '电子书', path: '/list/book/1', match: [{ name: 'list-type-page', params: { type: 'book' } }], iconComponent: BookIcon },
@@ -174,22 +179,29 @@ const menus = ref([
   { name: '拼团', path: '/list/group/1', match: [{ name: 'list-type-page', params: { type: 'group' } }], iconComponent: GroupIcon },
   { name: '开源项目', path: '/openproject/list', match: [{ name: 'openproject-list' }], iconComponent: ProjectIcon },
   { name: '实用网站', path: '/usefull/list', match: [{ name: 'usefull-list' }], iconComponent: LinkIcon },
-  { name: '工具', path: '/tool/1', match: [{ name: 'tool-page' }], iconComponent: ToolIcon },
+  { name: '工具', path: '/tool', match: [{ name: 'tool' }, { name: 'tool-page' }], iconComponent: ToolIcon },
   { name: '信息差', path: '/info_gap/1', match: [{ name: 'info_gap-page' }], iconComponent: InfoIcon },
   { name: '反馈', path: '/feedback/list', match: [{ name: 'feedback-list' }], iconComponent: FeedbackIcon },
   { name: '内部网站', path: '/site', iconComponent: SiteIcon },
   { name: '审核', path: '/audit', match: [{ name: 'audit' }], iconComponent: AuditIcon }
-]);
+];
 
-onMounted(() => {
-  const permissions = usePermissions()
-  if (permissions.value.innerSite == undefined) {
-    const index = menus.value.findIndex(item => item.path === '/site');
-    if (index !== -1) {
-      menus.value.splice(index, 1);
-    }
+const canAccessInnerSite = computed(() => permissions.value?.innerSite !== undefined);
+const canAccessTool = computed(() => hasAnyPermission(TOOL_MENU_PERMISSION));
+const canAccessAudit = computed(() => hasAnyPermission(AUDIT_MENU_PERMISSION));
+
+const menus = computed(() => baseMenus.filter((item) => {
+  if (item.path === '/site') {
+    return canAccessInnerSite.value;
   }
-});
+  if (item.path === '/tool') {
+    return canAccessTool.value;
+  }
+  if (item.path === '/audit') {
+    return canAccessAudit.value;
+  }
+  return true;
+}));
 
 function handleOpen(path) {
   navigateTo(path);
