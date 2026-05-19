@@ -292,28 +292,19 @@ const columns = computed(() => {
       ellipsis: { tooltip: true },
       render: row => h('div', [
         h('div', { style: 'font-size:13px;font-weight:500;color:#111' }, row.goodsName),
-        row.courseName
-          ? h('div', { style: 'font-size:11px;color:#9ca3af;margin-top:2px' }, `课程：${row.courseName}`)
-          : null,
       ]),
     },
     {
       title: '原价',
-      key: 'originalPrice',
+      key: 'originPrice',
       width: 90,
-      render: row => h('span', { style: 'font-size:13px;color:#6b7280;text-decoration:line-through' }, `¥${row.originalPrice}`),
+      render: row => h('span', { style: 'font-size:13px;color:#6b7280;text-decoration:line-through' }, `¥${row.originPrice}`),
     },
     {
       title: '秒杀价',
-      key: 'seckillPrice',
+      key: 'minSeckillPrice',
       width: 90,
-      render: row => h('span', { style: 'font-size:14px;font-weight:700;color:#e1251b' }, `¥${row.seckillPrice}`),
-    },
-    {
-      title: '库存/已售',
-      key: 'stock',
-      width: 90,
-      render: row => h('span', { style: 'font-size:12px;color:#374151' }, `${row.stock} / ${row.soldCount ?? 0}`),
+      render: row => h('span', { style: 'font-size:14px;font-weight:700;color:#e1251b' }, `¥${row.minSeckillPrice}`),
     },
     {
       title: '状态',
@@ -323,15 +314,6 @@ const columns = computed(() => {
         const s = statusMap[row.status] ?? { label: '未知', type: 'default' }
         return h(NTag, { type: s.type, size: 'small', round: true }, { default: () => s.label })
       },
-    },
-    {
-      title: '秒杀时间',
-      key: 'startTime',
-      width: 200,
-      render: row => h('div', [
-        h('div', { style: 'font-size:11px;color:#374151' }, row.startTime || '—'),
-        h('div', { style: 'font-size:11px;color:#9ca3af' }, row.endTime || ''),
-      ]),
     },
   ]
 

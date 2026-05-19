@@ -22,8 +22,12 @@
             <span class="info-value origin-price-text">¥{{ originPrice }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">秒杀价</span>
-            <span class="info-value price-text">¥{{ price }}</span>
+            <span class="info-label">单件秒杀价</span>
+            <span class="info-value">¥{{ price }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">应付金额</span>
+            <span class="info-value price-text">¥{{ payAmount }}</span>
           </div>
           <div class="info-row" v-if="seckillNo">
             <span class="info-label">秒杀单号</span>
@@ -51,7 +55,7 @@
           <template v-if="!payData">
             <button class="btn-primary" :disabled="payLoading" @click="handlePay">
               <span v-if="payLoading">⏳ 正在获取支付码...</span>
-              <span v-else>立即支付 ¥{{ price }}</span>
+              <span v-else>立即支付 ¥{{ payAmount }}</span>
             </button>
           </template>
           <!-- 已获取二维码 -->
@@ -94,7 +98,10 @@
 import { createDiscreteApi } from 'naive-ui'
 
 const route = useRoute()
-const { status, title, cover, price, originPrice, seckillNo, payExpireTime } = route.query
+const { status, title, cover, price, totalAmount, originPrice, seckillNo, payExpireTime } = route.query
+
+// 应付金额：优先用 totalAmount（单价×数量），没有则降级用 price（单件价）
+const payAmount = computed(() => totalAmount || price)
 
 const { message, dialog } = createDiscreteApi(['message', 'dialog'])
 
@@ -116,6 +123,26 @@ function handlePayExpire() {
   payExpired.value = true
   stopPayPolling()
 }
+
+// ── 页面加载时查一次真实订单状态，避免依赖 URL 参数里的过期时间 ──
+onMounted(async () => {
+  if (!seckillNo) return
+  try {
+    const res = await seckillFetch(`/seckill/user/order/status/${seckillNo}`)
+    if (res?.code !== 200 || !res?.data) return
+    const s = res.data.status
+    if (s === 1) {
+      // 已支付，直接跳转
+      handlePaySuccess()
+    } else if (s === 2 || s === 3) {
+      // 已取消或已超时，标记为超时
+      payExpired.value = true
+    }
+    // s === 0 待支付，正常展示页面
+  } catch {
+    // 查询失败，不影响页面展示
+  }
+})
 
 // ── 发起支付（接口：POST /seckill/user/order/pay/{seckillNo}） ─
 const payLoading = ref(false)
