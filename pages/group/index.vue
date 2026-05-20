@@ -560,8 +560,9 @@ async function handleCreate() {
             }
         } else {
             // 优先使用后端返回的错误信息
-            const errorMsg = result.data.value?.msg || 
-                           result.error.value?.data?.msg || 
+            const errorData = result.data.value || result.error.value?.data
+            const errorMsg = errorData?.msg || 
+                           errorData?.message ||
                            result.error.value?.message || 
                            '发起失败，请重试'
             message.error(errorMsg)
