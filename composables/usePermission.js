@@ -46,9 +46,9 @@ function collectPermissions(value, bucket) {
   if (typeof value === 'object') {
     Object.entries(value).forEach(([key, child]) => {
       // 兼容后端返回的对象型权限：
-      // 1. `course: ['course:create']` 这类分组对象，只递归子节点
-      // 2. `system:feedback:manage: []` 这类以权限码作为 key 的对象，需要把 key 本身也纳入权限集合
-      if (key.includes(':')) {
+      // 1. `tool: ['tool:create']` 这类模块分组对象，key 本身就是页面级权限码
+      // 2. `system:feedback:manage: []` 这类叶子权限对象，key 本身也要纳入权限集合
+      if (key) {
         bucket.add(key);
       }
       collectPermissions(child, bucket);

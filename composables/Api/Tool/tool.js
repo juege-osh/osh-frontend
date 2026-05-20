@@ -63,6 +63,14 @@ export async function apiToolRecommend(body) {
   });
 }
 
+export async function apiToolAnnouncements() {
+  return $fetch('/announcement/tool/latest', {
+    method: 'GET',
+    baseURL,
+    headers: getToolAuthHeaders(),
+  });
+}
+
 export async function apiSaveTool(body) {
   return $fetch('/tool/save', {
     method: 'POST',

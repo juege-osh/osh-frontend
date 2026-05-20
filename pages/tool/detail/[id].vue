@@ -319,7 +319,7 @@ function goBack() {
   if (window.history.length > 1) {
     router.back();
   } else {
-    navigateTo('/tool/1');
+    navigateTo('/tool');
   }
 }
 

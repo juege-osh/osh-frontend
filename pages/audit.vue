@@ -42,7 +42,7 @@
 
 <script setup>
 import { NButton, NDataTable, NSelect, NTag, NImage, NEllipsis, NInput, createDiscreteApi } from 'naive-ui';
-import { h, onMounted, reactive, ref } from 'vue';
+import { computed, h, onMounted, reactive, ref, watch } from 'vue';
 
 definePageMeta({
   name: 'audit',
@@ -51,6 +51,12 @@ definePageMeta({
 useHead({ title: '审核 - 开源助手' });
 
 const { message, dialog } = createDiscreteApi(['message', 'dialog']);
+const route = useRoute();
+const { hasAnyPermission } = usePermission();
+
+const AUDIT_PAGE_PERMISSION = 'audit';
+
+const canAccessAuditPage = computed(() => hasAnyPermission(AUDIT_PAGE_PERMISSION));
 
 const resourceOptions = [
   { label: '课程', value: 'course' },
@@ -60,6 +66,7 @@ const resourceOptions = [
   { label: '工具', value: 'tool' },
   { label: '实用网站', value: 'website' },
   { label: '开源项目', value: 'open_project' },
+  { label: '信息差', value: 'info_gap' },
 ];
 
 const query = reactive({
@@ -141,7 +148,16 @@ const columns = computed(() => currentTableConfig.value.columns);
 const tableScrollX = computed(() => currentTableConfig.value.scrollX || 1060);
 
 onMounted(() => {
+  if (!guardAuditAccess()) {
+    return;
+  }
   fetchList();
+});
+
+watch(canAccessAuditPage, (allowed) => {
+  if (!allowed) {
+    guardAuditAccess();
+  }
 });
 
 async function fetchList() {
@@ -164,6 +180,15 @@ async function fetchList() {
   } finally {
     loading.value = false;
   }
+}
+
+function guardAuditAccess() {
+  if (canAccessAuditPage.value) {
+    return true;
+  }
+  message.error('没有审核模块访问权限');
+  navigateTo('/');
+  return false;
 }
 
 function handleResourceChange() {
