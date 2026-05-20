@@ -72,7 +72,7 @@
     <CourseEditModal v-model:show="showCreateModal" :tag-options="tagOptions" @success="handleRefresh" />
   </div>
 </template><script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onActivated } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import CourseEditModal from '~/components/Course/CourseEditModal.vue';
 import CourseFilter from '~/components/Course/CourseFilter.vue';
@@ -162,6 +162,12 @@ async function refreshCoverUrls() {
 }
 
 onMounted(() => {
+  loadCourses();
+});
+
+// 从详情页返回列表页时，页面实例可能被复用，onMounted 不会再次触发。
+// 补充 onActivated 强制拉新，避免列表卡片仍显示旧状态/旧标题。
+onActivated(() => {
   loadCourses();
 });
 
