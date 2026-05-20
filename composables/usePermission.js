@@ -45,7 +45,12 @@ function collectPermissions(value, bucket) {
 
   if (typeof value === 'object') {
     Object.entries(value).forEach(([key, child]) => {
-      // 只递归处理子节点，不把分组 key（如 "course"、"book"）当权限码加入
+      // 兼容后端返回的对象型权限：
+      // 1. `tool: ['tool:create']` 这类模块分组对象，key 本身就是页面级权限码
+      // 2. `system:feedback:manage: []` 这类叶子权限对象，key 本身也要纳入权限集合
+      if (key) {
+        bucket.add(key);
+      }
       collectPermissions(child, bucket);
     });
   }

@@ -46,12 +46,28 @@ export async function apiToolDetail(id) {
   });
 }
 
+export async function apiRecordToolView(id) {
+  return $fetch(`/tool/view/${id}`, {
+    method: 'POST',
+    baseURL,
+    headers: getToolAuthHeaders(),
+  });
+}
+
 export async function apiToolRecommend(body) {
   return $fetch('/tool/recommend', {
     method: 'POST',
     baseURL,
     headers: getToolAuthHeaders(),
     body,
+  });
+}
+
+export async function apiToolAnnouncements() {
+  return $fetch('/announcement/tool/latest', {
+    method: 'GET',
+    baseURL,
+    headers: getToolAuthHeaders(),
   });
 }
 
@@ -124,5 +140,41 @@ export async function apiVoteBadTool(toolId) {
     baseURL,
     headers: getToolAuthHeaders(),
     body: { toolId },
+  });
+}
+
+export async function apiToolPurchaseDetail(toolId) {
+  return $fetch('/tool/purchase/detail', {
+    method: 'GET',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    params: { toolId },
+  });
+}
+
+export async function apiCreateToolPurchaseOrder(body) {
+  return $fetch('/tool/purchase/create', {
+    method: 'POST',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    body,
+  });
+}
+
+export async function apiCancelToolPurchaseOrder(paymentNo) {
+  return $fetch('/tool/purchase/cancel', {
+    method: 'POST',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    body: { paymentNo },
+  });
+}
+
+export async function apiPayStatus(outTradeNo) {
+  return $fetch('/pay/status', {
+    method: 'GET',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    params: { outTradeNo },
   });
 }

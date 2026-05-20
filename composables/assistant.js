@@ -11,17 +11,66 @@ const feedbackCategoryIconMap = {
   note: '📝',
 }
 
-const feedbackStatusTextMap = {
-  PENDING: '待处理',
-  PROCESSING: '处理中',
-  RESOLVED: '已解决',
-  CLOSED: '已关闭',
-  submitted: '待处理',
-  triaged: '处理中',
-  in_progress: '处理中',
-  resolved: '已解决',
-  closed: '已关闭',
-  rejected: '已关闭',
+/**
+ * 工单状态元数据配置（唯一数据源）
+ *
+ * stepIndex  : 进度条节点位置（0-based），-1 表示不在主流程节点上
+ * slaHours   : 该阶段 SLA 预计时长（小时）
+ * tone       : 事件时间轴圆点色调，对应 CSS class tone-{tone}
+ * label      : 对外展示文案
+ */
+export const FEEDBACK_STATUS_CONFIG = {
+  PENDING:         { label: '已提交',     stepIndex: 0, slaHours: 24,       tone: 'status'   },
+  TRIAGED:         { label: '已受理',     stepIndex: 1, slaHours: 24,       tone: 'status'   },
+  PROCESSING:      { label: '处理中',     stepIndex: 2, slaHours: 72,       tone: 'status'   },
+  PENDING_CONFIRM: { label: '待用户确认', stepIndex: 3, slaHours: 7 * 24,   tone: 'pending'  },
+  RESOLVED:        { label: '已解决',     stepIndex: 4, slaHours: 24,       tone: 'resolved' },
+  REOPENED:        { label: '问题仍在',   stepIndex: 2, slaHours: 72,       tone: 'reopen'   },
+  CLOSED:          { label: '已关闭',     stepIndex: -1, slaHours: 24,      tone: 'closed'   },
+  REJECTED:        { label: '已驳回',     stepIndex: -1, slaHours: 24,      tone: 'closed'   },
+}
+
+/** legacy 小写 code → 标准大写 code 映射（兼容历史数据） */
+const LEGACY_STATUS_ALIAS = {
+  submitted:       'PENDING',
+  triaged:         'TRIAGED',
+  triage:          'TRIAGED',
+  in_progress:     'PROCESSING',
+  processing:      'PROCESSING',
+  pending:         'PENDING',
+  pending_confirm: 'PENDING_CONFIRM',
+  resolved:        'RESOLVED',
+  done:            'RESOLVED',
+  closed:          'CLOSED',
+  reopened:        'REOPENED',
+  rejected:        'REJECTED',
+}
+
+/** 将任意 status code（含 legacy）规范化为大写标准 code */
+export function normalizeStatus(status) {
+  if (!status) return ''
+  return LEGACY_STATUS_ALIAS[status] || status
+}
+
+/** 获取状态展示文案 */
+export function resolveFeedbackStatusText(status) {
+  const cfg = FEEDBACK_STATUS_CONFIG[normalizeStatus(status)]
+  return cfg?.label || status || ''
+}
+
+/** 获取状态对应的 SLA 小时数 */
+export function resolveFeedbackStatusSlaHours(status) {
+  return FEEDBACK_STATUS_CONFIG[normalizeStatus(status)]?.slaHours ?? 24
+}
+
+/** 获取状态对应的事件色调 */
+export function resolveFeedbackStatusTone(status) {
+  return FEEDBACK_STATUS_CONFIG[normalizeStatus(status)]?.tone ?? 'status'
+}
+
+/** 获取状态在进度条中的节点位置（-1 表示终态，不在主流程节点） */
+export function resolveFeedbackStatusStepIndex(status) {
+  return FEEDBACK_STATUS_CONFIG[normalizeStatus(status)]?.stepIndex ?? 0
 }
 
 const assistantHeaders = () => {
@@ -57,14 +106,13 @@ const assistantFetch = (url, options = {}) => {
   })
 }
 
+
 export function resolveFeedbackCategoryIcon(category) {
   const iconKey = category?.icon || category?.categoryIcon || category?.code || category?.categoryCode
   return feedbackCategoryIconMap[iconKey] || category?.icon || category?.categoryIcon || '📝'
 }
 
-export function resolveFeedbackStatusText(status) {
-  return feedbackStatusTextMap[status] || status || ''
-}
+
 
 export function resolveFeedbackErrorMessage(error, fallbackMessage = '操作失败') {
   return error?.data?.msg || error?.data?.data || error?.msg || error?.message || fallbackMessage
@@ -98,20 +146,22 @@ export function apiAskCourseQuestion(courseId, question) {
 }
 
 export function apiCreateAssistantFeedback(payload) {
-  return assistantFetch('/assistant/feedback/create', {
-    method: 'POST',
-    body: payload,
-  })
+  return apiCreateFeedback(payload)
 }
 
 export function apiGetMyAssistantFeedback() {
   return assistantFetch('/assistant/feedback/page', {
     method: 'POST',
     body: {
+      queryMode: 'mine',
       pageNum: 1,
       pageSize: 50,
     },
   })
+}
+
+export function apiGetPendingConfirmCount() {
+  return assistantFetch('/assistant/feedback/pending-confirm/count')
 }
 
 // ==================== 反馈系统 - 公开接口 ====================
@@ -126,14 +176,27 @@ export function apiGetFeedbackCategories() {
   })
 }
 
+export function apiGetFeedbackTags(params = {}) {
+  return $fetch('/public/feedback/tag/list', {
+    baseURL: fetchConfig.baseURL,
+    headers: { appid: fetchConfig.headers.appid },
+    query: params,
+  })
+}
+
+export function apiCreateFeedbackTag(payload) {
+  return assistantFetch('/assistant/feedback/tag/create', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
 /**
  * 分页查询反馈列表
  */
 export function apiPageFeedback(params) {
-  return $fetch('/public/feedback/page', {
-    baseURL: fetchConfig.baseURL,
+  return assistantFetch('/public/feedback/page', {
     method: 'POST',
-    headers: { appid: fetchConfig.headers.appid },
     body: params,
   })
 }
@@ -143,6 +206,10 @@ export function apiPageFeedback(params) {
  */
 export function apiGetFeedbackDetail(id) {
   return assistantFetch(`/public/feedback/detail/${id}`)
+}
+
+export function apiGetFeedbackStatusSummary(id) {
+  return assistantFetch(`/public/feedback/status-summary/${id}`)
 }
 
 /**
@@ -179,16 +246,6 @@ export function apiCreateFeedback(payload) {
   return assistantFetch('/assistant/feedback/create', {
     method: 'POST',
     body: payload,
-  })
-}
-
-/**
- * 我的反馈列表（分页）
- */
-export function apiMyFeedback(params) {
-  return assistantFetch('/assistant/feedback/page', {
-    method: 'POST',
-    body: params,
   })
 }
 
@@ -248,6 +305,36 @@ export function apiUnpinFeedback(feedbackId) {
  */
 export function apiUpdateFeedbackStatus(feedbackId, payload) {
   return assistantFetch(`/admin/feedback/${feedbackId}/status`, {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+/**
+ * 追加处理备注（不改变状态）
+ */
+export function apiAppendFeedbackRemark(feedbackId, remark) {
+  return assistantFetch(`/admin/feedback/${feedbackId}/remark`, {
+    method: 'POST',
+    body: { remark },
+  })
+}
+
+/**
+ * 修改处理记录备注
+ */
+export function apiUpdateProcessRecordRemark(recordId, remark) {
+  return assistantFetch(`/admin/feedback/process-record/${recordId}/remark`, {
+    method: 'PUT',
+    body: { remark },
+  })
+}
+
+/**
+ * 提交人确认工单结果
+ */
+export function apiConfirmFeedbackStatus(feedbackId, payload) {
+  return assistantFetch(`/assistant/feedback/${feedbackId}/confirm`, {
     method: 'POST',
     body: payload,
   })

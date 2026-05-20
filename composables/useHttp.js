@@ -157,6 +157,32 @@ export async function useHttp(key,url,options = {}){
     return res
 }
 
+export async function request(key, url, options = {}) {
+    options = useGetFetchOptions(options)
+    return await $fetch(url, options).then(res => {
+        // 直接返回接口的整个数据
+        return res
+    }).catch(err => {
+        const msg = err?.data?.data
+        if (process.client && isAuthExpiredError(err)) {
+            // 统一走登录失效处理，避免业务页只看到“保存失败”。
+            handleAuthExpired(null, err?.data?.msg || msg || '登录已过期，请重新登录')
+            return {
+                code: err?.data?.code,
+                data: null
+            }
+        }
+        if (process.client) {
+            const { message } = createDiscreteApi(["message"])
+            message.error(msg || '服务端错误')
+        }
+        return {
+            code: err?.data?.code,
+            data: null
+        }
+    })
+}
+
 // GET请求
 export function useHttpGet(key,url,options = {}){
     options.method = "GET"
@@ -167,4 +193,53 @@ export function useHttpGet(key,url,options = {}){
 export function useHttpPost(key,url,options = {}){
     options.method = "POST"
     return useHttp(key,url,options)
+}
+
+// 文件下载请求（POST方式，返回二进制文件流 blob + 文件名）
+export async function useHttpDownload(url, options = {}) {
+    const fetchOptions = useGetFetchOptions({
+        method: "POST",
+        ...options
+    })
+    
+    // 合并 headers
+    if (options.headers) {
+        fetchOptions.headers = {
+            ...fetchOptions.headers,
+            ...options.headers
+        }
+    }
+    
+    try {
+        // 使用 raw 获取完整响应（含 headers）
+        const response = await $fetch.raw(url, {
+            ...fetchOptions,
+            responseType: 'blob'
+        })
+        
+        const blob = response._data
+        
+        // 从 Content-Disposition 响应头中提取文件名
+        let fileName = ''
+        const disposition = response.headers.get('content-disposition') || response.headers.get('Content-Disposition')
+        if (disposition) {
+            const match = disposition.match(/filename\*?=(?:UTF-8''|\s*"?)([^";\s]+)/i)
+            if (match) {
+                fileName = decodeURIComponent(match[1])
+            }
+        }
+        
+        return { data: ref(blob), fileName: ref(fileName), error: ref(null) }
+    } catch (err) {
+        if (process.client && isAuthExpiredError(err)) {
+            handleAuthExpired(null, err?.data?.msg || '登录已过期，请重新登录')
+            return { data: ref(null), fileName: ref(''), error: ref(err) }
+        }
+        if (process.client) {
+            const { message } = createDiscreteApi(["message"])
+            const msg = err?.data?.data || err?.data?.msg || err?.message || '下载失败'
+            message.error(msg)
+        }
+        return { data: ref(null), fileName: ref(''), error: ref(err) }
+    }
 }

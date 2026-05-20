@@ -61,7 +61,7 @@
                         <template v-if="menus.length > 0">
                             <n-button type="primary" size="large" :loading="loading" @click="buy" class="primary-btn">
                                 <template #icon><n-icon><BookOutline /></n-icon></template>
-                                立即学习
+                                {{ bookActionLabel }}
                             </n-button>
                             <n-button v-if="freeId" size="large" strong secondary type="primary" @click="learn({ id:freeId })" class="secondary-btn">
                                 <template #icon><n-icon><EyeOutline /></n-icon></template>
@@ -119,6 +119,67 @@
         </n-grid>
         </template>
     </LoadingGroup>
+
+    <!-- 电子书支付弹窗 -->
+    <NModal v-model:show="showPayModal" :mask-closable="false" preset="card" title="购买电子书" class="book-pay-modal" @close="handleClosePayModal">
+        <div class="book-pay-content">
+            <section class="book-pay-summary">
+                <div class="book-pay-cover-wrap">
+                    <img :src="data?.cover" class="book-pay-cover" />
+                </div>
+                <div class="book-pay-info">
+                    <p class="book-pay-label">订单商品</p>
+                    <h3>{{ data?.title }}</h3>
+                    <p class="book-pay-tip">请在{{ bookPayCountdownText }}内完成支付，超时订单将自动关闭。若支付过程中取消支付，请关闭弹窗并重新发起购买。</p>
+                </div>
+                <div class="book-pay-amount">
+                    <span>应付金额</span>
+                    <strong>¥{{ data?.price }}</strong>
+                </div>
+            </section>
+
+            <section class="book-pay-section">
+                <div class="book-pay-section-head">
+                    <h4>支付方式</h4>
+                    <span v-if="isPayChannelLocked">当前 {{ selectedChannelLabel }}</span>
+                </div>
+                <NRadioGroup
+                    :value="payChannel"
+                    class="book-pay-methods"
+                    :disabled="payLoading"
+                    @update:value="handlePayChannelChange"
+                >
+                    <NRadio
+                        v-for="channel in channelOptions"
+                        :key="channel.value"
+                        :value="channel.value"
+                        class="book-pay-method"
+                        :class="{ active: payChannel === channel.value, locked: isPayChannelLocked && payChannel !== channel.value }"
+                    >
+                        <span class="book-pay-method-name">{{ channel.label }}</span>
+                        <small>{{ channel.desc }}</small>
+                    </NRadio>
+                </NRadioGroup>
+                <p class="book-pay-lock-tip">支付二维码生成后切换方式，将取消当前支付并重新生成。</p>
+            </section>
+
+            <section class="book-pay-qrcode-panel">
+                <template v-if="payQrcode">
+                    <div class="book-pay-qrcode">
+                        <QrCode :data="payQrcode" />
+                    </div>
+                    <p class="book-pay-scan-title">请使用{{ selectedChannelLabel }}扫码支付</p>
+                    <p class="book-pay-scan-tip">正在等待支付结果，剩余 {{ bookPayCountdownText }}</p>
+                </template>
+
+                <template v-else>
+                    <NButton type="primary" size="large" :loading="payLoading" class="book-pay-confirm" @click="confirmBookPay">
+                        确认支付
+                    </NButton>
+                </template>
+            </section>
+        </div>
+    </NModal>
 </template>
 <script setup>
     import {
@@ -127,6 +188,9 @@
         NGrid,
         NGridItem,
         NIcon,
+        NModal,
+        NRadio,
+        NRadioGroup,
         createDiscreteApi,
     } from "naive-ui"
     import { CreateOutline, PeopleOutline, BookOutline, EyeOutline } from '@vicons/ionicons5'
@@ -188,6 +252,14 @@
         return "立即学习"
     })
 
+    const bookActionLabel = computed(() => {
+        console.log('bookActionLabel', data.value.isbuy)
+        if (type === 'book' && data.value && !data.value.isbuy && Number(data.value.price) > 0) {
+            return '立即购买'
+        }
+        return '立即学习'
+    })
+
     const detailContent = computed(() => {
         if (!data.value) return ''
         if (type === 'book') {
@@ -235,12 +307,16 @@
                 return
             }
 
-            // 付费学习
+            // 电子书走统一支付弹窗
+            if(type == "book"){
+                showPayModal.value = true
+                return
+            }
+
+            // 付费学习（课程/专栏/直播走原有逻辑）
             let ty = "course"
             let id = data.value.id
-            if(type == "book"){
-                ty = "book"
-            } else if(type == "live"){
+            if(type == "live"){
                 ty = "live"
             } else if(type == "column"){
                 ty = "column"
@@ -422,6 +498,188 @@
             })
         }
     }
+
+    // ===== 电子书支付弹窗 =====
+    const showPayModal = ref(false)
+    const payChannel = ref('wxpay')
+    const payQrcode = ref('')
+    const payPaymentNo = ref('')
+    const payLoading = ref(false)
+    const BOOK_PAY_POLLING_INTERVAL = 2000
+    const BOOK_PAY_ORDER_EXPIRE_SECONDS = 30 * 60
+    const bookPayRemainingSeconds = ref(BOOK_PAY_ORDER_EXPIRE_SECONDS)
+    let payPollingTimer = null
+    let payCountdownTimer = null
+    const isPayChannelLocked = computed(() => Boolean(payQrcode.value || payPaymentNo.value))
+    const bookPayCountdownText = computed(() => {
+        const minutes = String(Math.floor(bookPayRemainingSeconds.value / 60)).padStart(2, '0')
+        const seconds = String(bookPayRemainingSeconds.value % 60).padStart(2, '0')
+        return `${minutes}:${seconds}`
+    })
+
+    const channelOptions = [
+        { label: '微信支付', value: 'wxpay', desc: '微信扫码' },
+        { label: '支付宝', value: 'alipay', desc: '支付宝扫码' },
+    ]
+    const selectedChannelLabel = computed(() => {
+        return channelOptions.find(item => item.value === payChannel.value)?.label || '当前方式'
+    })
+
+    function handlePayChannelChange(nextChannel) {
+        if (nextChannel === payChannel.value || payLoading.value) {
+            return
+        }
+
+        if (!isPayChannelLocked.value) {
+            payChannel.value = nextChannel
+            return
+        }
+
+        const nextChannelLabel = channelOptions.find(item => item.value === nextChannel)?.label || '新的支付方式'
+        const { dialog } = createDiscreteApi(['dialog'])
+        dialog.warning({
+            title: '切换支付方式',
+            content: `当前支付已生成，切换为${nextChannelLabel}后将取消当前支付并重新创建支付单。是否继续？`,
+            positiveText: '继续切换',
+            negativeText: '取消',
+            onPositiveClick: async () => {
+                await cancelCurrentBookPayment()
+                payChannel.value = nextChannel
+                await confirmBookPay()
+            }
+        })
+    }
+
+    async function confirmBookPay() {
+        payLoading.value = true
+        try {
+            const res = await $fetch('/book/relation/purchase', {
+                method: 'POST',
+                baseURL: fetchConfig.baseURL,
+                headers: getAuthHeaders(),
+                body: { bookId: Number(id), channel: payChannel.value }
+            })
+            if (res.code !== 200) {
+                createDiscreteApi(['message']).message.error(res.msg || '创建订单失败')
+                return
+            }
+            const result = res.data
+            // 免费书直接刷新
+            if (!result.needPay) {
+                showPayModal.value = false
+                createDiscreteApi(['message']).message.success('获取成功！')
+                refresh()
+                return
+            }
+            payQrcode.value = result.payment?.qrcode || result.payment?.payUrl || ''
+            payPaymentNo.value = result.paymentNo
+            startBookPayPolling(result.paymentNo)
+            startBookPayCountdown(result.paymentNo)
+        } catch(e) {
+            createDiscreteApi(['message']).message.error(e.data?.msg || '网络错误')
+        } finally {
+            payLoading.value = false
+        }
+    }
+
+    async function cancelCurrentBookPayment() {
+        stopBookPayPolling()
+        stopBookPayCountdown()
+        const paymentNo = payPaymentNo.value
+        payQrcode.value = ''
+        payPaymentNo.value = ''
+        bookPayRemainingSeconds.value = BOOK_PAY_ORDER_EXPIRE_SECONDS
+
+        if (!paymentNo) {
+            return
+        }
+
+        try {
+            await $fetch('/pay/cancel', {
+                method: 'POST',
+                baseURL: fetchConfig.baseURL,
+                headers: getAuthHeaders(),
+                params: { outTradeNo: paymentNo }
+            })
+        } catch (e) {
+            // 取消失败不阻断用户重新选择支付方式，后端幂等处理最终状态
+        }
+    }
+
+    function startBookPayPolling(paymentNo) {
+        stopBookPayPolling()
+        payPollingTimer = setInterval(async () => {
+            try {
+                const res = await $fetch('/pay/status', {
+                    baseURL: fetchConfig.baseURL,
+                    headers: getAuthHeaders(),
+                    params: { outTradeNo: paymentNo }
+                })
+                if (payPaymentNo.value !== paymentNo) {
+                    return
+                }
+                if (res.payStatus) {
+                    stopBookPayPolling()
+                    stopBookPayCountdown()
+                    payQrcode.value = ''
+                    payPaymentNo.value = ''
+                    bookPayRemainingSeconds.value = BOOK_PAY_ORDER_EXPIRE_SECONDS
+                    showPayModal.value = false
+                    createDiscreteApi(['message']).message.success('支付成功！')
+                    refresh()
+                }
+            } catch(e) { /* 轮询失败静默忽略 */ }
+        }, BOOK_PAY_POLLING_INTERVAL)
+    }
+
+    function startBookPayCountdown(paymentNo) {
+        stopBookPayCountdown()
+        bookPayRemainingSeconds.value = BOOK_PAY_ORDER_EXPIRE_SECONDS
+        payCountdownTimer = setInterval(async () => {
+            if (payPaymentNo.value !== paymentNo) {
+                stopBookPayCountdown()
+                return
+            }
+            bookPayRemainingSeconds.value = Math.max(bookPayRemainingSeconds.value - 1, 0)
+            if (bookPayRemainingSeconds.value === 0) {
+                await handleBookPayOrderExpired(paymentNo)
+            }
+        }, 1000)
+    }
+
+    async function handleBookPayOrderExpired(paymentNo) {
+        if (payPaymentNo.value !== paymentNo) {
+            return
+        }
+
+        await cancelCurrentBookPayment()
+        showPayModal.value = false
+        createDiscreteApi(['message']).message.warning('订单已超时关闭，请重新发起购买。')
+    }
+
+    function stopBookPayPolling() {
+        if (payPollingTimer) {
+            clearInterval(payPollingTimer)
+            payPollingTimer = null
+        }
+    }
+
+    function stopBookPayCountdown() {
+        if (payCountdownTimer) {
+            clearInterval(payCountdownTimer)
+            payCountdownTimer = null
+        }
+    }
+
+    async function handleClosePayModal() {
+        await cancelCurrentBookPayment()
+        showPayModal.value = false
+    }
+
+    onUnmounted(() => {
+        stopBookPayPolling()
+        stopBookPayCountdown()
+    })
 
 </script>
 <style>
@@ -716,5 +974,205 @@
         background: none;
         padding: 0;
         color: #333;
+    }
+
+    .book-pay-modal {
+        width: min(640px, calc(100vw - 32px));
+    }
+
+    .book-pay-modal .n-card-header {
+        padding: 22px 28px 14px;
+        border-bottom: 1px solid #eef1f4;
+    }
+
+    .book-pay-modal .n-card__content {
+        padding: 0;
+    }
+
+    .book-pay-content {
+        background: #f7f9fb;
+    }
+
+    .book-pay-summary {
+        display: grid;
+        grid-template-columns: 76px 1fr auto;
+        gap: 16px;
+        align-items: center;
+        padding: 22px 28px;
+        background: #fff;
+    }
+
+    .book-pay-cover-wrap {
+        width: 76px;
+        height: 96px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #eef2f6;
+        box-shadow: 0 6px 16px rgba(20, 32, 46, 0.1);
+    }
+
+    .book-pay-cover {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+    }
+
+    .book-pay-info h3 {
+        margin: 4px 0 10px;
+        color: #1f2937;
+        font-size: 18px;
+        line-height: 1.35;
+        font-weight: 650;
+    }
+
+    .book-pay-label,
+    .book-pay-tip,
+    .book-pay-amount span,
+    .book-pay-lock-tip,
+    .book-pay-scan-tip {
+        margin: 0;
+        color: #7a8594;
+        font-size: 13px;
+    }
+
+    .book-pay-amount {
+        min-width: 120px;
+        text-align: right;
+    }
+
+    .book-pay-amount strong {
+        display: block;
+        margin-top: 6px;
+        color: #d03050;
+        font-size: 26px;
+        line-height: 1;
+        font-weight: 700;
+    }
+
+    .book-pay-section {
+        margin: 12px 16px 0;
+        padding: 18px 12px;
+        background: #fff;
+        border: 1px solid #edf0f4;
+        border-radius: 8px;
+    }
+
+    .book-pay-section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+        padding: 0 4px;
+    }
+
+    .book-pay-section-head h4 {
+        margin: 0;
+        color: #1f2937;
+        font-size: 15px;
+        font-weight: 650;
+    }
+
+    .book-pay-section-head span {
+        color: #18a058;
+        font-size: 12px;
+    }
+
+    .book-pay-methods {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .book-pay-method {
+        margin-right: 0;
+        padding: 12px 14px;
+        border: 1px solid #dfe5ec;
+        border-radius: 8px;
+        background: #fff;
+        transition: border-color .2s, background-color .2s, box-shadow .2s, opacity .2s;
+    }
+
+    .book-pay-method.active {
+        border-color: #18a058;
+        background: #f3fbf6;
+        box-shadow: 0 0 0 2px rgba(24, 160, 88, 0.1);
+    }
+
+    .book-pay-method.locked {
+        opacity: .46;
+    }
+
+    .book-pay-method-name {
+        display: block;
+        color: #1f2937;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .book-pay-method small {
+        display: block;
+        margin-top: 4px;
+        color: #8a94a3;
+        font-size: 12px;
+    }
+
+    .book-pay-lock-tip {
+        margin-top: 12px;
+        padding: 0 4px;
+    }
+
+    .book-pay-qrcode-panel {
+        min-height: 174px;
+        padding: 22px 28px 28px;
+        text-align: center;
+    }
+
+    .book-pay-qrcode {
+        display: inline-flex;
+        padding: 12px;
+        border-radius: 8px;
+        background: #fff;
+        border: 1px solid #e8edf2;
+        box-shadow: 0 8px 22px rgba(20, 32, 46, 0.08);
+    }
+
+    .book-pay-scan-title {
+        margin: 14px 0 4px;
+        color: #1f2937;
+        font-size: 15px;
+        font-weight: 600;
+    }
+
+    .book-pay-confirm {
+        width: 240px;
+        height: 42px;
+        margin-top: 36px;
+        border-radius: 6px;
+    }
+
+    @media (max-width: 640px) {
+        .book-pay-summary {
+            grid-template-columns: 64px 1fr;
+        }
+
+        .book-pay-cover-wrap {
+            width: 64px;
+            height: 84px;
+        }
+
+        .book-pay-amount {
+            grid-column: 1 / -1;
+            text-align: left;
+        }
+
+        .book-pay-methods {
+            grid-template-columns: 1fr;
+        }
+
+        .book-pay-confirm {
+            width: 100%;
+        }
     }
 </style>

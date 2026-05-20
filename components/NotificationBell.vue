@@ -2,9 +2,9 @@
   <div class="notif-wrapper" ref="wrapperRef">
     <!-- 铃铛按钮 -->
     <button class="bell-btn" @click="togglePanel" :class="{ active: panelOpen }" title="消息通知">
-      <BellIcon class="bell-icon" :class="{ ringing: unreadCount > 0 }" />
-      <span v-if="unreadCount > 0" class="badge">
-        {{ unreadCount > 99 ? '99+' : unreadCount }}
+      <BellIcon class="bell-icon" :class="{ ringing: badgeCount > 0 }" />
+      <span v-if="badgeCount > 0" class="badge">
+        {{ badgeCount > 99 ? '99+' : badgeCount }}
       </span>
     </button>
 
@@ -14,6 +14,7 @@
         <!-- 头部 -->
         <div class="panel-header">
           <span class="panel-title">消息通知</span>
+          <span v-if="pendingConfirmCount > 0" class="pending-ticket-badge">待确认 {{ pendingConfirmCount }}</span>
           <div class="panel-actions">
             <button v-if="unreadCount > 0" class="action-btn" @click="markAllRead">
               <CheckAllIcon /><span>全部已读</span>
@@ -63,10 +64,15 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue'
 
+import { apiGetPendingConfirmCount, assertAssistantResponseSuccess } from '~/composables/assistant'
+
 const { notifications, unreadCount, wsStatus, markAllRead, markRead, clearAll } = useWebSocket()
 
 const panelOpen = ref(false)
 const wrapperRef = ref(null)
+const pendingConfirmCount = ref(0)
+const badgeCount = computed(() => pendingConfirmCount.value > 0 ? pendingConfirmCount.value : unreadCount.value)
+let refreshTimer = null
 
 function togglePanel() {
   panelOpen.value = !panelOpen.value
@@ -78,8 +84,18 @@ function handleOutsideClick(e) {
   }
 }
 
-onMounted(() => document.addEventListener('click', handleOutsideClick, true))
-onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick, true))
+onMounted(() => {
+  document.addEventListener('click', handleOutsideClick, true)
+  refreshPendingConfirmCount()
+  refreshTimer = setInterval(refreshPendingConfirmCount, 60 * 1000)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleOutsideClick, true)
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+})
 
 function handleItemClick(msg) {
   markRead(msg.id)
@@ -98,6 +114,15 @@ const statusText = computed(() => ({
   disconnected: '未连接',
   error: '连接异常',
 }[wsStatus.value] || ''))
+
+async function refreshPendingConfirmCount() {
+  try {
+    const res = await apiGetPendingConfirmCount()
+    pendingConfirmCount.value = assertAssistantResponseSuccess(res, '加载待确认工单失败') || 0
+  } catch {
+    pendingConfirmCount.value = 0
+  }
+}
 
 function formatTime(raw) {
   if (!raw) return ''
@@ -180,6 +205,10 @@ const EmptyBellIcon = () => h('svg', { width: 40, height: 40, viewBox: '0 0 24 2
   padding: 14px 16px 12px; border-bottom: 1px solid rgba(148,163,184,0.08); flex-shrink: 0;
 }
 .panel-title { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+.pending-ticket-badge {
+  padding: 3px 8px; border-radius: 999px; background: rgba(245,158,11,0.16);
+  color: #fbbf24; font-size: 11px; font-weight: 700;
+}
 .panel-actions { display: flex; gap: 8px; }
 .action-btn {
   display: flex; align-items: center; gap: 4px; padding: 4px 8px;
