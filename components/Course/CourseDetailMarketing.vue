@@ -14,6 +14,12 @@
           <span class="meta-item price-text">
             {{ Number(data.price) > 0 ? '¥' + data.price : '免费' }}
           </span>
+          <template v-if="canUpdate">
+            <span class="meta-sep">·</span>
+            <span class="meta-item status-chip" :class="`status-${courseStatusTone}`">
+              {{ courseStatusText }}
+            </span>
+          </template>
         </div>
         <div class="btn-row">
           <n-button type="primary" color="#18a058" @click="$emit('pay')">
@@ -64,6 +70,11 @@ import { fetchConfig } from '~/composables/useHttp';
 const { permissionList } = usePermission();
 const canUpdate = computed(() => permissionList.value.includes('course:update'));
 const canEditContent = computed(() => permissionList.value.includes('course:chapter:save'));
+const COURSE_STATUS_TEXT_MAP: Record<number, string> = {
+  2: '审核中',
+  4: '审核通过',
+  6: '审核未通过',
+};
 
 const props = defineProps<{
   data: any;
@@ -75,6 +86,13 @@ const route = useRoute();
 const courseId = route.params.id;
 const isPaid = computed(() => props.isPaid || props.data?.buyFlag === 1);
 const editMode = ref(false);
+const courseStatusCode = computed(() => Number(props.data?.status));
+const courseStatusText = computed(() => COURSE_STATUS_TEXT_MAP[courseStatusCode.value] || `状态${props.data?.status ?? '-'}`);
+const courseStatusTone = computed(() => {
+  if (courseStatusCode.value === 4) return 'pass';
+  if (courseStatusCode.value === 6) return 'reject';
+  return 'pending';
+});
 
 // 本地课程数据副本，编辑后更新
 const localData = ref<any>({ ...props.data });
@@ -282,6 +300,17 @@ function onEditSuccess() {
 .meta-row { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #888; }
 .meta-sep { color: #ddd; }
 .price-text { color: #18a058; font-weight: 600; }
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.status-pending { background: #fff7e6; color: #d48806; }
+.status-pass { background: #f6ffed; color: #389e0d; }
+.status-reject { background: #fff1f0; color: #cf1322; }
 .btn-row { display: flex; align-items: center; margin-top: 8px; }
 
 /* 资料下载 */

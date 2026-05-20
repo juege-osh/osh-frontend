@@ -23,6 +23,12 @@
     </div>
 
     <div class="card-body">
+      <div class="meta-top">
+        <div class="tag-list" v-if="displayTags.length">
+          <span v-for="tag in displayTags" :key="tag" class="tag-chip">{{ tag }}</span>
+        </div>
+        <span class="course-no">#{{ item.id }}</span>
+      </div>
       <h4 class="card-title">{{ item.title }}</h4>
       <div class="card-stats">
         <div class="price-area">
@@ -50,6 +56,7 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import { NIcon } from 'naive-ui';
 import { Heart, HeartOutline } from '@vicons/ionicons5';
 // CourseCard 组件：展示课程卡片信息
@@ -60,6 +67,16 @@ const props = defineProps({
   selected: { type: Boolean, default: false },
 });
 const emit = defineEmits(['click', 'favorite', 'select']);
+
+const displayTags = computed(() => {
+  const text = props.item?.tagNamesText;
+  if (!text || typeof text !== 'string') return [];
+  return text
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 2);
+});
 
 const handleFavorite = () => emit('favorite', props.item.id);
 
@@ -131,6 +148,43 @@ const handleCardClick = () => {
 .fav-btn:hover { background: rgba(0,0,0,0.5); transform: scale(1.1); }
 
 .card-body { padding: 10px 10px 8px; }
+.meta-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.tag-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+.tag-chip {
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: linear-gradient(135deg, #eef6ff 0%, #f5f9ff 100%);
+  color: #2563eb;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+.course-no {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #6b7280;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
 .card-title {
   font-size: 13px; font-weight: 600; color: #222;
   margin: 0 0 8px; height: 36px; line-height: 1.4;
