@@ -52,13 +52,7 @@
     // }
 
     const route = useRoute()
-    const { no } = route.query
-
-    // 发起微信PC支付
-    const {
-        data,
-        error
-    } = await useWxpayApi(no)
+    const { no, type, name, price, activityId } = route.query
 
     // 支付超时
     const isTimeOut = ref(false)
@@ -69,11 +63,35 @@
     // 开始轮询订单状态
     const ispay = ref(false)
     const timer = ref(null)
+    
+    // 发起微信支付（根据类型调用不同接口）
+    const {
+        data,
+        error
+    } = await (type === 'group' 
+        ? useJoinGroupPaymentApi({ 
+            orderNo: no, 
+            payMethod: 'wechat', 
+            name: name || '拼团支付' 
+        })
+        : useWxpayApi(no))
+    
     function checkIspay(){
         if(timer.value) clearInterval(timer.value)
         timer.value = setInterval(() => {
-            useGetWxpayStatusApi(no).then(res=>{
-                if(!res.error.value && res.data.value.trade_state == "SUCCESS"){
+            // 根据类型调用不同的状态查询接口
+            const checkApi = type === 'group' 
+                ? useGetOrderStatusApi(no) 
+                : useGetWxpayStatusApi(no)
+            
+            checkApi.then(res=>{
+                // 拼团订单：status === 'paid' 表示已支付
+                // 普通订单：trade_state === "SUCCESS" 表示已支付
+                const isPaid = type === 'group' 
+                    ? (!res.error.value && res.data.value?.status === 'paid')
+                    : (!res.error.value && res.data.value?.trade_state === "SUCCESS")
+                
+                if(isPaid){
                     handleSuccess()
                 }
             })
@@ -89,7 +107,12 @@ function handleSuccess(){
     ispay.value = true
     if(timer.value) clearInterval(timer.value)
     setTimeout(() => {
-        navigateTo("/user/buy/1",{ replace:true })
+        // 拼团支付成功后跳转回拼团详情页，并带上 refresh 参数
+        if (type === 'group' && activityId) {
+            navigateTo(`/group/work/${activityId}?refresh=true`, { replace: true })
+        } else {
+            navigateTo("/user/buy/1", { replace: true })
+        }
     }, 2000);
 }
 </script>
