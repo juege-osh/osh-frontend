@@ -121,6 +121,16 @@ export async function useHttp(key,url,options = {}){
                 console.log('useHttp transform - res.code:', res.code)
             }
             
+            // 如果后端返回业务错误（code !== 200），需要抛出异常让 catch 处理
+            if (res.code !== undefined && res.code !== 200) {
+                console.log('useHttp transform - 检测到业务错误 code:', res.code, 'msg:', res.msg)
+                // 抛出错误，让 useHttp 的 catch 块处理
+                const error = new Error(res.msg || '请求失败')
+                error.data = res
+                error.status = res.code
+                throw error
+            }
+            
             // 如果后端直接返回 {total, rows, code, msg},则返回整个res
             // 如果后端返回 {code, data: {...}},则返回res.data
             if (res.rows !== undefined) {

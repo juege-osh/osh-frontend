@@ -548,28 +548,44 @@ async function handleCreate() {
             duration: createForm.value.duration
         })
 
-        if (!result.error.value) {
-            showCreateModal.value = false
-            message.success('拼团发起成功！')
-            const orderNo = result.data.value?.orderNo || result.data.value?.order_no
-            if (orderNo) {
-                // 跳转到支付页面，传递 activityId 以便支付成功后返回
-                navigateTo(`/pay?no=${orderNo}&activityId=${createForm.value.activityId}&type=group`)
-            } else {
-                refresh()
-            }
-        } else {
+        // 检查是否有错误
+        if (result.error.value) {
             // 优先使用后端返回的错误信息
             const errorData = result.data.value || result.error.value?.data
             const errorMsg = errorData?.msg || 
                            errorData?.message ||
                            result.error.value?.message || 
-                           '发起失败，请重试'
+                           '发起失败,请重试'
             message.error(errorMsg)
+            return
+        }
+
+        // 检查业务状态码（兼容不同返回格式）
+        const responseData = result.data.value
+        const responseCode = responseData?.code ?? result.data.value?.code
+        
+        if (responseCode !== undefined && responseCode !== 200) {
+            // 业务错误
+            const errorMsg = responseData?.msg || responseData?.message || '发起失败,请重试'
+            message.error(errorMsg)
+            return
+        }
+
+        // 成功处理
+        showCreateModal.value = false
+        message.success('拼团发起成功！')
+        const orderNo = responseData?.orderNo || responseData?.order_no || responseData?.data?.orderNo || responseData?.data?.order_no
+        if (orderNo) {
+            // 跳转到支付页面，传递 activityId 以便支付成功后返回
+            navigateTo(`/pay?no=${orderNo}&activityId=${createForm.value.activityId}&type=group`)
+        } else {
+            refresh()
         }
     } catch (err) {
         console.error('发起拼团失败:', err)
-        message.error('发起失败，请重试')
+        // 捕获 transform 抛出的业务错误
+        const errorMsg = err?.data?.msg || err?.data?.message || err?.message || '发起失败,请重试'
+        message.error(errorMsg)
     } finally {
         createLoading.value = false
     }
