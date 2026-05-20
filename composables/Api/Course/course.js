@@ -69,10 +69,15 @@ export function useCourseTagsApi(keyword = '') {
 
 // 2. 课程详情 (改用那个不冲突的路径)
 // api/course.js
+// server:false 必须加 —— 未发布的课程对 anonymous 不可见，
+// SSR 阶段跨域 fetch 不会把浏览器 cookie 带到 8081 后端，于是 SSR 抓到的永远是
+// "课程不存在"，hydrate 后 courseData=null、页面空白。
+// 改成只在客户端发请求：客户端这一刻 token 在 localStorage / cookie 都有，
+// 后端能识别登录用户、能放行 status != 4 的课程。
 export function useCourseDetailApi(id) {
-  // 这里的 useHttpGet 内部必须调用了上面那个 useGetFetchOptions
   return useHttpGet('CourseDetail', `/course/detail/${id}`, {
     lazy: true,
+    server: false,
   });
 }
 
