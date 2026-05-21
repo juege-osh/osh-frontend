@@ -136,7 +136,7 @@
 </template>
 
 <script setup>
-const SCROLL_SPEED = 100;
+const SCROLL_SPEED = 30;
 const LIST_GAP = 8;
 const VIEWPORT_OFFSET = 128;
 
