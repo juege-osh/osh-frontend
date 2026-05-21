@@ -833,7 +833,7 @@ const formatTime = (timeStr) => {
 // 点开详情页
 const formatInfoGapStatus = (status) => {
   const statusMap = {
-    0: '草稿',
+    0: '未审核',
     2: '未审核',
     4: '发布',
     6: '下架',
