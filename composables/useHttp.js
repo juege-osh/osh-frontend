@@ -5,7 +5,7 @@ import { handleAuthExpired } from "~/composables/useAuth"
 
 // 自动检测环境并设置API地址
 function getBaseURL() {
-    // 服务端渲染时使用默认地址
+    // 服务端渲染时使用完整地址
     if (process.server) {
         return "http://localhost:8081/pc"
     }
@@ -13,7 +13,8 @@ function getBaseURL() {
     // 客户端根据hostname判断
     const hostname = window.location.hostname
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return "http://localhost:8081/pc"
+        // 本地开发：通过 Nuxt 代理 /api → localhost:8081/pc，避免 CORS
+        return "/api"
     } else {
         return "http://43.242.200.25:8081/pc"
     }
@@ -112,7 +113,39 @@ export async function useHttp(key,url,options = {}){
         ...options,
         // 相当于响应拦截器
         transform:(res)=>{
-            return res.data
+            // 调试:打印原始响应结构
+            if (process.client) {
+                console.log('useHttp transform - 原始响应:', res)
+                console.log('useHttp transform - res.data:', res.data)
+                console.log('useHttp transform - res.rows:', res.rows)
+                console.log('useHttp transform - res.code:', res.code)
+            }
+            
+            // 如果后端返回业务错误（code !== 200），需要抛出异常让 catch 处理
+            if (res.code !== undefined && res.code !== 200) {
+                console.log('useHttp transform - 检测到业务错误 code:', res.code, 'msg:', res.msg)
+                // 抛出错误，让 useHttp 的 catch 块处理
+                const error = new Error(res.msg || '请求失败')
+                error.data = res
+                error.status = res.code
+                throw error
+            }
+            
+            // 如果后端直接返回 {total, rows, code, msg},则返回整个res
+            // 如果后端返回 {code, data: {...}},则返回res.data
+            if (res.rows !== undefined) {
+                // 拼团列表等新接口直接返回数据
+                return res
+            } else if (res.data !== undefined) {
+                // 旧接口在data字段中
+                // 但如果 data 为 null 且存在 code 字段（业务错误），返回整个 res 保留错误信息
+                if (res.data === null && res.code !== undefined) {
+                    console.log('useHttp transform - data为null但存在code，返回整个res以保留错误信息')
+                    return res
+                }
+                return res.data
+            }
+            return res
         },
     })
 

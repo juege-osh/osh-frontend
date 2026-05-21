@@ -3,7 +3,6 @@ const t = {
     column:"专栏",
     live:"直播",
     book:"电子书",
-    group:"拼团",
     flashsale:"秒杀"
 }
 export default defineNuxtRouteMiddleware((to,from)=>{
