@@ -6,16 +6,16 @@
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M8 1l1.8 3.6L14 5.6l-3 2.9.7 4.1L8 10.5l-3.7 2.1.7-4.1-3-2.9 4.2-.6z" stroke="white" stroke-width="1.3" stroke-linejoin="round" fill="rgba(255,255,255,0.2)"/>
           </svg>
-          <span>公告</span>
+          <span>通知</span>
         </div>
-        <div v-if="toolAnnouncements.length > 0" class="notice-scroll-wrap">
+        <div v-if="toolSystemAnnouncements.length > 0" class="notice-scroll-wrap">
           <div
             class="notice-scroll-track"
-            :style="{ animationPlayState: announcementPaused ? 'paused' : 'running' }"
-            @mouseenter="announcementPaused = true"
-            @mouseleave="announcementPaused = false"
+            :style="{ animationPlayState: systemAnnouncementPaused ? 'paused' : 'running' }"
+            @mouseenter="systemAnnouncementPaused = true"
+            @mouseleave="systemAnnouncementPaused = false"
           >
-            <span class="notice-item" v-for="(item, index) in duplicatedAnnouncements" :key="`${item.id}-${index}`">
+            <span class="notice-item" v-for="(item, index) in duplicatedSystemAnnouncements" :key="`system-${item.id}-${index}`">
               <span class="notice-dot"></span>
               <a
                 v-if="hasAnnouncementLink(item)"
@@ -32,7 +32,41 @@
           </div>
         </div>
         <div v-else class="notice-empty">
-          当前暂无工具模块公告
+          当前暂无工具模块系统通知
+        </div>
+      </div>
+      <div class="notice-bar notice-bar-2">
+        <div class="notice-label notice-label-2">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 4h12M2 8h12M2 12h8" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          <span>公告</span>
+        </div>
+        <div v-if="toolUserAnnouncements.length > 0" class="notice-scroll-wrap">
+          <div
+            class="notice-scroll-track"
+            :style="{ animationPlayState: userAnnouncementPaused ? 'paused' : 'running' }"
+            @mouseenter="userAnnouncementPaused = true"
+            @mouseleave="userAnnouncementPaused = false"
+          >
+            <span class="notice-item" v-for="(item, index) in duplicatedUserAnnouncements" :key="`user-${item.id}-${index}`">
+              <span class="notice-dot"></span>
+              <a
+                v-if="hasAnnouncementLink(item)"
+                class="notice-link"
+                :href="item.link"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {{ item.title }}
+              </a>
+              <span v-else>{{ item.title }}</span>
+              <span class="notice-sep">｜</span>
+            </span>
+          </div>
+        </div>
+        <div v-else class="notice-empty">
+          当前暂无工具模块业务公告
         </div>
       </div>
     </section>
@@ -292,9 +326,10 @@ import {
   apiDeleteTool,
   apiRemoveCollectTool,
   apiRecordToolView,
-  apiToolAnnouncements,
   apiToolRecommend,
+  apiToolSystemAnnouncements,
   apiToolTags,
+  apiToolUserAnnouncements,
   apiVoteBadTool,
   apiVoteGoodTool,
   useToolSearchApi,
@@ -343,9 +378,11 @@ const {
 } = await useToolSearchApi(queryParams);
 
 const toolList = ref([]);
-const toolAnnouncements = ref([]);
+const toolSystemAnnouncements = ref([]);
+const toolUserAnnouncements = ref([]);
 const tagOptions = ref([]);
-const announcementPaused = ref(false);
+const systemAnnouncementPaused = ref(false);
+const userAnnouncementPaused = ref(false);
 const selectMode = ref(false);
 const selectedIds = ref(new Set());
 const showEditModal = ref(false);
@@ -365,9 +402,12 @@ const recommendTabs = [
   { label: '最近火热', value: 'HOT', icon: '⚡' },
   { label: '最新发布', value: 'LATEST', icon: '☆' },
 ];
-const duplicatedAnnouncements = computed(() => toolAnnouncements.value.length > 1
-  ? [...toolAnnouncements.value, ...toolAnnouncements.value]
-  : toolAnnouncements.value);
+const duplicatedSystemAnnouncements = computed(() => toolSystemAnnouncements.value.length > 1
+  ? [...toolSystemAnnouncements.value, ...toolSystemAnnouncements.value]
+  : toolSystemAnnouncements.value);
+const duplicatedUserAnnouncements = computed(() => toolUserAnnouncements.value.length > 1
+  ? [...toolUserAnnouncements.value, ...toolUserAnnouncements.value]
+  : toolUserAnnouncements.value);
 
 watch(canAccessToolPage, (allowed) => {
   if (!allowed) {
@@ -463,13 +503,23 @@ const loadRecommendTools = async (type = recommendType.value) => {
   }
 };
 
-const loadToolAnnouncements = async () => {
+const loadToolSystemAnnouncements = async () => {
   try {
-    const res = await apiToolAnnouncements();
-    toolAnnouncements.value = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+    const res = await apiToolSystemAnnouncements();
+    toolSystemAnnouncements.value = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
   } catch (e) {
-    console.error('加载工具公告失败', e);
-    toolAnnouncements.value = [];
+    console.error('加载工具系统通知失败', e);
+    toolSystemAnnouncements.value = [];
+  }
+};
+
+const loadToolUserAnnouncements = async () => {
+  try {
+    const res = await apiToolUserAnnouncements();
+    toolUserAnnouncements.value = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+  } catch (e) {
+    console.error('加载工具业务公告失败', e);
+    toolUserAnnouncements.value = [];
   }
 };
 
@@ -487,7 +537,8 @@ const loadTags = async () => {
 };
 
 onMounted(() => {
-  loadToolAnnouncements();
+  loadToolSystemAnnouncements();
+  loadToolUserAnnouncements();
   loadTags();
   loadTools();
   loadRecommendTools();
@@ -942,6 +993,12 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(251, 191, 36, 0.15);
 }
+.notice-bar-2 {
+  margin-top: 8px;
+  background: linear-gradient(90deg, #e0f2fe 0%, #dbeafe 40%, #ede9fe 100%);
+  border-color: #60a5fa;
+  box-shadow: 0 2px 8px rgba(96, 165, 250, 0.15);
+}
 .notice-label {
   display: flex;
   align-items: center;
@@ -958,6 +1015,10 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   letter-spacing: 0.08em;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   box-shadow: 2px 0 12px rgba(249, 115, 22, 0.35);
+}
+.notice-label-2 {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  box-shadow: 2px 0 12px rgba(37, 99, 235, 0.35);
 }
 .notice-scroll-wrap {
   flex: 1;

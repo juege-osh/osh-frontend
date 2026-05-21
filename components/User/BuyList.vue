@@ -39,7 +39,7 @@ const t = {
 }
 
 const pay = ()=>{
-    navigateTo(`/pay?no=${props.item.no}`)
+    navigateTo(`/pay?no=${props.item.no}&name=${encodeURIComponent(props.item.goods)}&money=${props.item.price}`)
 }
 
 </script>

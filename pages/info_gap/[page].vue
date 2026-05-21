@@ -4,6 +4,37 @@
       不良信息、恶法内容将被加入页面名单，严重者封封！警告三次将永久封禁账号！
     </n-alert>
 
+    <section class="home-notice-section">
+      <div class="home-notice-bar">
+        <div class="home-notice-label">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1l1.8 3.6L14 5.6l-3 2.9.7 4.1L8 10.5l-3.7 2.1.7-4.1-3-2.9 4.2-.6z" stroke="white" stroke-width="1.3" stroke-linejoin="round" fill="rgba(255,255,255,0.2)"/>
+          </svg>
+          <span>公告</span>
+        </div>
+        <div class="home-notice-scroll-wrap">
+          <div
+            class="home-notice-scroll-track"
+            :style="{ animationPlayState: noticePaused ? 'paused' : 'running' }"
+            @mouseenter="noticePaused = true"
+            @mouseleave="noticePaused = false"
+          >
+            <span class="home-notice-item" v-for="(n, i) in [...notices, ...notices]" :key="i">
+              <span class="home-notice-dot" :style="{ background: n.color }"></span>
+              {{ n.text }}
+              <span class="home-notice-sep">·</span>
+            </span>
+          </div>
+        </div>
+        <nuxt-link class="home-notice-more" to="/bbs/1/1">
+          更多
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+            <path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </nuxt-link>
+      </div>
+    </section>
+
     <div class="top-toolbar">
       <n-space align="center" justify="space-between" style="width: 100%">
         <n-space>
@@ -105,6 +136,9 @@
                         </button>
                       </div>
                     </div>
+                    <span v-if="queryParams.type === 'myself'" class="feed-status-text">
+                      {{ formatInfoGapStatus(item.status) }}
+                    </span>
                     <div v-if="queryParams.type === 'myself'" class="feed-more-actions">
                       <n-popover trigger="hover" placement="bottom-end">
                         <template #trigger>
@@ -264,6 +298,7 @@
               <span class="tag-count"
                 >已选 {{ selectedTags.length }}/{{ MAX_TAG_COUNT }}</span
               >
+              <n-button size="tiny" secondary @click="openCustomTagModal">自定义标签</n-button>
             </div>
           </template>
           <n-space :size="8" wrap>
@@ -301,6 +336,26 @@
           <n-button type="primary" :loading="btnLoading" @click="confirmPublish">
             {{ isEditMode ? '确认修改' : '确认发布' }}
           </n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <n-modal
+      v-model:show="showCustomTagModal"
+      preset="card"
+      title="自定义标签"
+      style="width: 420px"
+    >
+      <n-input
+        v-model:value="customTagInput"
+        placeholder="请输入内容"
+        clearable
+      />
+
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showCustomTagModal = false">取消</n-button>
+          <n-button type="primary" @click="confirmCustomTag">确认</n-button>
         </n-space>
       </template>
     </n-modal>
@@ -359,6 +414,15 @@ import InfoGapHotList from "~/components/InfoGapHotList.vue";
 // 路由对象：用于读取 page 参数和 query 参数
 const route = useRoute();
 const hasHydratedInfoGapRoute = ref(false);
+const noticePaused = ref(false);
+const notices = [
+  { text: '平台全新改版上线，体验更流畅，欢迎反馈意见', color: '#6366f1' },
+  { text: '新增 500+ 电子书，涵盖前端、后端、AI 方向', color: '#10b981' },
+  { text: '秒杀专区每日 10:00 准时开抢，低至 1 折', color: '#ef4444' },
+  { text: '拼团活动进行中，邀请好友最高享 7 折优惠', color: '#f59e0b' },
+  { text: '问答社区上线，专家在线实时解答你的问题', color: '#8b5cf6' },
+  { text: 'Vue3 + TypeScript 全栈实战课程限时特惠 ¥19', color: '#ec4899' },
+];
 
 // 列表查询参数：同时驱动 UI、URL 和后端请求
 const queryParams = reactive({
@@ -370,9 +434,11 @@ const queryParams = reactive({
 
 // 发布弹窗相关状态
 const showModal = ref(false);
+const showCustomTagModal = ref(false);
 const btnLoading = ref(false);
 const isEditMode = ref(false);
 const editingInfoGapId = ref(null);
+const customTagInput = ref('');
 const form = reactive({
   title: '',
   tag: '技术',
@@ -504,9 +570,42 @@ const handleTagClose = (tag, e) => {
   selectedTags.value = selectedTags.value.filter((t) => t.id !== tag.id);
 };
 
+const openCustomTagModal = () => {
+  showCustomTagModal.value = true;
+};
+
+const confirmCustomTag = async () => {
+  const tagName = normalizeSearchKeyword(customTagInput.value);
+  const { message } = createDiscreteApi(['message']);
+
+  if (!tagName) {
+    message.warning('请输入标签内容');
+    return;
+  }
+
+  const { error: addTagError } = await useHttpGet(
+    `add-info-gap-tag-${encodeURIComponent(tagName)}`,
+    `/info_gap/tag/add?tagName=${encodeURIComponent(tagName)}`,
+    {
+      $: true,
+    }
+  );
+
+  if (addTagError.value) {
+    return;
+  }
+
+  await loadCandidateTags();
+  customTagInput.value = '';
+  showCustomTagModal.value = false;
+  message.success('新增标签成功');
+};
+
 const resetPublishForm = () => {
   isEditMode.value = false;
   editingInfoGapId.value = null;
+  showCustomTagModal.value = false;
+  customTagInput.value = '';
   Object.assign(form, {
     title: '',
     tag: '技术',
@@ -732,6 +831,16 @@ const formatTime = (timeStr) => {
 };
 
 // 点开详情页
+const formatInfoGapStatus = (status) => {
+  const statusMap = {
+    0: '未审核',
+    2: '未审核',
+    4: '发布',
+    6: '下架',
+  };
+  return statusMap[String(status ?? '').trim()] || '未知';
+};
+
 const handleDetail = (id) => navigateTo(`/detail/info_gap/${id}`);
 
 // ==================== 7) 发布弹窗与发布流程 ====================
@@ -859,6 +968,10 @@ const handleDeleteInfoGap = (item) => {
 
 const handleVote = async (item, type) => {
   useHasAuth(async () => {
+    if (queryParams.type === 'myself') {
+      return;
+    }
+
     const { message } = createDiscreteApi(['message']);
 
     // 先存快照，用于失败时回滚
@@ -941,6 +1054,10 @@ const toggleExpand = async (item) => {
     return;
   }
 
+  if (queryParams.type === 'myself') {
+    return;
+  }
+
   const originalReadCount = Number(item.readCount || item.viewCount || 0);
   item.readCount = originalReadCount + 1;
 
@@ -978,10 +1095,139 @@ useHead({ title: '信息差 - 开源助手' });
   max-width: 1400px;
   margin: 0 auto;
   padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
 }
 
 .notice-bar {
   margin-bottom: 16px;
+}
+
+.home-notice-section {
+  margin-bottom: 16px;
+  order: -1;
+}
+
+.home-notice-bar {
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  gap: 0;
+  overflow: hidden;
+  background: linear-gradient(90deg, #fef9c3 0%, #fef3c7 40%, #fce7f3 100%);
+  border: 1.5px solid #fbbf24;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(251, 191, 36, 0.15);
+  animation: notice-bar-in 0.5s ease both;
+}
+
+@keyframes notice-bar-in {
+  from { opacity: 0; transform: translateY(-100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.home-notice-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px 10px;
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  border-radius: 0 8px 8px 0;
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-right: 16px;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 2px 0 12px rgba(249, 115, 22, 0.35);
+  animation: label-pulse 3s ease-in-out infinite;
+}
+
+@keyframes label-pulse {
+  0%, 100% { box-shadow: 2px 0 12px rgba(249, 115, 22, 0.35); }
+  50% { box-shadow: 2px 0 20px rgba(249, 115, 22, 0.6); }
+}
+
+.home-notice-scroll-wrap {
+  flex: 1;
+  overflow: hidden;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.home-notice-scroll-track {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: notice-scroll 32s linear infinite;
+}
+
+@keyframes notice-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.home-notice-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  padding-right: 8px;
+  cursor: default;
+  transition: color 0.2s ease;
+}
+
+.home-notice-item:hover {
+  color: #d97706;
+}
+
+.home-notice-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: dot-blink 2s ease-in-out infinite;
+}
+
+@keyframes dot-blink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.4); }
+}
+
+.home-notice-sep {
+  color: #d97706;
+  margin: 0 16px 0 8px;
+  font-size: 14px;
+  opacity: 0.5;
+}
+
+.home-notice-more {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #b45309;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border-left: 1.5px solid #fbbf24;
+  margin-left: 16px;
+  transition: color 0.15s ease, gap 0.2s ease;
+}
+
+.home-notice-more:hover {
+  color: #92400e;
+  gap: 6px;
 }
 
 .top-toolbar {
@@ -1134,6 +1380,15 @@ useHead({ title: '信息差 - 开源助手' });
   align-items: center;
   gap: 18px;
   flex-wrap: wrap;
+}
+
+.feed-status-text {
+  flex-shrink: 0;
+  margin-left: 12px;
+  margin-right: 200px;
+  color: #667085;
+  font-size: 13px;
+  line-height: 28px;
 }
 
 .feed-more-actions {

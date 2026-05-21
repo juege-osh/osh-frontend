@@ -2,7 +2,7 @@
     <n-card class="mb-5 groupwork-card">
         <template #header>
             <div class="text-gray-500 text-sm header-text">
-                {{ data.count }} 人在拼单,可直接参与
+                {{ count }} 人在拼单,可直接参与
             </div>
         </template>
         <n-scrollbar style="height: 60px;">
@@ -39,28 +39,40 @@ const props = defineProps({
     }
 })
 
+// 获取可参与组团列表 - 优化:增加错误处理和数据验证
 let {
     data,
     error
 } = await useGetGroupWorkListApi(props.group_id)
 
 const rows = ref([])
-if(!error.value){
-    rows.value = data.value.rows.map(o=>{
-        o.end_time = (new Date(o.created_time)).getTime() + 24 * 60 * 60 * 1000
-        o.loading = false
-        return o
-    })
+const count = ref(0)
+
+// 优化:安全地处理数据
+if(!error.value && data.value){
+    if(data.value.rows && Array.isArray(data.value.rows)){
+        rows.value = data.value.rows.map(o=>{
+            // 计算结束时间:创建时间 + 24小时
+            o.end_time = (new Date(o.created_time)).getTime() + 24 * 60 * 60 * 1000
+            o.loading = false
+            return o
+        })
+    }
+    count.value = data.value.count || 0
 }
 
+// 倒计时结束处理 - 优化:从列表中移除过期组团
 function handleTimeUp(index){
     rows.value.splice(index,1)
-    data.value.count--
+    if(count.value > 0){
+        count.value--
+    }
 }
 
+// 参与拼团 - 优化:使用新的 join 接口
 function handleGroup(item){
     useHasAuth(()=>{
-        const { dialog } = createDiscreteApi(["dialog"])
+        const { dialog, message } = createDiscreteApi(["dialog", "message"])
         dialog.success({
           title: "提示",
           content: "是否要参与此次拼单？",
@@ -68,14 +80,22 @@ function handleGroup(item){
           negativeText: "取消",
           onPositiveClick(){
             item.loading = true
+            // 使用 order.js 中的创建订单接口(拼团类型)
             useCreateOrderApi({
                 group_id:props.group_id,
                 group_work_id:item.id
             },"group")
             .then(res=>{
                 if(!res.error.value){
+                    message.success('参团成功！')
+                    // 跳转到支付页面
                     navigateTo(`/pay?no=${res.data.value.no}`)
+                } else {
+                    message.error(res.error.value?.data?.msg || '参团失败')
                 }
+            })
+            .catch(err => {
+                message.error('参团失败，请重试')
             })
             .finally(()=>{
                 item.loading = false
