@@ -136,6 +136,9 @@
                         </button>
                       </div>
                     </div>
+                    <span v-if="queryParams.type === 'myself'" class="feed-status-text">
+                      {{ formatInfoGapStatus(item.status) }}
+                    </span>
                     <div v-if="queryParams.type === 'myself'" class="feed-more-actions">
                       <n-popover trigger="hover" placement="bottom-end">
                         <template #trigger>
@@ -828,6 +831,16 @@ const formatTime = (timeStr) => {
 };
 
 // 点开详情页
+const formatInfoGapStatus = (status) => {
+  const statusMap = {
+    0: '草稿',
+    2: '未审核',
+    4: '发布',
+    6: '下架',
+  };
+  return statusMap[String(status ?? '').trim()] || '未知';
+};
+
 const handleDetail = (id) => navigateTo(`/detail/info_gap/${id}`);
 
 // ==================== 7) 发布弹窗与发布流程 ====================
@@ -955,6 +968,10 @@ const handleDeleteInfoGap = (item) => {
 
 const handleVote = async (item, type) => {
   useHasAuth(async () => {
+    if (queryParams.type === 'myself') {
+      return;
+    }
+
     const { message } = createDiscreteApi(['message']);
 
     // 先存快照，用于失败时回滚
@@ -1034,6 +1051,10 @@ const toggleExpand = async (item) => {
   item.isExpanded = !item.isExpanded;
 
   if (!item.isExpanded) {
+    return;
+  }
+
+  if (queryParams.type === 'myself') {
     return;
   }
 
@@ -1359,6 +1380,15 @@ useHead({ title: '信息差 - 开源助手' });
   align-items: center;
   gap: 18px;
   flex-wrap: wrap;
+}
+
+.feed-status-text {
+  flex-shrink: 0;
+  margin-left: 12px;
+  margin-right: 200px;
+  color: #667085;
+  font-size: 13px;
+  line-height: 28px;
 }
 
 .feed-more-actions {
