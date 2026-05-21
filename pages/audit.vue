@@ -43,6 +43,7 @@
 <script setup>
 import { NButton, NDataTable, NSelect, NTag, NImage, NEllipsis, NInput, createDiscreteApi } from 'naive-ui';
 import { computed, h, onMounted, reactive, ref, watch } from 'vue';
+import { RESOURCE_STATUS, isPublishedStatus } from '~/composables/enums/resourceStatus';
 
 definePageMeta({
   name: 'audit',
@@ -303,13 +304,13 @@ function createActionColumn() {
         h(NButton, {
           type: 'primary',
           size: 'small',
-          onClick: () => confirmAudit(row, 1),
+          onClick: () => confirmAudit(row, RESOURCE_STATUS.PUBLISHED),
         }, { default: () => '通过' }),
         h(NButton, {
           type: 'error',
           size: 'small',
           secondary: true,
-          onClick: () => confirmAudit(row, 2),
+          onClick: () => confirmAudit(row, RESOURCE_STATUS.OFF_SHELF),
         }, { default: () => '拒绝' }),
       ]);
     },
@@ -317,7 +318,7 @@ function createActionColumn() {
 }
 
 function confirmAudit(row, status) {
-  const isApprove = status === 1;
+  const isApprove = isPublishedStatus(status);
   dialog.warning({
     title: '审核确认',
     content: `确认${isApprove ? '通过' : '拒绝'}「${row.title || row.id}」吗？`,
@@ -334,7 +335,7 @@ async function audit(row, status) {
       resourceId: row.id,
       status,
     });
-    message.success(status === 1 ? '审核通过' : '已拒绝');
+    message.success(isPublishedStatus(status) ? '审核通过' : '已拒绝');
     fetchList();
   } catch (error) {
     message.error(resolveErrorMessage(error, '审核失败'));

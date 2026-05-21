@@ -39,6 +39,16 @@
         <span v-if="modelValue.keyword" class="search-clear" @click="modelValue.keyword = ''; handleSearch()">✕</span>
       </div>
 
+      <div class="search-wrap no-num is-disabled">
+        <span class="search-icon">🔢</span>
+        <input
+          v-model="modelValue.toolId"
+          class="search-input"
+          placeholder="工具编号..."
+          disabled
+        />
+      </div>
+
       <button class="btn-query" @click="handleSearch">
         🔍 查询
       </button>
@@ -156,6 +166,25 @@ const handleSearch = () => {
 .search-input::placeholder { color: #aaa; }
 .search-clear { font-size: 12px; color: #bbb; cursor: pointer; }
 .search-clear:hover { color: #666; }
+.no-num .search-input { width: 110px; }
+.is-disabled {
+  background: #f0f2f5;
+  border-color: #e5e7eb;
+  cursor: not-allowed;
+}
+.is-disabled:focus-within {
+  border-color: #e5e7eb;
+  box-shadow: none;
+  background: #f0f2f5;
+}
+.is-disabled .search-icon,
+.is-disabled .search-input,
+.is-disabled .search-input::placeholder {
+  color: #b0b7c3;
+}
+.is-disabled .search-input {
+  cursor: not-allowed;
+}
 .btn-query {
   background: #18a058;
   color: #fff;

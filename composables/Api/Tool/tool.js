@@ -63,8 +63,16 @@ export async function apiToolRecommend(body) {
   });
 }
 
-export async function apiToolAnnouncements() {
-  return $fetch('/announcement/tool/latest', {
+export async function apiToolSystemAnnouncements() {
+  return $fetch('/tool/announcement/systemNotice/latest', {
+    method: 'GET',
+    baseURL,
+    headers: getToolAuthHeaders(),
+  });
+}
+
+export async function apiToolUserAnnouncements() {
+  return $fetch('/tool/announcement/userNotice/latest', {
     method: 'GET',
     baseURL,
     headers: getToolAuthHeaders(),
