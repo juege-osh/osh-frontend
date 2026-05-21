@@ -1,6 +1,6 @@
 <template>
     <span :class="through ? 'price price-through' : 'price price-main'">
-        {{ parseFloat(value) == 0 ? "免费" : "￥"+value }}
+        {{ (parseFloat(value) || 0) < 0.01 ? "免费" : "￥"+value }}
     </span>
 </template>
 <script setup>
