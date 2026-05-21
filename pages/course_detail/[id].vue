@@ -62,8 +62,15 @@ if (data.value) {
 }
 
 // 编辑成功后刷新课程数据（不刷整页，保留 permissions 状态）
+// Nuxt useFetch 偶尔会复用 SSR payload，refresh 后 data.value 引用不换 →
+// 子组件 props 浅相等比较走捷径不重渲染（chip 不变色就是这个现象）。
+// 这里 await refresh 后显式重建 courseData 的引用，强制下游 computed 重新计算。
 const handleRefreshCourse = async () => {
   await refresh();
+  if (data.value) {
+    courseData.value = { ...data.value };
+    isPaid.value = data.value.buyFlag === 1;
+  }
 };
 
 // CoursePay 内部已完成"二维码 + 轮询"全流程，命中支付成功后会 emit('paid')。
