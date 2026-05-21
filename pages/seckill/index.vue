@@ -246,6 +246,7 @@
 <script setup>
 import { createDiscreteApi } from 'naive-ui'
 
+// ── 秒杀模块入口页 ───────────────────────────────────────────
 useHead({ title: '限时秒杀 · IT精品课' })
 
 const { message, dialog } = createDiscreteApi(['message', 'dialog'])
