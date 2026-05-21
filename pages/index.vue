@@ -24,12 +24,28 @@
             </span>
           </div>
         </div>
-        <nuxt-link class="notice-more" to="/bbs/1/1">
-          更多
-          <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-            <path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </div>
+      <div class="notice-bar notice-bar-2">
+        <div class="notice-label notice-label-2">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 4h12M2 8h12M2 12h8" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
           </svg>
-        </nuxt-link>
+          <span>动态</span>
+        </div>
+        <div class="notice-scroll-wrap">
+          <div
+            class="notice-scroll-track"
+            :style="{ animationPlayState: noticePaused2 ? 'paused' : 'running' }"
+            @mouseenter="noticePaused2 = true"
+            @mouseleave="noticePaused2 = false"
+          >
+            <span class="notice-item" v-for="(n, i) in [...notices2, ...notices2]" :key="'n2-'+i">
+              <span class="notice-dot" :style="{ background: n.color }"></span>
+              {{ n.text }}
+              <span class="notice-sep">｜</span>
+            </span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -389,6 +405,109 @@
 
 
 
+    <!-- 课程套餐对比 -->
+    <section class="pricing-section">
+      <div class="section-container">
+        <div class="features-header">
+          <h2 class="section-title" style="color:#1e1b4b">选择适合你的套餐</h2>
+          <p class="section-subtitle">不同档次满足不同学习需求，随时升级，终身受益</p>
+        </div>
+
+        <div class="pricing-horizontal">
+
+          <!-- 觉哥就业小班（上面） -->
+          <div class="pricing-h-card pricing-h-class">
+            <div class="ph-top-row">
+              <div class="ph-left">
+                <div class="ph-badge">⭐ 强烈推荐</div>
+                <h3 class="ph-title">觉哥就业小班</h3>
+                <p class="ph-sub">就业培训 · 面试指导 · 专人专属规划</p>
+                <div class="ph-price">
+                  <span class="ph-price-num">¥2199</span>
+                  <span class="ph-price-unit">起 / 永久</span>
+                </div>
+              </div>
+              <div class="ph-middle">
+                <div class="ph-highlights">
+                  <div class="ph-expand-step" v-for="(step, i) in classTechPath" :key="'t'+i">
+                    <span class="ph-expand-step-num">{{ i + 1 }}</span>
+                    <span class="ph-expand-step-title">{{ step.title }}</span>
+                    <span class="ph-expand-step-desc">{{ step.desc }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="ph-right">
+                <ul class="ph-feat-list">
+                  <li v-for="(f, i) in classFeatures" :key="i">
+                    <span class="ph-check">✓</span>{{ f }}
+                  </li>
+                </ul>
+                <button class="ph-btn ph-btn-class" @click="navigateTo('/course/1')">立即报名小班 →</button>
+              </div>
+            </div>
+            <!-- 右上角可展开按钮 -->
+            <button class="ph-expand-btn" @click="classExpanded = !classExpanded">
+              {{ classExpanded ? '收起' : '了解更多' }}
+              <svg :class="{ 'ph-expand-icon-open': classExpanded }" class="ph-expand-icon" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <!-- 展开内容 -->
+            <div v-if="classExpanded" class="ph-expand-panel">
+              <div class="ph-expand-grid">
+                <div class="ph-expand-block">
+                  <h4 class="ph-expand-block-title">👥 学员情况</h4>
+                  <div class="ph-expand-item" v-for="(s, i) in classStudents" :key="'s'+i">
+                    <span class="ph-expand-dot"></span>
+                    <span>{{ s }}</span>
+                  </div>
+                </div>
+                <div class="ph-expand-block">
+                  <h4 class="ph-expand-block-title">🎯 服务亮点</h4>
+                  <div class="ph-hl" v-for="(h, i) in classHighlights" :key="'h'+i">
+                    <span class="ph-hl-icon">{{ h.icon }}</span>
+                    <div>
+                      <div class="ph-hl-title">{{ h.title }}</div>
+                      <div class="ph-hl-desc">{{ h.desc }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- VIP 会员（下面） -->
+          <div class="pricing-h-card pricing-h-vip">
+            <div class="ph-left">
+              <div class="ph-icon-vip">👑</div>
+              <h3 class="ph-title">VIP 会员</h3>
+              <p class="ph-sub">全站畅学，尊享特权</p>
+              <div class="ph-price">
+                <span class="ph-price-num">¥188</span>
+                <span class="ph-price-unit">/ 年</span>
+              </div>
+            </div>
+            <div class="ph-middle ph-middle-vip">
+              <div class="ph-vip-intro">
+                <p class="ph-vip-slogan">🚀 一次开通，全年畅学无忧</p>
+                <p class="ph-vip-desc">解锁全站 1000+ 付费课程、VIP 专属直播课、专属题库全解锁、优先答疑通道、学习进度云同步，随时随地高效学习。</p>
+                <p class="ph-vip-tip">💡 支持随时升级觉哥就业小班</p>
+              </div>
+            </div>
+            <div class="ph-right">
+              <ul class="ph-feat-list">
+                <li v-for="(feat, j) in vipFeatures" :key="'r'+j">
+                  <span class="ph-check">✓</span>{{ feat }}
+                </li>
+              </ul>
+              <button class="ph-btn ph-btn-vip" @click="navigateTo('/course/1')">立即开通 VIP</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
     <!-- 热门课程 -->
     <section class="content-section">
       <div class="section-container">
@@ -410,9 +529,9 @@
             v-for="(course, index) in hotCourses"
             :key="index"
             class="course-card"
-            @click="navigateTo(`/detail/course/${course.id}`)"
+            @click="navigateTo(course.detailUrl)"
           >
-            <div class="course-cover" :style="{ background: course.bg }">
+            <div class="course-cover" :style="course.coverStyle">
               <!-- 封面背景装饰 -->
               <div class="cover-deco-circle cover-deco-1"></div>
               <div class="cover-deco-circle cover-deco-2"></div>
@@ -421,28 +540,31 @@
                 <div class="cover-main-title">{{ course.coverTitle }}</div>
                 <div class="cover-sub-title">{{ course.coverSub }}</div>
               </div>
-              <!-- 热度火焰 -->
-              <div class="cover-heat">🔥 {{ course.heatText }}</div>
-              <div v-if="course.badge" class="course-badge" :class="course.badgeType">{{ course.badge }}</div>
+              <!-- 购买人数 -->
+              <div class="cover-heat">🔥 {{ course.buyCountText }}人购买</div>
             </div>
             <div class="course-body">
               <h3 class="course-title">{{ course.title }}</h3>
-              <div class="course-tags">
-                <span class="course-tag" v-for="tag in course.tags" :key="tag">{{ tag }}</span>
+              <p class="course-desc">{{ course.serviceContent }}</p>
+              <div class="course-tags-row">
+                <div class="course-tags">
+                  <span class="course-tag" v-for="tag in course.tags" :key="tag">{{ tag }}</span>
+                </div>
+                <span class="course-views-text">👁 {{ course.viewsText }}浏览</span>
               </div>
               <div class="course-footer">
-                <div class="course-price">
-                  <span class="price-current" v-if="course.price > 0">¥{{ course.price }}</span>
-                  <span class="price-free" v-else>免费</span>
-                  <span class="price-origin" v-if="course.originPrice">¥{{ course.originPrice }}</span>
-                </div>
-                <div class="course-rating">
-                  <span class="course-students-inline">{{ course.students }}人学习</span>
-                  <svg width="13" height="13" viewBox="0 0 13 13" fill="#f59e0b">
-                    <path d="M6.5 1l1.5 3.5H12l-3 2 1 3.5-3-2-3 2 1-3.5-3-2h4L6.5 1z"/>
-                  </svg>
-                  <span>{{ course.rating }}</span>
-                </div>
+                <span class="price-current" v-if="course.price > 0">¥{{ course.price }}</span>
+                <span class="price-free" v-else>免费</span>
+                <span class="price-origin" v-if="course.originPrice">¥{{ course.originPrice }}</span>
+                <span class="course-footer-right">
+                  <span class="course-video-inline">🎬 {{ course.videoCount || 0 }}个视频</span>
+                  <span class="course-rating-star">
+                    <svg width="12" height="12" viewBox="0 0 13 13" fill="#f59e0b">
+                      <path d="M6.5 1l1.5 3.5H12l-3 2 1 3.5-3-2-3 2 1-3.5-3-2h4L6.5 1z"/>
+                    </svg>
+                    {{ course.rating }}
+                  </span>
+                </span>
               </div>
             </div>
           </div>
@@ -497,6 +619,7 @@
                   <div class="book-card-tags-right">
                     <span class="book-card-tag" v-for="tag in item.tags" :key="tag">{{ tag }}</span>
                   </div>
+                  <span class="book-card-chapters">📖 {{ item.chapterCount || 0 }}章</span>
                 </div>
               </div>
             </div>
@@ -517,14 +640,30 @@
           <button class="btn-more" @click="navigateTo('/paper/1')">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockExams" :key="i" class="module-card module-card-exam" @click="navigateTo('/paper/1')">
-            <div class="module-card-cover" :style="{ background: item.bg }">
-              <span class="module-card-emoji">{{ item.emoji }}</span>
-              <span class="module-card-badge">{{ item.count }}题</span>
+          <div v-for="(item, i) in mockExams" :key="i" class="exam-card" @click="navigateTo('/paper/1')">
+            <div class="exam-card-cover" :style="{ background: item.bg }">
+              <span class="exam-card-count">{{ item.count }}题</span>
+              <span class="exam-card-emoji">{{ item.emoji }}</span>
+              <span class="exam-card-pass">通过率 {{ item.passRate }}</span>
             </div>
-            <div class="module-card-body">
-              <h4 class="module-card-title">{{ item.title }}</h4>
-              <p class="module-card-meta">通过率 {{ item.passRate }}</p>
+            <div class="exam-card-body">
+              <h4 class="exam-card-title">{{ item.title }}</h4>
+              <div v-if="item.tags && item.tags.length" class="exam-card-tags">
+                <span class="exam-card-tag" v-for="tag in item.tags" :key="tag">{{ tag }}</span>
+              </div>
+              <div class="exam-card-stats">
+                <div class="exam-stat">
+                  <span class="exam-stat-label">题数</span>
+                  <span class="exam-stat-value">{{ item.questionCount }}</span>
+                </div>
+                <div class="exam-stat">
+                  <span class="exam-stat-label">及格</span>
+                  <span class="exam-stat-value">{{ item.passScore }}</span>
+                </div>
+              </div>
+              <div class="exam-card-footer">
+                <span class="exam-card-expire">时长：{{ item.expire }}分钟</span>
+              </div>
             </div>
           </div>
         </div>
@@ -543,16 +682,25 @@
           <button class="btn-more" @click="navigateTo('/question_answer/1')">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-3">
-          <div v-for="(item, i) in mockQnA" :key="i" class="module-card module-card-qna" @click="navigateTo('/question_answer/1')">
-            <div class="module-card-qna-header">
-              <span class="qna-avatar">{{ item.avatar }}</span>
-              <span class="qna-user">{{ item.user }}</span>
-              <span class="qna-time">{{ item.time }}</span>
+          <div v-for="(item, i) in mockQnA" :key="i" class="qna-card" :class="{ 'qna-answered': item.status === 2, 'qna-pending': item.status !== 2 }" :style="{ background: item.bg }" @click="navigateTo('/question_answer/1')">
+            <div class="qna-card-top">
+              <h4 class="qna-card-title">{{ item.title }}</h4>
+              <span class="qna-card-views">👁 {{ item.viewCount }}</span>
             </div>
-            <h4 class="module-card-title">{{ item.title }}</h4>
-            <div class="qna-stats">
-              <span>💬 {{ item.answers }}回答</span>
-              <span>👁 {{ item.views }}浏览</span>
+            <div class="qna-card-meta">
+              <span class="qna-meta-user"><span>👤</span> {{ item.user }}</span>
+              <span class="qna-meta-time"><span>🕐</span> {{ item.time }}</span>
+            </div>
+            <p class="qna-card-desc">{{ item.content }}</p>
+            <div v-if="item.tags && item.tags.length" class="qna-card-tags">
+              <span class="qna-meta-tag" v-for="tag in item.tags" :key="tag">{{ tag }}</span>
+            </div>
+            <div class="qna-card-bottom">
+              <span class="qna-bottom-stat">💬 {{ item.replyCount }} 回答</span>
+              <span class="qna-bottom-stat">⭐ {{ item.followCount }} 关注</span>
+              <span class="qna-status-badge" :class="item.status === 2 ? 'qna-status-solved' : 'qna-status-open'">
+                {{ item.status === 2 ? '✅ 已解决' : '🔓 待解答' }}
+              </span>
             </div>
           </div>
         </div>
@@ -571,17 +719,25 @@
           <button class="btn-more" @click="navigateTo('/list/flashsale/1')">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockFlashsale" :key="i" class="module-card module-card-sale" @click="navigateTo(`/detail/course/${item.id}`)">
-            <div class="module-card-cover" :style="{ background: item.bg }">
-              <span class="module-card-emoji">{{ item.emoji }}</span>
-              <span class="module-card-discount">{{ item.discount }}</span>
+          <div v-for="(item, i) in mockFlashsale" :key="i" class="seckill-card" @click="navigateTo(`/detail/course/${item.id}`)">
+            <div class="seckill-card-cover" :style="{ background: item.bg }">
+              <span class="seckill-limit">🔥 限量{{ item.limit }}名</span>
             </div>
-            <div class="module-card-body">
-              <h4 class="module-card-title">{{ item.title }}</h4>
-              <div class="module-card-price">
-                <span class="price-sale">¥{{ item.salePrice }}</span>
-                <span class="price-origin">¥{{ item.originPrice }}</span>
+            <div class="seckill-card-body">
+              <h4 class="seckill-card-title">{{ item.title }}</h4>
+              <div class="seckill-card-price">
+                <span class="seckill-flash">秒杀价 ¥{{ item.salePrice }}</span>
+                <span class="seckill-origin">¥{{ item.originPrice }}</span>
+                <span class="seckill-type">{{ item.type }}</span>
+                <span class="seckill-buy-limit">限购 2件</span>
               </div>
+              <div class="seckill-progress">
+                <div class="seckill-progress-bar">
+                  <div class="seckill-progress-fill" :style="{ width: item.bought + '%' }"></div>
+                </div>
+                <span class="seckill-progress-text">已抢 {{ item.bought }}%</span>
+              </div>
+              <button class="seckill-btn" @click.stop="navigateTo(`/detail/course/${item.id}`)">立即抢购</button>
             </div>
           </div>
         </div>
@@ -629,13 +785,26 @@
           <button class="btn-more" @click="navigateTo('/openproject/list')">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockOpenProjects" :key="i" class="module-card module-card-project" @click="navigateTo('/openproject/list')">
-            <div class="module-card-cover" :style="{ background: item.bg }">
-              <span class="module-card-emoji">{{ item.emoji }}</span>
+          <div v-for="(item, i) in mockOpenProjects" :key="i" class="openproj-card" @click="navigateTo('/openproject/list')">
+            <div class="openproj-card-cover" :style="{ background: item.bg }">
+              <span class="openproj-status-badge">活跃维护</span>
+              <span class="openproj-star-badge">⭐ {{ item.stars }}</span>
             </div>
-            <div class="module-card-body">
-              <h4 class="module-card-title">{{ item.title }}</h4>
-              <p class="module-card-meta">⭐ {{ item.stars }} · {{ item.tech }}</p>
+            <div class="openproj-card-body">
+              <h4 class="openproj-card-title">{{ item.siteName }}</h4>
+              <div class="openproj-card-tags">
+                <span class="openproj-tag" v-for="tag in item.tagList" :key="tag">{{ tag }}</span>
+              </div>
+              <p class="openproj-card-desc">{{ item.description }}</p>
+              <div class="openproj-card-meta">
+                <span class="openproj-author">👤 {{ item.author }}</span>
+                <span class="openproj-stat">⭐ {{ item.stars }}</span>
+                <span class="openproj-stat">🍴 {{ item.forkCount }}</span>
+              </div>
+              <div class="openproj-card-footer">
+                <span class="openproj-date">{{ item.lastCommit }}</span>
+                <a class="openproj-link" @click.stop>访问 GitHub →</a>
+              </div>
             </div>
           </div>
         </div>
@@ -654,13 +823,21 @@
           <button class="btn-more" @click="navigateTo('/usefull/list')">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockWebsites" :key="i" class="module-card module-card-website" @click="navigateTo('/usefull/list')">
-            <div class="module-card-cover" :style="{ background: item.bg }">
-              <span class="module-card-emoji">{{ item.emoji }}</span>
+          <div v-for="(item, i) in mockWebsites" :key="i" class="website-card" @click="navigateTo('/usefull/list')">
+            <div class="website-card-cover" :style="{ background: item.bg }">
+              <span class="website-card-emoji">{{ item.emoji }}</span>
+              <span class="website-good-badge">👍 {{ item.goodCount }}</span>
             </div>
-            <div class="module-card-body">
-              <h4 class="module-card-title">{{ item.title }}</h4>
-              <p class="module-card-meta">{{ item.desc }}</p>
+            <div class="website-card-body">
+              <h4 class="website-card-title">{{ item.name }}</h4>
+              <p class="website-card-desc">{{ item.description }}</p>
+              <div class="website-card-stats">
+                <span class="website-stat">👁 {{ (item.clickCount / 1000).toFixed(1) }}K</span>
+                <span class="website-stat">⭐ {{ item.collectionCount }}</span>
+              </div>
+              <div class="website-card-footer">
+                <a class="website-visit-link" @click.stop>点击访问 →</a>
+              </div>
             </div>
           </div>
         </div>
@@ -679,13 +856,88 @@
           <button class="btn-more" @click="navigateTo('/info_gap/1')">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockInfoGap" :key="i" class="module-card module-card-info" @click="navigateTo('/info_gap/1')">
-            <div class="module-card-cover" :style="{ background: item.bg }">
-              <span class="module-card-emoji">{{ item.emoji }}</span>
+          <div v-for="(item, i) in mockInfoGap" :key="i" class="infogap-card" @click="navigateTo('/info_gap/1')">
+            <div class="infogap-card-cover" :style="{ background: item.bg }">
+              <span class="infogap-tag-badge">{{ item.tag }}</span>
             </div>
-            <div class="module-card-body">
-              <h4 class="module-card-title">{{ item.title }}</h4>
-              <p class="module-card-meta">{{ item.meta }}</p>
+            <div class="infogap-card-body">
+              <h4 class="infogap-card-title">{{ item.title }}</h4>
+              <p class="infogap-card-desc">{{ item.content }}</p>
+              <div class="infogap-card-tags" v-if="item.tags">
+                <span class="infogap-tag-item" v-for="t in item.tags" :key="t">{{ t }}</span>
+              </div>
+              <div class="infogap-card-footer">
+                <span class="infogap-author">👤 {{ item.author }}</span>
+                <span class="infogap-stat good">👍 {{ item.goodCount }}</span>
+                <span class="infogap-stat mid">😐 {{ item.middleCount }}</span>
+                <span class="infogap-stat bad">👎 {{ item.badCount }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 实用工具 -->
+    <section class="content-section">
+      <div class="section-container">
+        <div class="section-header">
+          <div class="section-title-group">
+            <div class="section-tag" style="background:linear-gradient(135deg,#f97316,#f59e0b)">🔧</div>
+            <h2 class="section-title">实用工具</h2>
+            <p class="section-subtitle">AI工具、开发辅助，提升效率</p>
+          </div>
+          <button class="btn-more" @click="navigateTo('/tool/1')">查看全部 →</button>
+        </div>
+        <div class="module-grid module-grid-5">
+          <div v-for="(item, i) in mockTools" :key="i" class="tool-card" @click="navigateTo('/tool/1')">
+            <div class="tool-card-cover" :style="{ background: item.bg }">
+              <span class="tool-card-type">{{ item.resourceType }}</span>
+            </div>
+            <div class="tool-card-body">
+              <h4 class="tool-card-title">{{ item.toolName }}</h4>
+              <p class="tool-card-desc">{{ item.description }}</p>
+              <div class="tool-card-tags" v-if="item.tags">
+                <span class="tool-tag-item" v-for="t in item.tags" :key="t">{{ t }}</span>
+              </div>
+              <div class="tool-card-footer">
+                <span class="tool-card-usage">🔥 {{ item.usageCount }}次使用</span>
+                <span class="tool-card-price">{{ item.price > 0 ? '¥' + item.price : '免费' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 用户反馈 -->
+    <section class="content-section">
+      <div class="section-container">
+        <div class="section-header">
+          <div class="section-title-group">
+            <div class="section-tag" style="background:linear-gradient(135deg,#10b981,#14b8a6)">📋</div>
+            <h2 class="section-title">用户反馈</h2>
+            <p class="section-subtitle">倾听用户声音，持续改进产品</p>
+          </div>
+          <button class="btn-more" @click="navigateTo('/feedback/list')">查看全部 →</button>
+        </div>
+        <div class="module-grid module-grid-5">
+          <div v-for="(item, i) in mockFeedback" :key="i" class="feedback-card-home" @click="navigateTo('/feedback/list')">
+            <div class="feedback-card-cover" :style="{ background: item.bg }">
+              <span class="feedback-category-badge">{{ item.category }}</span>
+              <span class="feedback-status-badge" :class="'fb-status-' + item.status">{{ item.statusText }}</span>
+            </div>
+            <div class="feedback-card-body">
+              <h4 class="feedback-card-title">{{ item.title }}</h4>
+              <div class="feedback-card-tags" v-if="item.tags">
+                <span class="feedback-tag-item" v-for="t in item.tags" :key="t">{{ t }}</span>
+              </div>
+              <p class="feedback-card-content">{{ item.content }}</p>
+              <div class="feedback-card-footer">
+                <span class="feedback-card-user">👤 {{ item.user }}</span>
+                <span class="feedback-card-stats">👍{{ item.likeCount }} 💬{{ item.commentCount }}</span>
+                <span class="feedback-card-time">{{ item.time }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -711,105 +963,6 @@
       </div>
     </section>
 
-    <!-- 课程套餐对比 -->
-    <section class="pricing-section">
-      <div class="section-container">
-        <div class="features-header">
-          <h2 class="section-title" style="color:#1e1b4b">选择适合你的套餐</h2>
-          <p class="section-subtitle">不同档次满足不同学习需求，随时升级，终身受益</p>
-        </div>
-
-        <div class="pricing-layout">
-
-          <!-- 左三列：免费 / 付费 / VIP -->
-          <div class="pricing-left">
-            <div class="pricing-top-row">
-
-              <!-- 免费 & 付费 -->
-              <div class="pricing-card2" v-for="(plan, i) in basicPlans" :key="i">
-                <div class="p2-header">
-                  <div class="p2-icon" :style="{ background: plan.bg }">{{ plan.emoji }}</div>
-                  <h3 class="p2-name">{{ plan.name }}</h3>
-                  <p class="p2-tagline">{{ plan.tagline }}</p>
-                </div>
-                <div class="p2-price">
-                  <span v-if="plan.price === 0" class="p2-price-free">免费</span>
-                  <template v-else>
-                    <span class="p2-price-num">¥18</span>
-                    <span class="p2-price-range-sep"> ~ </span>
-                    <span class="p2-price-num">¥99</span>
-                    <span class="p2-price-unit"> / 门</span>
-                  </template>
-                </div>
-                <ul class="p2-features">
-                  <li v-for="(feat, j) in plan.features" :key="j" class="p2-feat" :class="{ 'p2-feat-no': !feat.included }">
-                    <span class="p2-feat-icon" :class="feat.included ? 'p2-check' : 'p2-cross'">
-                      {{ feat.included ? '✓' : '✗' }}
-                    </span>
-                    {{ feat.text }}
-                  </li>
-                </ul>
-                <button class="p2-btn" :style="{ color: plan.btnColor, borderColor: plan.btnColor }" @click="navigateTo(plan.action)">
-                  {{ plan.btnText }}
-                </button>
-              </div>
-
-              <!-- VIP -->
-              <div class="pricing-card2">
-                <div class="p2-header">
-                  <div class="p2-icon" style="background: linear-gradient(135deg, #a855f7, #7c3aed)">👑</div>
-                  <h3 class="p2-name">VIP 会员</h3>
-                  <p class="p2-tagline">全站畅学，尊享特权</p>
-                </div>
-                <div class="p2-price">
-                  <span class="p2-price-num">¥188</span>
-                  <span class="p2-price-unit">/ 年</span>
-                </div>
-                <ul class="p2-features">
-                  <li v-for="(feat, j) in vipFeatures" :key="j" class="p2-feat">
-                    <span class="p2-feat-icon p2-check">✓</span>{{ feat }}
-                  </li>
-                </ul>
-                <button class="p2-btn p2-btn-vip" @click="navigateTo('/course/1')">立即开通 VIP</button>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- 右侧：小班专属 -->
-          <div class="pricing-class-card">
-            <!-- 金色奖章装饰 -->
-            <div class="class-medal">🏅</div>
-            <div class="class-top-tag">⭐ 强烈推荐</div>
-            <h3 class="class-title">觉哥就业小班</h3>
-            <p class="class-sub">就业培训 · 面试指导 · 专人专属规划</p>
-            <div class="class-price-row">
-              <span class="class-price-main">¥2199</span>
-              <span class="class-price-unit">起 / 永久</span>
-            </div>
-            <div class="class-highlights">
-              <div class="class-hl" v-for="(h, i) in classHighlights" :key="i">
-                <span class="class-hl-icon">{{ h.icon }}</span>
-                <div>
-                  <div class="class-hl-title">{{ h.title }}</div>
-                  <div class="class-hl-desc">{{ h.desc }}</div>
-                </div>
-              </div>
-            </div>
-            <ul class="class-feat-list">
-              <li v-for="(f, i) in classFeatures" :key="i">
-                <span class="p2-feat-icon p2-check" style="background:#a78bfa22;color:#a78bfa">✓</span>{{ f }}
-              </li>
-            </ul>
-            <button class="class-cta-btn" @click="navigateTo('/course/1')">
-              立即报名小班 →
-            </button>
-            
-          </div>
-
-        </div>
-      </div>
-    </section>
 
     <!-- 广告位 -->
     <section class="ad-section">
@@ -886,6 +1039,57 @@ const defaultCarouselItems = [
     isVisible: true,
     tags: [{ icon: '🕐', text: '限时特惠' }, { icon: '💰', text: '低至1折' }, { icon: '🔄', text: '每日更新' }],
   },
+  {
+    emoji: '👥',
+    iconBg: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+    cardBg: 'linear-gradient(135deg, #1e3a5f 0%, #1d4ed8 50%, #2563eb 100%)',
+    title: '拼团优惠学习',
+    subtitle: '邀请好友一起学，享受更低价格',
+    btnText: '发起拼团',
+    path: '/list/group/1',
+    feature1: '邀友同学',
+    feature1Icon: '👋',
+    feature2: '最高7折',
+    feature2Icon: '🏷️',
+    feature3: '分享有礼',
+    feature3Icon: '🎁',
+    isVisible: true,
+    tags: [{ icon: '👋', text: '邀友同学' }, { icon: '🏷️', text: '最高7折' }, { icon: '🎁', text: '分享有礼' }],
+  },
+  {
+    emoji: '🚀',
+    iconBg: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
+    cardBg: 'linear-gradient(135deg, #3b0764 0%, #7e22ce 50%, #a21caf 100%)',
+    title: '精选开源项目',
+    subtitle: '真实项目案例，边学边练提升实战能力',
+    btnText: '查看项目',
+    path: '/openproject/list',
+    feature1: '真实项目',
+    feature1Icon: '📦',
+    feature2: '边学边练',
+    feature2Icon: '✏️',
+    feature3: '精选推荐',
+    feature3Icon: '⭐',
+    isVisible: true,
+    tags: [{ icon: '📦', text: '真实项目' }, { icon: '✏️', text: '边学边练' }, { icon: '⭐', text: '精选推荐' }],
+  },
+  {
+    emoji: '🌐',
+    iconBg: 'linear-gradient(135deg, #14b8a6, #06b6d4)',
+    cardBg: 'linear-gradient(135deg, #134e4a 0%, #0f766e 50%, #0891b2 100%)',
+    title: '实用网站导航',
+    subtitle: '程序员常用工具站点，一站式收藏',
+    btnText: '立即查看',
+    path: '/usefull/list',
+    feature1: '一站收藏',
+    feature1Icon: '📌',
+    feature2: '开发工具',
+    feature2Icon: '🛠️',
+    feature3: '精选站点',
+    feature3Icon: '🔍',
+    isVisible: true,
+    tags: [{ icon: '📌', text: '一站收藏' }, { icon: '🛠️', text: '开发工具' }, { icon: '🔍', text: '精选站点' }],
+  },
 ]
 
 // 从后端加载轮播图数据
@@ -930,8 +1134,12 @@ const currentPageItems = computed(() => {
 
 // 管理员判断（TODO: 上线前恢复权限判断）
 const isAdmin = computed(() => {
-  const { hasPermission } = usePermission()
-  return hasPermission('homepage:carousel:edit')
+  try {
+    const { hasPermission } = usePermission()
+    return hasPermission('homepage:carousel:edit')
+  } catch (e) {
+    return false
+  }
 })
 
 // 编辑入口跳转到独立页面 /admin/carousel
@@ -1443,6 +1651,7 @@ function goToSlide(i) {
 
 onMounted(() => {
   loadCarouselData()
+  loadHotCourses()
   startCarousel()
 })
 
@@ -1510,122 +1719,53 @@ const quickNavs = [
   { name: '内部网站', desc: '内部专属资源', path: '/site', bg: 'linear-gradient(135deg, #64748b, #475569)', icon: IconInternal },
 ]
 
-const mockCourses = [
-  {
-    id: 1,
-    title: 'Vue 3 + TypeScript 全栈开发实战',
-    cover: null,
-    type: 'media',
-    price: 199.00,
-    tPrice: 399.00,
-    buyCount: 12400,
-    viewCount: 58000,
-    ratingScore: 4.9,
-    collectionCount: 3200,
-    status: 2,
-    resourceType: '2',
-    tags: ['前端', 'Vue3'],
-    // 前端展示用（后期可从后端字段计算）
-    bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    coverTitle: '全栈开发',
-    coverSub: 'Vue3 · TypeScript · Vite',
-    badge: '热门',
-    badgeType: 'badge-hot',
-  },
-  {
-    id: 2,
-    title: 'Python 数据分析与机器学习入门',
-    cover: null,
-    type: 'media',
-    price: 0,
-    tPrice: 0,
-    buyCount: 8200,
-    viewCount: 42000,
-    ratingScore: 4.8,
-    collectionCount: 2100,
-    status: 2,
-    resourceType: '1',
-    tags: ['Python', 'AI'],
-    bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    coverTitle: '机器学习',
-    coverSub: 'Python · Pandas · sklearn',
-    badge: '免费',
-    badgeType: 'badge-free',
-  },
-  {
-    id: 3,
-    title: 'Docker + K8s 云原生部署实践',
-    cover: null,
-    type: 'media',
-    price: 299.00,
-    tPrice: 599.00,
-    buyCount: 5600,
-    viewCount: 31000,
-    ratingScore: 4.7,
-    collectionCount: 1800,
-    status: 2,
-    resourceType: '2',
-    tags: ['运维', 'DevOps'],
-    bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    coverTitle: '云原生',
-    coverSub: 'Docker · Kubernetes · CI/CD',
-    badge: '新课',
-    badgeType: 'badge-new',
-  },
-  {
-    id: 4,
-    title: 'React 18 + Next.js 企业级项目',
-    cover: null,
-    type: 'media',
-    price: 249.00,
-    tPrice: 499.00,
-    buyCount: 9100,
-    viewCount: 47000,
-    ratingScore: 4.9,
-    collectionCount: 2800,
-    status: 2,
-    resourceType: '2',
-    tags: ['前端', 'React'],
-    bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    coverTitle: '企业级开发',
-    coverSub: 'React18 · Next.js · Redux',
-    badge: null,
-    badgeType: '',
-  },
-  {
-    id: 5,
-    title: 'Java Spring Boot 3.x 实战教程',
-    cover: null,
-    type: 'media',
-    price: 199.00,
-    tPrice: 399.00,
-    buyCount: 15200,
-    viewCount: 72000,
-    ratingScore: 4.9,
-    collectionCount: 4100,
-    status: 2,
-    resourceType: '2',
-    tags: ['后端', 'Java'],
-    bg: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
-    coverTitle: 'Spring Boot',
-    coverSub: 'Java · Spring · MyBatis',
-    badge: '热门',
-    badgeType: 'badge-hot',
-  },
+// ===== 热门课程（对接后端接口） =====
+const defaultCourseBgs = [
+  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+  'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
 ]
 
-// 格式化展示数据（后期对接后端时替换为 API 返回数据即可）
-const hotCourses = computed(() => mockCourses.map(course => ({
-  ...course,
-  // 展示用字段
-  tech: course.tags[0] || '',
-  heatText: formatCount(course.buyCount) + '人学',
-  students: formatCount(course.buyCount),
-  level: getLevelLabel(course.resourceType),
-  levelClass: getLevelClass(course.resourceType),
-  originPrice: course.tPrice > course.price ? course.tPrice : null,
-  rating: String(course.ratingScore),
-})))
+const hotCoursesRaw = ref([])
+
+async function loadHotCourses() {
+  try {
+    const res = await $fetch('/homepage/course/hot?limit=5', {
+      baseURL: fetchConfig.baseURL,
+      headers: {
+        appid: fetchConfig.headers.appid,
+      },
+    })
+    if (res && res.data && res.data.length > 0) {
+      hotCoursesRaw.value = res.data
+    }
+  } catch (e) {
+    console.warn('热门课程接口请求失败，使用默认数据', e)
+  }
+}
+
+const hotCourses = computed(() => hotCoursesRaw.value.map((course, index) => {
+  const bg = defaultCourseBgs[index % defaultCourseBgs.length]
+  const coverStyle = course.cover
+    ? { backgroundImage: `url(${course.cover}), ${bg}`, backgroundSize: 'cover', backgroundPosition: 'center' }
+    : { background: bg }
+  return {
+    ...course,
+    bg,
+    coverStyle,
+    coverTitle: course.tags?.[0] || course.title?.substring(0, 4) || '',
+    coverSub: course.tags?.join(' · ') || '',
+    buyCountText: formatCount(course.buyCount || 0),
+    viewsText: formatCount(course.viewCount || 0),
+    originPrice: course.tPrice > course.price ? course.tPrice : null,
+    rating: String(course.ratingScore || 0),
+    serviceContent: course.serviceContent || '',
+    tags: course.tags || [],
+    videoCount: course.videoCount || 0,
+  }
+}))
 
 function formatCount(num) {
   if (num >= 10000) return (num / 10000).toFixed(1) + 'W'
@@ -1683,27 +1823,27 @@ const mockBooks = [
 
 // 考试 - 对应 ExamVo: id, title, total_score, pass_score, expire, question_count
 const mockExams = [
-  { id: 1, title: '前端面试题精选 500 道', totalScore: 100, passScore: 60, expire: 120, questionCount: 500, bg: 'linear-gradient(135deg,#667eea,#764ba2)', emoji: '💻', count: '500', passRate: '72%' },
-  { id: 2, title: 'Java 后端面试宝典', totalScore: 100, passScore: 60, expire: 150, questionCount: 680, bg: 'linear-gradient(135deg,#f093fb,#f5576c)', emoji: '☕', count: '680', passRate: '68%' },
-  { id: 3, title: 'MySQL 数据库考题库', totalScore: 100, passScore: 70, expire: 90, questionCount: 320, bg: 'linear-gradient(135deg,#43e97b,#38f9d7)', emoji: '🗄️', count: '320', passRate: '81%' },
-  { id: 4, title: 'Linux 运维认证题库', totalScore: 100, passScore: 60, expire: 120, questionCount: 420, bg: 'linear-gradient(135deg,#fa709a,#fee140)', emoji: '🐧', count: '420', passRate: '65%' },
-  { id: 5, title: 'Python 编程基础测验', totalScore: 100, passScore: 60, expire: 60, questionCount: 280, bg: 'linear-gradient(135deg,#a18cd1,#fbc2eb)', emoji: '🐍', count: '280', passRate: '88%' },
+  { id: 1, title: '前端面试题精选 500 道', totalScore: 100, passScore: 60, expire: 120, questionCount: 500, tags: ['JavaScript', 'Vue', 'React'], bg: 'linear-gradient(135deg,#667eea,#764ba2)', emoji: '💻', count: '500', passRate: '72%' },
+  { id: 2, title: 'Java 后端面试宝典', totalScore: 100, passScore: 60, expire: 150, questionCount: 680, tags: ['Java', 'Spring Boot'], bg: 'linear-gradient(135deg,#f093fb,#f5576c)', emoji: '☕', count: '680', passRate: '68%' },
+  { id: 3, title: 'MySQL 数据库考题库', totalScore: 100, passScore: 70, expire: 90, questionCount: 320, tags: ['MySQL', 'SQL'], bg: 'linear-gradient(135deg,#43e97b,#38f9d7)', emoji: '🗄️', count: '320', passRate: '81%' },
+  { id: 4, title: 'Linux 运维认证题库', totalScore: 100, passScore: 60, expire: 120, questionCount: 420, tags: ['Linux', '运维'], bg: 'linear-gradient(135deg,#fa709a,#fee140)', emoji: '🐧', count: '420', passRate: '65%' },
+  { id: 5, title: 'Python 编程基础测验', totalScore: 100, passScore: 60, expire: 60, questionCount: 280, tags: ['Python'], bg: 'linear-gradient(135deg,#a18cd1,#fbc2eb)', emoji: '🐍', count: '280', passRate: '88%' },
 ]
 
 // 答疑 - 对应 Question: id, userId, content, status, viewCount, followCount
 const mockQnA = [
-  { id: 1, userId: 101, content: 'Vue3 Composition API 如何优雅管理状态？', status: 1, viewCount: 1280, followCount: 56, avatar: '🧑‍💻', user: '前端小王', time: '2小时前', title: 'Vue3 Composition API 如何优雅管理状态？', answers: 12, views: '1.2K' },
-  { id: 2, userId: 102, content: 'Spring Boot 3.x 启动报错排查思路', status: 0, viewCount: 890, followCount: 34, avatar: '👨‍🔬', user: 'Java老李', time: '5小时前', title: 'Spring Boot 3.x 启动报错排查思路', answers: 8, views: '890' },
-  { id: 3, userId: 103, content: 'Docker 容器网络不通如何排查？', status: 1, viewCount: 2100, followCount: 78, avatar: '🐳', user: '运维小张', time: '1天前', title: 'Docker 容器网络不通如何排查？', answers: 15, views: '2.1K' },
+  { id: 1, userId: 101, content: 'Vue3 Composition API 如何优雅管理状态？', status: 2, viewCount: 1280, followCount: 56, replyCount: 12, avatar: '🧑‍💻', user: '前端小王', time: '2小时前', title: 'Vue3 Composition API 如何优雅管理状态？', tags: ['Vue3', 'JavaScript'], answers: 12, views: '1.2K', bg: 'linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%)' },
+  { id: 2, userId: 102, content: 'Spring Boot 3.x 启动报错排查思路', status: 1, viewCount: 890, followCount: 34, replyCount: 8, avatar: '👨‍🔬', user: 'Java老李', time: '5小时前', title: 'Spring Boot 3.x 启动报错排查思路', tags: ['Java', 'Spring Boot'], answers: 8, views: '890', bg: 'linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%)' },
+  { id: 3, userId: 103, content: 'Docker 容器网络不通如何排查？', status: 2, viewCount: 2100, followCount: 78, replyCount: 15, avatar: '🐳', user: '运维小张', time: '1天前', title: 'Docker 容器网络不通如何排查？', tags: ['Docker', '运维'], answers: 15, views: '2.1K', bg: 'linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%)' },
 ]
 
 // 秒杀 - 对应 SysFlashSale: id, title, cover, flashPrice, tPrice, goodsId
 const mockFlashsale = [
-  { id: 1, title: 'Vue 3 全栈开发实战', flashPrice: 19, tPrice: 199, goodsId: 101, bg: 'linear-gradient(135deg,#667eea,#764ba2)', emoji: '⚡', discount: '1折', salePrice: 19, originPrice: 199 },
-  { id: 2, title: 'Python 机器学习入门', flashPrice: 9, tPrice: 99, goodsId: 102, bg: 'linear-gradient(135deg,#f093fb,#f5576c)', emoji: '🐍', discount: '1折', salePrice: 9, originPrice: 99 },
-  { id: 3, title: 'Docker 云原生实践', flashPrice: 29, tPrice: 299, goodsId: 103, bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', emoji: '🐳', discount: '1折', salePrice: 29, originPrice: 299 },
-  { id: 4, title: 'React 18 企业级项目', flashPrice: 24, tPrice: 249, goodsId: 104, bg: 'linear-gradient(135deg,#43e97b,#38f9d7)', emoji: '⚛️', discount: '1折', salePrice: 24, originPrice: 249 },
-  { id: 5, title: 'MySQL 性能优化', flashPrice: 17, tPrice: 179, goodsId: 105, bg: 'linear-gradient(135deg,#fa709a,#fee140)', emoji: '🗄️', discount: '1折', salePrice: 17, originPrice: 179 },
+  { id: 1, title: 'Java零基础入门到精通【2026最新版】', flashPrice: 0.01, tPrice: 399, goodsId: 101, type: '课程', limit: 10, bought: 70, bg: 'linear-gradient(135deg,#dc2626,#f97316)', emoji: '⚡', discount: '1折', salePrice: 0.01, originPrice: 399 },
+  { id: 2, title: 'Python数据分析实战', flashPrice: 0.01, tPrice: 299, goodsId: 102, type: '课程', limit: 10, bought: 10, bg: 'linear-gradient(135deg,#e11d48,#be185d)', emoji: '🐍', discount: '1折', salePrice: 0.01, originPrice: 299 },
+  { id: 3, title: 'Vue3全家桶实战', flashPrice: 0.02, tPrice: 199, goodsId: 103, type: '课程', limit: 6, bought: 0, bg: 'linear-gradient(135deg,#b91c1c,#991b1b)', emoji: '🐳', discount: '1折', salePrice: 0.02, originPrice: 199 },
+  { id: 4, title: 'React 18 企业级项目', flashPrice: 0.01, tPrice: 249, goodsId: 104, type: '课程', limit: 8, bought: 45, bg: 'linear-gradient(135deg,#c2410c,#ea580c)', emoji: '⚛️', discount: '1折', salePrice: 0.01, originPrice: 249 },
+  { id: 5, title: 'MySQL 性能调优手册', flashPrice: 0.02, tPrice: 179, goodsId: 105, type: '电子书', limit: 5, bought: 60, bg: 'linear-gradient(135deg,#9f1239,#f43f5e)', emoji: '🗄️', discount: '1折', salePrice: 0.02, originPrice: 179 },
 ]
 
 // 拼团 - 对应 GroupActivity: id, type, goodsId, price, pNum, startTime, endTime
@@ -1717,11 +1857,11 @@ const mockGroup = [
 
 // 开源项目 - 对应 OshSiteInfo: id, siteName, cover, siteUrl, description, tagList
 const mockOpenProjects = [
-  { id: 1, siteName: 'Vue3 Admin Pro', description: '企业级后台管理模板', siteUrl: 'https://github.com/example/vue3-admin', cover: null, tagList: ['Vue3', 'TypeScript'], bg: 'linear-gradient(135deg,#667eea,#764ba2)', emoji: '🖥️', title: 'Vue3 Admin Pro', stars: '12.8K', tech: 'Vue3' },
-  { id: 2, siteName: 'Spring Cloud 微服务', description: '分布式微服务脚手架', siteUrl: 'https://github.com/example/spring-cloud', cover: null, tagList: ['Java', 'Spring'], bg: 'linear-gradient(135deg,#f093fb,#f5576c)', emoji: '☁️', title: 'Spring Cloud 微服务', stars: '9.2K', tech: 'Java' },
-  { id: 3, siteName: 'AI Chat Bot', description: '基于大模型的智能对话', siteUrl: 'https://github.com/example/ai-chatbot', cover: null, tagList: ['Python', 'AI'], bg: 'linear-gradient(135deg,#43e97b,#38f9d7)', emoji: '🤖', title: 'AI Chat Bot', stars: '15.6K', tech: 'Python' },
-  { id: 4, siteName: 'React Native App', description: '跨平台移动端模板', siteUrl: 'https://github.com/example/rn-app', cover: null, tagList: ['React', 'Mobile'], bg: 'linear-gradient(135deg,#fa709a,#fee140)', emoji: '📱', title: 'React Native App', stars: '7.4K', tech: 'React' },
-  { id: 5, siteName: 'Go Gin Framework', description: '高性能Web框架实践', siteUrl: 'https://github.com/example/go-gin', cover: null, tagList: ['Go', 'Web'], bg: 'linear-gradient(135deg,#a18cd1,#fbc2eb)', emoji: '🚀', title: 'Go Gin Framework', stars: '11.3K', tech: 'Go' },
+  { id: 1, siteName: 'osh-text2sql', description: 'AI驱动的自然语言转SQL工具', siteUrl: 'https://github.com/example/osh-text2sql', cover: null, tagList: ['Vue3', 'AI'], bg: 'linear-gradient(135deg,#14b8a6,#06b6d4)', emoji: '🖥️', title: 'osh-text2sql', stars: '0', tech: 'Vue3', forkCount: 0, lastCommit: '2026-05-14', author: 'juege' },
+  { id: 2, siteName: 'osh-backend', description: '开源学习平台后端服务', siteUrl: 'https://github.com/example/osh-backend', cover: null, tagList: ['Java', 'Spring Boot'], bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)', emoji: '☁️', title: 'osh-backend', stars: '5', tech: 'Java', forkCount: 1, lastCommit: '2026-05-17', author: 'juege' },
+  { id: 3, siteName: 'osh-frontend', description: '开源学习平台前端项目', siteUrl: 'https://github.com/example/osh-frontend', cover: null, tagList: ['Vue3', 'Nuxt3'], bg: 'linear-gradient(135deg,#0ea5e9,#3b82f6)', emoji: '🤖', title: 'osh-frontend', stars: '3', tech: 'Vue3', forkCount: 3, lastCommit: '2026-05-17', author: 'juege' },
+  { id: 4, siteName: 'osh-qa-assistant', description: 'QA Assistant - 问答助手', siteUrl: 'https://github.com/example/osh-qa', cover: null, tagList: ['Python', 'AI实战'], bg: 'linear-gradient(135deg,#f59e0b,#ef4444)', emoji: '📱', title: 'osh-qa-assistant', stars: '2', tech: 'Python', forkCount: 0, lastCommit: '2026-05-10', author: 'juege' },
+  { id: 5, siteName: 'Transvoxel-XNA', description: 'Transvoxel implementation in C#', siteUrl: 'https://github.com/example/transvoxel', cover: null, tagList: ['C#', '图形学'], bg: 'linear-gradient(135deg,#ec4899,#8b5cf6)', emoji: '🚀', title: 'Transvoxel-XNA', stars: '77', tech: 'C#', forkCount: 12, lastCommit: '2026-04-20', author: 'TechLead' },
 ]
 
 // 实用网站 - 对应 OshPracticalWebsite: id, name, url, description, logoUrl, clickCount, goodCount, collectionCount
@@ -1735,11 +1875,29 @@ const mockWebsites = [
 
 // 信息差 - 对应 OshInfoGap: id, title, tag, content, goodCount, middleCount, badCount
 const mockInfoGap = [
-  { id: 1, title: 'AI 编程助手效率对比', tag: 'AI工具', content: '主流AI编程工具横评', goodCount: 892, middleCount: 56, badCount: 12, bg: 'linear-gradient(135deg,#ec4899,#f43f5e)', emoji: '🤖', meta: '👍 892 · AI工具' },
-  { id: 2, title: '2026 前端框架趋势', tag: '前端', content: '前端技术栈选型建议', goodCount: 1240, middleCount: 89, badCount: 23, bg: 'linear-gradient(135deg,#8b5cf6,#6366f1)', emoji: '📊', meta: '👍 1240 · 前端' },
-  { id: 3, title: '远程办公工具推荐', tag: '效率', content: '提升远程协作效率的工具', goodCount: 678, middleCount: 45, badCount: 8, bg: 'linear-gradient(135deg,#f59e0b,#f97316)', emoji: '🏠', meta: '👍 678 · 效率' },
-  { id: 4, title: '云服务器选购指南', tag: '运维', content: '各大云厂商性价比对比', goodCount: 1560, middleCount: 102, badCount: 34, bg: 'linear-gradient(135deg,#14b8a6,#06b6d4)', emoji: '☁️', meta: '👍 1560 · 运维' },
-  { id: 5, title: '副业接单平台汇总', tag: '赚钱', content: '程序员副业渠道整理', goodCount: 2340, middleCount: 156, badCount: 45, bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)', emoji: '💰', meta: '👍 2340 · 赚钱' },
+  { id: 1, title: 'AI 编程助手效率对比', tag: 'AI工具', content: '主流AI编程工具横评', goodCount: 892, middleCount: 56, badCount: 12, bg: 'linear-gradient(135deg,#ec4899,#f43f5e)', emoji: '🤖', meta: '👍 892 · AI工具', author: '技术达人', tags: ['AI', 'GPT'] },
+  { id: 2, title: '2026 前端框架趋势', tag: '前端', content: '前端技术栈选型建议', goodCount: 1240, middleCount: 89, badCount: 23, bg: 'linear-gradient(135deg,#8b5cf6,#6366f1)', emoji: '📊', meta: '👍 1240 · 前端', author: '前端老王', tags: ['Vue', 'React'] },
+  { id: 3, title: '远程办公工具推荐', tag: '效率', content: '提升远程协作效率的工具', goodCount: 678, middleCount: 45, badCount: 8, bg: 'linear-gradient(135deg,#f59e0b,#f97316)', emoji: '🏠', meta: '👍 678 · 效率', author: '效率控', tags: ['协作', '工具'] },
+  { id: 4, title: '云服务器选购指南', tag: '运维', content: '各大云厂商性价比对比', goodCount: 1560, middleCount: 102, badCount: 34, bg: 'linear-gradient(135deg,#14b8a6,#06b6d4)', emoji: '☁️', meta: '👍 1560 · 运维', author: '运维小张', tags: ['云计算', 'DevOps'] },
+  { id: 5, title: '副业接单平台汇总', tag: '赚钱', content: '程序员副业渠道整理', goodCount: 2340, middleCount: 156, badCount: 45, bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)', emoji: '💰', meta: '👍 2340 · 赚钱', author: '自由职业者', tags: ['副业', '接单'] },
+]
+
+// 工具 - 对应 Tool: id, toolName, description, resourceType, accessType, usageCount
+const mockTools = [
+  { id: 1, toolName: 'AI 代码生成器', description: '基于GPT的智能代码补全工具', resourceType: 'AI工具', tags: ['AI', 'GPT'], usageCount: 12800, price: 0, bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
+  { id: 2, toolName: 'SQL 可视化编辑器', description: '拖拽式SQL语句生成', resourceType: '开发工具', tags: ['SQL', '数据库'], usageCount: 8900, price: 0, bg: 'linear-gradient(135deg,#0ea5e9,#06b6d4)' },
+  { id: 3, toolName: 'API 接口测试', description: '在线接口调试与文档生成', resourceType: '开发工具', tags: ['API', '测试'], usageCount: 6700, price: 0, bg: 'linear-gradient(135deg,#10b981,#059669)' },
+  { id: 4, toolName: '正则表达式调试器', description: '可视化正则匹配与测试', resourceType: '开发工具', tags: ['正则', '工具'], usageCount: 5400, price: 0, bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+  { id: 5, toolName: 'JSON 格式化工具', description: 'JSON美化、压缩、校验', resourceType: '开发工具', tags: ['JSON', '格式化'], usageCount: 15600, price: 0, bg: 'linear-gradient(135deg,#ec4899,#f43f5e)' },
+]
+
+// 反馈 - 对应 Feedback: id, title, categoryName, status, tags, likeCount, commentCount, viewCount
+const mockFeedback = [
+  { id: 1, title: '希望增加课程学习进度同步功能', category: '其它', status: 'processing', statusText: '处理中', tags: ['课程设计', '课程内容'], user: 'a123', content: '建议增加跨设备学习进度同步功能，我经常在电脑和手机上切换学习...', likeCount: 3, commentCount: 20, viewCount: 0, time: '2026/6/7', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
+  { id: 2, title: '如何修改绑定的手机号', category: '其它', status: 'resolved', statusText: '已解决', tags: ['界面体验'], user: 'a123', content: '我想更换绑定的手机号，但是在个人设置中没有找到修改入口...', likeCount: 0, commentCount: 8, viewCount: 0, time: '2026/4/27', bg: 'linear-gradient(135deg,#10b981,#14b8a6)' },
+  { id: 3, title: '视频播放器全屏后无法退出', category: 'Bug反馈', status: 'processing', statusText: '处理中', tags: ['播放器', 'Bug'], user: '前端小王', content: '在Safari浏览器中全屏播放视频后，按ESC无法退出全屏...', likeCount: 12, commentCount: 5, viewCount: 0, time: '2026/5/20', bg: 'linear-gradient(135deg,#ef4444,#f97316)' },
+  { id: 4, title: '建议增加学习打卡功能', category: '建议', status: 'pending', statusText: '待处理', tags: ['学习', '打卡'], user: '学习达人', content: '希望能增加每日学习打卡功能，记录学习时长和连续天数...', likeCount: 89, commentCount: 15, viewCount: 0, time: '2026/5/15', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+  { id: 5, title: '移动端页面适配问题', category: 'Bug反馈', status: 'resolved', statusText: '已解决', tags: ['移动端', '适配'], user: '测试员', content: '在iPhone 15 Pro上部分页面底部被遮挡，无法点击按钮...', likeCount: 23, commentCount: 6, viewCount: 0, time: '2026/5/10', bg: 'linear-gradient(135deg,#0ea5e9,#6366f1)' },
 ]
 
 // 套餐对比数据
@@ -1792,6 +1950,7 @@ const adExpanded = ref(false)
 
 // 公告栏数据
 const noticePaused = ref(false)
+const noticePaused2 = ref(false)
 const notices = [
   { text: '🎉 平台全新改版上线，体验更流畅！欢迎反馈意见', color: '#6366f1' },
   { text: '📚 新增 500+ 电子书，涵盖前端、后端、AI 方向', color: '#10b981' },
@@ -1799,6 +1958,17 @@ const notices = [
   { text: '👥 拼团活动进行中，邀请好友最高享 7 折优惠', color: '#f59e0b' },
   { text: '🏆 答疑社区上线，专家在线实时解答你的问题', color: '#8b5cf6' },
   { text: '🔥 Vue3 + TypeScript 全栈实战课程限时特惠 ¥19', color: '#ec4899' },
+  { text: '🎓 在线考试系统全面升级，支持智能组卷和错题回顾', color: '#0ea5e9' },
+  { text: '💡 新增 Docker + K8s 云原生实战课程，企业级项目实操', color: '#14b8a6' },
+]
+
+const notices2 = [
+  { text: '📢 Spring Boot 3.x 微服务架构课程上新，限时 8 折', color: '#ef4444' },
+  { text: '🎯 每周五晚 8 点直播答疑，名师在线互动', color: '#6366f1' },
+  { text: '🌟 优秀学员作品展示，快来投票点赞', color: '#f59e0b' },
+  { text: '📝 在线考试新增错题本功能，智能复习更高效', color: '#10b981' },
+  { text: '🚀 React 18 + Next.js 企业级项目实战课程已上线', color: '#8b5cf6' },
+  { text: '💰 邀请好友注册，双方各得 20 元优惠券', color: '#ec4899' },
 ]
 
 const vipPeriod = ref('year')
@@ -1816,6 +1986,22 @@ const classHighlights = [
   { icon: '📋', title: '公司级商用项目实战', desc: '支持商用级项目实战带教，中-高级开发技术路线实践' },
 ]
 const classFeatures = ['含全部付费课程权限', '网站全功能权限', '专人带教 + 小班技术培训', '简历指导+模拟面试+入职服务', '试用期陪伴', '终身回看']
+
+// 小班展开内容
+const classExpanded = ref(false)
+const classStudents = [
+  '应届毕业生 → 3个月拿到offer，入职中大型互联网公司',
+  '转行学员 → 从零基础到独立完成企业级项目开发',
+  '1-3年经验 → 技术瓶颈突破，薪资涨幅30%-50%',
+  '在职提升 → 边工作边学习，系统补齐技术短板',
+]
+const classTechPath = [
+  { title: '基础夯实', desc: '前端/后端核心技术体系梳理，查漏补缺' },
+  { title: '项目实战', desc: '参与公司级商用项目，积累真实开发经验' },
+  { title: '代码Review', desc: '一对一代码审查，培养工程化编码习惯' },
+  { title: '模拟面试', desc: '真实面试场景模拟，针对性查缺补漏' },
+  { title: '入职护航', desc: '入职后试用期全程技术支持，确保顺利转正' },
+]
 
 // Feature icons
 const FeatIcon1 = () => h('svg', { width: 28, height: 28, viewBox: '0 0 28 28', fill: 'none' }, [
@@ -1857,7 +2043,7 @@ const features = [
   background: linear-gradient(180deg, #faf5ff 0%, #f5f3ff 100%);
   min-height: 100vh;
   padding-top: 0;
-  margin-top: 0;
+  margin-top: -24px;
 }
 
 /* ===== Hero Banner - 2x2 Grid ===== */
@@ -1867,6 +2053,7 @@ const features = [
   padding: 0;
   background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
   margin: 0;
+  margin-top: 12px;
   border-radius: 0;
   height: 480px;
 }
@@ -2864,13 +3051,13 @@ const features = [
 
 .cover-heat {
   position: absolute;
-  bottom: 12px;
-  right: 12px;
+  top: 10px;
+  right: 10px;
   z-index: 1;
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(0, 0, 0, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(4px);
   padding: 3px 8px;
   border-radius: 100px;
@@ -2902,8 +3089,15 @@ const features = [
 .course-tags {
   display: flex;
   gap: 6px;
-  margin-bottom: 6px;
   flex-wrap: wrap;
+}
+
+.course-tags-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  margin-bottom: 6px;
 }
 
 .course-tag {
@@ -2920,12 +3114,22 @@ const features = [
   font-size: 13px;
   font-weight: 600;
   color: var(--text-1);
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.course-desc {
+  font-size: 11px;
+  color: #9ca3af;
+  margin: 0 0 4px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .course-meta {
@@ -2957,8 +3161,16 @@ const features = [
 .course-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 4px;
   margin-top: auto;
+  white-space: nowrap;
+  flex-wrap: nowrap;
+}
+
+.course-views-text {
+  font-size: 10px;
+  color: #9ca3af;
+  white-space: nowrap;
 }
 
 .price-current {
@@ -2990,10 +3202,30 @@ const features = [
 }
 
 .course-students-inline {
-  font-size: 11px;
+  font-size: 10px;
   color: #6b7280;
   font-weight: 400;
-  margin-right: 4px;
+}
+
+.course-footer-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.course-video-inline {
+  font-size: 10px;
+  color: #6b7280;
+}
+
+.course-rating-star {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
 }
 
 /* ===== 功能亮点 ===== */
@@ -3068,11 +3300,345 @@ const features = [
   border-bottom: 2px solid #ede9fe;
 }
 
-.pricing-layout {
-  display: grid;
-  grid-template-columns: 1fr 300px;
+/* 横向套餐布局 */
+.pricing-horizontal {
+  display: flex;
+  flex-direction: column;
   gap: 20px;
+}
+.pricing-h-card {
+  position: relative;
+  display: flex;
   align-items: stretch;
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e9d5ff;
+  padding: 24px 28px;
+  gap: 28px;
+  min-height: 200px;
+  transition: all 0.3s ease;
+}
+.pricing-h-class {
+  flex-direction: column;
+  background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%);
+  border: 2px solid #c4b5fd;
+}
+.ph-top-row {
+  display: flex;
+  align-items: stretch;
+  gap: 28px;
+  width: 100%;
+}
+.pricing-h-vip {
+  background: linear-gradient(135deg, #EAEAEA, #D4D4D4, #bfdbfe, #93c5fd);
+  border-color: #93c5fd;
+}
+.pricing-h-vip .ph-title,
+.pricing-h-vip .ph-sub,
+.pricing-h-vip .ph-price-unit {
+  color: #1e293b;
+}
+.pricing-h-vip .ph-price-num {
+  color: #1e40af;
+}
+.pricing-h-vip .ph-feat-list {
+  color: #1e293b;
+}
+.pricing-h-vip .ph-check {
+  background: rgba(30, 64, 175, 0.12);
+  color: #1e40af;
+}
+@keyframes vip-ocean {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 50% 100%; }
+  50% { background-position: 100% 50%; }
+  75% { background-position: 50% 0%; }
+  100% { background-position: 0% 50%; }
+}
+.ph-vip-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ph-vip-slogan {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e40af;
+  margin: 0;
+}
+.ph-vip-desc {
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.6;
+  margin: 0;
+}
+.ph-vip-tip {
+  font-size: 12px;
+  color: #475569;
+  margin: 0;
+}
+.ph-left {
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.ph-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  width: fit-content;
+}
+.ph-icon-vip {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+.ph-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e1b4b;
+  margin: 0 0 4px;
+}
+.ph-sub {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 12px;
+}
+.ph-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.ph-price-num {
+  font-size: 28px;
+  font-weight: 800;
+  color: #7c3aed;
+}
+.ph-price-unit {
+  font-size: 13px;
+  color: #6b7280;
+}
+.ph-middle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  border-left: 1px solid #e9d5ff;
+  border-right: 1px solid #e9d5ff;
+  padding: 0 24px;
+}
+.ph-middle-vip {
+  border: none;
+  padding: 0 24px;
+}
+.ph-highlights {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ph-hl {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.ph-hl-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.ph-hl-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+}
+.ph-hl-desc {
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+.ph-right {
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-left: 0;
+  margin-left: -12px;
+}
+.ph-feat-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #374151;
+}
+.ph-feat-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ph-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #d1fae5;
+  color: #059669;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.ph-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  text-align: center;
+}
+.ph-btn-class {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  color: white;
+}
+.ph-btn-class:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+/* 展开按钮 */
+.ph-expand-btn {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: #6366f1;
+  background: white;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.ph-expand-btn:hover {
+  background: rgba(99, 102, 241, 0.15);
+}
+.ph-expand-icon {
+  transition: transform 0.3s;
+}
+.ph-expand-icon-open {
+  transform: rotate(180deg);
+}
+/* 展开面板 */
+.ph-expand-panel {
+  width: 100%;
+  background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%);
+  border-top: 1px dashed #d8b4fe;
+  border-radius: 0;
+  padding: 24px;
+  margin-top: 16px;
+}
+.ph-expand-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.ph-expand-block-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e1b4b;
+  margin: 0 0 12px;
+}
+.ph-expand-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: #334155;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+.ph-expand-dot {
+  width: 6px;
+  height: 6px;
+  min-width: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  margin-top: 6px;
+}
+.ph-expand-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.ph-expand-step-num {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ph-expand-step-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1e1b4b;
+  white-space: nowrap;
+}
+.ph-expand-step-desc {
+  font-size: 10px;
+  color: #64748b;
+  margin-left: 6px;
+}
+/* 展开动画 */
+.expand-fade-enter-active,
+.expand-fade-leave-active {
+  transition: opacity 0.3s ease, max-height 0.3s ease;
+  overflow: hidden;
+  max-height: 500px;
+}
+.expand-fade-enter-from,
+.expand-fade-leave-to {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.expand-fade-enter-to,
+.expand-fade-leave-from {
+  opacity: 1;
+  max-height: 500px;
+}
+.ph-btn-vip {
+  background: linear-gradient(135deg, #7c3aed, #6366f1);
+  color: white;
+}
+.ph-btn-vip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+}
+.ph-action {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 /* ===== 新套餐卡样式 ===== */
@@ -4072,14 +4638,17 @@ const features = [
 
 /* ===== 公告栏 ===== */
 .notice-section {
-  padding: 6px 32px;
+  padding: 0;
   margin-top: 0;
   background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .notice-bar {
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   padding: 0 12px;
   display: flex;
   align-items: center;
@@ -4135,12 +4704,32 @@ const features = [
   display: flex;
   align-items: center;
   white-space: nowrap;
-  animation: notice-scroll 32s linear infinite;
+  animation: notice-scroll 60s linear infinite;
 }
 
 @keyframes notice-scroll {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
+}
+
+@keyframes notice-scroll-reverse {
+  0%   { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+
+.notice-scroll-track-reverse {
+  animation: notice-scroll-reverse 36s linear infinite !important;
+}
+
+.notice-bar-2 {
+  background: linear-gradient(90deg, #ecfdf5 0%, #e0f2fe 40%, #ede9fe 100%);
+  border-color: #6ee7b7;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+}
+
+.notice-label-2 {
+  background: linear-gradient(135deg, #10b981, #06b6d4) !important;
+  box-shadow: 2px 0 12px rgba(16, 185, 129, 0.35) !important;
 }
 
 .notice-item {
@@ -4681,7 +5270,6 @@ const features = [
 .module-grid {
   display: grid;
   gap: 14px;
-  grid-auto-rows: 1fr;
 }
 .module-grid-5 {
   grid-template-columns: repeat(5, 1fr);
@@ -4748,8 +5336,8 @@ const features = [
 }
 .book-card-type {
   position: absolute;
-  bottom: 8px;
-  left: 8px;
+  top: 8px;
+  right: 8px;
   padding: 2px 10px;
   border-radius: 12px;
   font-size: 10px;
@@ -4784,8 +5372,13 @@ const features = [
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  justify-content: center;
+  justify-content: space-between;
   flex-shrink: 0;
+}
+.book-card-chapters {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: auto;
 }
 .book-card-tags-right {
   display: flex;
@@ -4851,6 +5444,9 @@ const features = [
 }
 .book-card-footer {
   margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 .book-card-price {
   font-size: 15px;
@@ -4859,6 +5455,10 @@ const features = [
 }
 .book-card-price-free {
   color: #10b981;
+}
+.book-card-chapters {
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .module-card-cover {
@@ -4893,6 +5493,756 @@ const features = [
   border-radius: 10px;
   font-size: 11px;
   color: white;
+  font-weight: 700;
+}
+
+/* 秒杀卡片 - 匹配秒杀模块风格 */
+.seckill-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  height: 220px;
+  min-height: 220px;
+  overflow: hidden;
+}
+.seckill-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+.seckill-card-cover {
+  position: relative;
+  height: 65px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.seckill-card-emoji {
+  font-size: 28px;
+}
+.seckill-card-body {
+  padding: 8px 10px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.seckill-card-header {
+  margin-bottom: 8px;
+}
+.seckill-limit {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #dc2626;
+  background: rgba(255,255,255,0.9);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.seckill-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 6px;
+  line-height: 1.4;
+  height: 36px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.seckill-card-price {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.seckill-origin {
+  font-size: 10px;
+  color: #9ca3af;
+  text-decoration: line-through;
+}
+.seckill-flash {
+  font-size: 15px;
+  font-weight: 700;
+  color: #dc2626;
+}
+.seckill-type {
+  font-size: 9px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.seckill-buy-limit {
+  font-size: 9px;
+  background: #fef3c7;
+  color: #b45309;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.seckill-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.seckill-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: #fee2e2;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.seckill-progress-fill {
+  height: 100%;
+  background: #dc2626;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+.seckill-progress-text {
+  font-size: 11px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.seckill-btn {
+  margin-top: auto;
+  width: 100%;
+  padding: 6px 0;
+  border: none;
+  border-radius: 6px;
+  background: #dc2626;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.seckill-btn:hover {
+  background: #b91c1c;
+}
+
+/* 开源项目卡片 */
+.openproj-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  height: 220px;
+  overflow: hidden;
+}
+.openproj-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+.openproj-card-cover {
+  position: relative;
+  height: 65px;
+  flex-shrink: 0;
+}
+.openproj-status-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  background: #10b981;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.openproj-star-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.9);
+  color: #374151;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.openproj-card-body {
+  padding: 10px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.openproj-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 6px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.openproj-card-tags {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.openproj-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-weight: 500;
+}
+.openproj-card-desc {
+  font-size: 11px;
+  color: #6b7280;
+  margin: 0 0 6px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.openproj-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+.openproj-author {
+  font-weight: 500;
+  color: #374151;
+}
+.openproj-card-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.openproj-link {
+  font-size: 11px;
+  color: #6366f1;
+  font-weight: 600;
+  cursor: pointer;
+}
+.openproj-link:hover {
+  color: #4f46e5;
+}
+.openproj-stat {
+  font-weight: 500;
+}
+.openproj-date {
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+/* 实用网站卡片 */
+.website-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  height: 220px;
+  overflow: hidden;
+}
+.website-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+.website-card-cover {
+  position: relative;
+  height: 65px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.website-card-emoji {
+  font-size: 24px;
+}
+.website-good-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.9);
+  color: #374151;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.website-card-body {
+  padding: 10px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.website-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.website-card-desc {
+  font-size: 11px;
+  color: #6b7280;
+  margin: 0 0 8px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.website-card-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+.website-card-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: flex-end;
+}
+.website-visit-link {
+  font-size: 11px;
+  color: #6366f1;
+  font-weight: 600;
+  cursor: pointer;
+}
+.website-visit-link:hover {
+  color: #4f46e5;
+}
+.website-stat {
+  font-weight: 500;
+}
+
+/* 信息差卡片 */
+.infogap-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  height: 220px;
+  overflow: hidden;
+}
+.infogap-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+.infogap-card-cover {
+  position: relative;
+  height: 65px;
+  flex-shrink: 0;
+}
+.infogap-tag-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.9);
+  color: #374151;
+  padding: 2px 10px;
+  border-radius: 10px;
+}
+.infogap-card-body {
+  padding: 10px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.infogap-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 6px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.infogap-card-desc {
+  font-size: 11px;
+  color: #6b7280;
+  margin: 0 0 8px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.infogap-card-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+}
+.infogap-stat {
+  font-weight: 500;
+}
+.infogap-stat.good { color: #10b981; }
+.infogap-stat.mid { color: #f59e0b; }
+.infogap-stat.bad { color: #ef4444; }
+.infogap-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.infogap-tag-item {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #fce7f3;
+  color: #be185d;
+  font-weight: 500;
+}
+.infogap-author {
+  font-size: 11px;
+  color: #374151;
+  font-weight: 500;
+}
+
+/* 工具卡片 */
+.tool-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  height: 220px;
+  overflow: hidden;
+}
+.tool-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+.tool-card-cover {
+  position: relative;
+  height: 65px;
+  flex-shrink: 0;
+}
+.tool-card-type {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.9);
+  color: #374151;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.tool-card-body {
+  padding: 10px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.tool-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tool-card-desc {
+  font-size: 11px;
+  color: #6b7280;
+  margin: 0 0 6px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tool-card-tags {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.tool-tag-item {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-weight: 500;
+}
+.tool-card-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+.tool-card-usage {
+  color: #6b7280;
+}
+.tool-card-price {
+  font-weight: 700;
+  color: #10b981;
+}
+
+/* 反馈卡片 */
+.feedback-card-home {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  height: 220px;
+  overflow: hidden;
+}
+.feedback-card-home:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+.feedback-card-cover {
+  position: relative;
+  height: 65px;
+  flex-shrink: 0;
+}
+.feedback-category-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.9);
+  color: #374151;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.feedback-status-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.fb-status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+.fb-status-processing {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.fb-status-resolved {
+  background: #d1fae5;
+  color: #065f46;
+}
+.feedback-card-body {
+  padding: 10px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.feedback-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 6px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.feedback-card-tags {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.feedback-tag-item {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #ecfdf5;
+  color: #065f46;
+  font-weight: 500;
+}
+.feedback-card-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: #6b7280;
+}
+.feedback-card-user {
+  font-weight: 500;
+  color: #374151;
+}
+.feedback-card-stats {
+  color: #6b7280;
+}
+.feedback-card-content {
+  font-size: 11px;
+  color: #6b7280;
+  margin: 0 0 6px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.feedback-card-time {
+  margin-left: auto;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+/* 在线考试 - 卡片样式（同电子书结构） */
+.exam-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+}
+.exam-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+.exam-card-cover {
+  position: relative;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.exam-card-emoji {
+  font-size: 36px;
+}
+.exam-card-count {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.9);
+  color: #374151;
+}
+.exam-card-pass {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.85);
+  color: #374151;
+}
+.exam-card-body {
+  padding: 10px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.exam-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 6px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.exam-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.exam-card-tag {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  background: #f0f4ff;
+  color: #3b62ff;
+}
+.exam-card-stats {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.exam-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.exam-stat-label {
+  font-size: 10px;
+  color: #9ca3af;
+}
+.exam-stat-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f2937;
+}
+.exam-card-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: flex-end;
+}
+.exam-card-expire {
+  font-size: 13px;
+  color: #f43f5e;
   font-weight: 700;
 }
 
@@ -4931,40 +6281,116 @@ const features = [
   text-decoration: line-through;
 }
 
-/* 答疑卡片特殊样式 */
-.module-card-qna {
-  padding: 14px;
+/* 答疑社区卡片 - 匹配答疑模块UI */
+.qna-card {
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  height: 220px;
 }
-.module-card-qna .module-card-title {
-  white-space: normal;
-  -webkit-line-clamp: 2;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
+.qna-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+}
+.qna-card.qna-answered {
+  border-left: 3px solid #10b981;
+}
+.qna-card.qna-pending {
+  border-left: 3px solid #f59e0b;
+  background: linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%) !important;
+}
+.qna-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
   margin-bottom: 8px;
 }
-.module-card-qna-header {
+.qna-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+.qna-card-views {
+  font-size: 12px;
+  color: #6b7280;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.qna-card-meta {
   display: flex;
   align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+.qna-meta-user, .qna-meta-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.qna-card-tags {
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 8px;
 }
-.qna-avatar {
-  font-size: 18px;
-}
-.qna-user {
+.qna-card-desc {
   font-size: 12px;
-  font-weight: 500;
-  color: #374151;
+  color: #6b7280;
+  margin: 0 0 10px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-.qna-time {
+.qna-meta-tag {
+  padding: 2px 10px;
+  border-radius: 12px;
   font-size: 11px;
-  color: #9ca3af;
+  font-weight: 500;
+  background: rgba(255,255,255,0.7);
+  color: #3b62ff;
+}
+.qna-card-bottom {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.qna-bottom-stat {
+  font-size: 12px;
+  color: #374151;
+  font-weight: 500;
+}
+.qna-status-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
   margin-left: auto;
 }
-.qna-stats {
-  display: flex;
-  gap: 12px;
-  font-size: 11px;
-  color: #6b7280;
+.qna-status-solved {
+  background: #d1fae5;
+  color: #065f46;
+}
+.qna-status-open {
+  background: #fef3c7;
+  color: #92400e;
 }
 </style>
