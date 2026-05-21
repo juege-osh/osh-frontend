@@ -295,6 +295,7 @@
               <span class="tag-count"
                 >已选 {{ selectedTags.length }}/{{ MAX_TAG_COUNT }}</span
               >
+              <n-button size="tiny" secondary @click="openCustomTagModal">自定义标签</n-button>
             </div>
           </template>
           <n-space :size="8" wrap>
@@ -332,6 +333,26 @@
           <n-button type="primary" :loading="btnLoading" @click="confirmPublish">
             {{ isEditMode ? '确认修改' : '确认发布' }}
           </n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <n-modal
+      v-model:show="showCustomTagModal"
+      preset="card"
+      title="自定义标签"
+      style="width: 420px"
+    >
+      <n-input
+        v-model:value="customTagInput"
+        placeholder="请输入内容"
+        clearable
+      />
+
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showCustomTagModal = false">取消</n-button>
+          <n-button type="primary" @click="confirmCustomTag">确认</n-button>
         </n-space>
       </template>
     </n-modal>
@@ -410,9 +431,11 @@ const queryParams = reactive({
 
 // 发布弹窗相关状态
 const showModal = ref(false);
+const showCustomTagModal = ref(false);
 const btnLoading = ref(false);
 const isEditMode = ref(false);
 const editingInfoGapId = ref(null);
+const customTagInput = ref('');
 const form = reactive({
   title: '',
   tag: '技术',
@@ -544,9 +567,42 @@ const handleTagClose = (tag, e) => {
   selectedTags.value = selectedTags.value.filter((t) => t.id !== tag.id);
 };
 
+const openCustomTagModal = () => {
+  showCustomTagModal.value = true;
+};
+
+const confirmCustomTag = async () => {
+  const tagName = normalizeSearchKeyword(customTagInput.value);
+  const { message } = createDiscreteApi(['message']);
+
+  if (!tagName) {
+    message.warning('请输入标签内容');
+    return;
+  }
+
+  const { error: addTagError } = await useHttpGet(
+    `add-info-gap-tag-${encodeURIComponent(tagName)}`,
+    `/info_gap/tag/add?tagName=${encodeURIComponent(tagName)}`,
+    {
+      $: true,
+    }
+  );
+
+  if (addTagError.value) {
+    return;
+  }
+
+  await loadCandidateTags();
+  customTagInput.value = '';
+  showCustomTagModal.value = false;
+  message.success('新增标签成功');
+};
+
 const resetPublishForm = () => {
   isEditMode.value = false;
   editingInfoGapId.value = null;
+  showCustomTagModal.value = false;
+  customTagInput.value = '';
   Object.assign(form, {
     title: '',
     tag: '技术',
