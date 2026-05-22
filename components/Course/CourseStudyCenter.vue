@@ -337,8 +337,29 @@ function selectSection(section) {
   currentSection.value = section;
   currentVideoUrl.value = section.mediaUrl && !section.mediaUrl.includes('pending')
     ? section.mediaUrl : '';
-  // 渲染文档内容并刷新图片临时 URL
+  // 先用大纲快照回显，再按 section/content 接口拉最新文档内容覆盖。
   renderAndRefreshDoc(section.textContent || '');
+  if (String(section.sectionType || section.type || '').toLowerCase() === 'text') {
+    refreshSectionDocContent(section.id);
+  }
+}
+
+async function refreshSectionDocContent(sectionId) {
+  if (!sectionId) return;
+  try {
+    const res = await $fetch(`/course/section/content/${courseId.value}/${sectionId}`, {
+      baseURL: fetchConfig.baseURL,
+      headers: getAuthHeaders(),
+    });
+    if (res?.code === 200) {
+      const latest = res.data || '';
+      await renderAndRefreshDoc(latest);
+      const sec = currentSection.value || {};
+      currentSection.value = { ...sec, textContent: latest };
+    }
+  } catch (err) {
+    console.warn('[CourseStudyCenter] refreshSectionDocContent failed', err);
+  }
 }
 
 // 锁定提示弹窗
