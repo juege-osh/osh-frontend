@@ -344,6 +344,11 @@ const getRoutePageNum = () => {
   const page = Number(route.query.page || 1);
   return Number.isFinite(page) && page > 0 ? page : 1;
 };
+const getRouteToolId = () => {
+  const toolId = Number(route.query.toolId || 0);
+  return Number.isFinite(toolId) && toolId > 0 ? toolId : null;
+};
+const shouldAutoOpenTool = () => String(route.query.autoOpen || '') === '1';
 
 const canCreate = computed(() => permissionList.value.includes('tool:create'));
 const canUpdate = computed(() => permissionList.value.includes('tool:update'));
@@ -361,7 +366,7 @@ if (!canAccessToolPage.value) {
 
 const queryParams = reactive({
   keyword: '',
-  toolId: null,
+  toolId: getRouteToolId(),
   tags: [],
   pageNum: getRoutePageNum(),
   pageSize: 10,
@@ -427,6 +432,18 @@ watch(
   }
 );
 
+watch(
+  () => [route.query.toolId, route.query.autoOpen],
+  async ([nextRouteToolId, nextRouteAutoOpen], [prevRouteToolId, prevRouteAutoOpen]) => {
+    if (nextRouteToolId === prevRouteToolId && nextRouteAutoOpen === prevRouteAutoOpen) {
+      return;
+    }
+    queryParams.toolId = getRouteToolId();
+    queryParams.pageNum = 1;
+    await loadTools();
+  }
+);
+
 const runtimeToolMap = {
   '/test/test': ToolRuntimeTestTest,
 };
@@ -480,6 +497,9 @@ const expandOnlyTool = (toolId) => {
 const loadTools = async () => {
   await refresh();
   syncToolList(resData.value);
+  if (queryParams.toolId && shouldAutoOpenTool()) {
+    expandOnlyTool(queryParams.toolId);
+  }
 };
 
 const loadRecommendTools = async (type = recommendType.value) => {
@@ -656,14 +676,27 @@ async function handleBatchDelete() {
 const handleSearch = () => {
   queryParams.toolId = null;
   queryParams.pageNum = 1;
+  navigateTo({
+    path: '/tool',
+  }, { replace: true });
   loadTools();
 };
 
 const handleRefresh = (page) => {
   queryParams.pageNum = page || 1;
+  const nextQuery = {};
+  if (queryParams.pageNum > 1) {
+    nextQuery.page = String(queryParams.pageNum);
+  }
+  if (queryParams.toolId) {
+    nextQuery.toolId = String(queryParams.toolId);
+    if (shouldAutoOpenTool()) {
+      nextQuery.autoOpen = '1';
+    }
+  }
   navigateTo({
     path: '/tool',
-    query: queryParams.pageNum > 1 ? { page: String(queryParams.pageNum) } : {},
+    query: nextQuery,
   }, { replace: true });
   loadTools();
 };
@@ -687,6 +720,13 @@ const handleRecommendToolClick = async (item) => {
   queryParams.isFollowing = false;
   queryParams.collectionFlag = null;
   queryParams.pageNum = 1;
+  await navigateTo({
+    path: '/tool',
+    query: {
+      toolId: String(item.id),
+      autoOpen: '1',
+    },
+  }, { replace: true });
   await loadTools();
   expandOnlyTool(item.id);
 };

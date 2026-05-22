@@ -1,7 +1,10 @@
 <template>
   <LoadingGroup :pending="pending" :error="error">
     <main class="tool-detail-page">
-      <button class="back-btn" @click="goBack">返回工具列表</button>
+      <div class="top-action-row">
+        <button class="back-btn" @click="goBack">返回工具列表</button>
+        <button v-if="tool?.id" class="start-use-btn" @click="startUseTool">开始使用本工具</button>
+      </div>
 
       <section v-if="tool" class="detail-hero">
         <div class="info-panel">
@@ -323,6 +326,17 @@ function goBack() {
   }
 }
 
+function startUseTool() {
+  if (!tool.value?.id) return;
+  navigateTo({
+    path: '/tool',
+    query: {
+      toolId: String(tool.value.id),
+      autoOpen: '1',
+    },
+  });
+}
+
 function handleBuyPackage(item) {
   console.log('handleBuyPackage', item);
   if (Number(item?.status) === 0) {
@@ -500,6 +514,13 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.top-action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .tool-detail-page {
   max-width: 1180px;
   margin: 0 auto;
@@ -513,9 +534,25 @@ onBeforeUnmount(() => {
   padding: 8px 14px;
   cursor: pointer;
   font-weight: 600;
-  margin-bottom: 16px;
+}
+.start-use-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #18a058;
+  background: #18a058;
+  color: #ffffff !important;
+  border-radius: 8px;
+  padding: 8px 14px;
+  min-height: 40px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
 }
 .back-btn:hover { border-color: #18a058; color: #18a058; }
+.start-use-btn:hover { opacity: 0.92; }
 .detail-hero {
   display: block;
 }
