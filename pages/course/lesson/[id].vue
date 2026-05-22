@@ -26,9 +26,49 @@
     </div>
 
     <!-- 主体 -->
-    <div v-else class="lesson-body">
-      <!-- 左侧面板 -->
-      <div class="left-col">
+    <div ref="lessonBodyRef" v-else class="lesson-body">
+      <!-- 悬浮左侧面板 -->
+      <div
+        ref="floatingSideRef"
+        class="floating-side"
+        :class="{ collapsed: sidePanelCollapsed }"
+        :style="{ left: `${panelPos.x}px`, top: `${panelPos.y}px` }"
+        @click.stop
+      >
+        <button
+          class="floating-toggle"
+          :class="{ collapsed: sidePanelCollapsed, dragging: isDraggingPanel }"
+          :title="sidePanelCollapsed ? 'Expand panel' : 'Collapse panel'"
+          @pointerdown="onPanelHandlePointerDown"
+          @click="onPanelHandleClick"
+        >
+          <span class="toggle-icon">{{ sidePanelCollapsed ? '›' : '‹' }}</span>
+          <span class="toggle-glow"></span>
+        </button>
+        <div class="left-col" v-show="!sidePanelCollapsed">
+        <!-- 小节列表 -->
+        <div class="card">
+          <div class="card-title">
+            <span class="dot green">●</span> 小节列表
+          </div>
+          <div class="section-tree">
+            <div v-if="outline.length === 0" class="section-empty">暂无小节</div>
+            <template v-for="chapter in outline" :key="chapter.id">
+              <div class="section-chapter">{{ chapter.title }}</div>
+              <div
+                v-for="sec in chapter.children || []"
+                :key="sec.id"
+                class="section-item"
+                :class="{ active: Number(sec.id) === currentSectionId }"
+                @click="handleSelectSection(sec)"
+              >
+                <span class="section-item-title">{{ sec.title }}</span>
+                <span v-if="sec.anchorType === 'range'" class="section-anchor">片段</span>
+              </div>
+            </template>
+          </div>
+        </div>
+
         <!-- 基本信息卡片 -->
         <div class="card">
           <div class="card-title">
@@ -49,6 +89,49 @@
               <template #unchecked>否</template>
             </n-switch>
           </div>
+          <div class="field-row">
+            <span class="field-label">文档来源</span>
+            <select v-model="form.docBindMode" class="field-input">
+              <option value="">请选择</option>
+              <option value="create">新建文档</option>
+              <option value="reuse">复用已有文档</option>
+            </select>
+          </div>
+          <div class="field-row" v-if="form.docBindMode === 'reuse'">
+            <span class="field-label">选择文档</span>
+            <select v-model="form.docId" class="field-input select-truncate">
+              <option :value="null">请选择要复用的文档</option>
+              <option
+                v-for="opt in reusableDocOptions"
+                :key="opt.docId"
+                :value="opt.docId"
+                :title="opt.fullLabel"
+              >
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
+          <template v-if="!isVideo && form.docBindMode === 'create'">
+            <div class="field-row">
+              <span class="field-label">片段模式</span>
+              <select v-model="form.anchorType" class="field-input">
+                <option value="full">整篇</option>
+                <option value="range">片段</option>
+              </select>
+            </div>
+            <div class="field-row" v-if="form.anchorType === 'range'">
+              <span class="field-label">起始锚点</span>
+              <input v-model="form.anchorStart" class="field-input" placeholder="例如：回调签名校验" />
+            </div>
+            <div class="field-row" v-if="form.anchorType === 'range'">
+              <span class="field-label">结束锚点</span>
+              <input v-model="form.anchorEnd" class="field-input" placeholder="例如：签名算法说明" />
+            </div>
+            <div class="field-row" v-if="form.anchorType === 'range'">
+              <span class="field-label">片段标题</span>
+              <input v-model="form.excerptTitle" class="field-input" placeholder="例如：签名校验片段" />
+            </div>
+          </template>
         </div>
 
         <!-- 视频卡片 -->
@@ -98,14 +181,29 @@
           <input ref="videoInputRef" type="file" accept="video/*" style="display:none" @change="onVideoFileChange" />
         </div>
       </div>
+      </div>
 
       <!-- 右侧：文档编辑器 -->
-      <div class="right-col">
+      <div ref="rightColRef" class="right-col">
+        <div
+          v-if="form.docBindMode === 'reuse' && form.docId"
+          class="doc-reuse-tip"
+          :style="docReuseTipStyle"
+          role="status"
+          aria-live="polite"
+        >
+          <span class="doc-reuse-tip-icon">⟲</span>
+          <span class="doc-reuse-tip-text">复用模式：保存后将同步到关联小节</span>
+        </div>
         <DocEditor
+          v-if="form.docBindMode === 'create' || form.docBindMode === 'reuse'"
+          class="editor-host"
+          ref="docEditorRef"
           v-model="form.content"
           placeholder="在此输入课程文档内容..."
           style="height:100%;border:1px solid #e8e8e8;border-radius:6px;"
         />
+        <div v-else class="doc-reuse-placeholder">请先在左侧选择文档来源（新建文档 / 复用已有文档）。</div>
       </div>
     </div>
 
@@ -123,9 +221,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { createDiscreteApi, NSwitch } from 'naive-ui';
+import { createDiscreteApi } from 'naive-ui';
 import { fetchConfig } from '~/composables/useHttp';
 import { getAuthHeaders, apiUploadVideo } from '~/composables/Api/Course/course';
 import DocEditor from '~/components/Course/edit/DocEditor.vue';
@@ -147,7 +245,7 @@ function isAuthExpiredResponse(res: any, err?: any) {
     || /请先登录/.test(msg);
 }
 
-const sectionId = Number(route.params.id);
+const currentSectionId = ref(Number(route.params.id));
 const courseId = Number(route.query.courseId);
 // chapterId 从 URL query 传入，作为 parentId 的兜底
 const chapterIdFromQuery = Number(route.query.chapterId) || 0;
@@ -156,7 +254,26 @@ const chapterIdFromQuery = Number(route.query.chapterId) || 0;
 const loading = ref(true);
 const saving = ref(false);
 const sectionData = ref<any>(null);
+const outline = ref<any[]>([]);
 const breadcrumb = reactive({ chapter: '' });
+const docEditorRef = ref<any>(null);
+const sidePanelCollapsed = ref(false);
+const floatingSideRef = ref<HTMLElement | null>(null);
+const lessonBodyRef = ref<HTMLElement | null>(null);
+const rightColRef = ref<HTMLElement | null>(null);
+const panelPos = reactive({ x: 14, y: 154 });
+const isDraggingPanel = ref(false);
+const dragMoved = ref(false);
+let dragStartX = 0;
+let dragStartY = 0;
+let panelStartX = 0;
+let panelStartY = 0;
+const docReuseTipLeft = ref<number | null>(null);
+
+const docReuseTipStyle = computed(() => ({
+  left: docReuseTipLeft.value == null ? '50%' : `${docReuseTipLeft.value}px`,
+  transform: 'translateX(-50%)',
+}));
 
 // 视频
 const videoUrl = ref('');
@@ -173,6 +290,12 @@ const form = reactive({
   durationStr: '',
   content: '',
   videoType: 'mp4',
+  docBindMode: 'create' as '' | 'create' | 'reuse',
+  docId: null as string | number | null,
+  anchorType: 'full',
+  anchorStart: '',
+  anchorEnd: '',
+  excerptTitle: '',
 });
 
 // 是否视频类型
@@ -196,8 +319,19 @@ onMounted(async () => {
   await loadData();
   loading.value = false;
   window.addEventListener('keydown', onKeyDown);
+  document.addEventListener('pointerdown', onGlobalPointerDown, true);
+  window.addEventListener('resize', onWindowResize);
+  nextTick(() => {
+    updateDocReuseTipPosition();
+  });
 });
-onUnmounted(() => window.removeEventListener('keydown', onKeyDown));
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeyDown);
+  document.removeEventListener('pointerdown', onGlobalPointerDown, true);
+  window.removeEventListener('resize', onWindowResize);
+  document.removeEventListener('pointermove', onPanelHandlePointerMove, true);
+  document.removeEventListener('pointerup', onPanelHandlePointerUp, true);
+});
 
 function onKeyDown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -214,21 +348,19 @@ async function loadData() {
       headers: getAuthHeaders(),
     });
     if (res?.code === 200) {
-      for (const chapter of res.data || []) {
-        const sections = chapter.children || chapter.sections || [];
-        // 用字符串比较，避免雪花ID精度问题
-        const found = sections.find((s: any) => String(s.id) === String(sectionId));
-        if (found) {
-          const resolvedParentId = found.parentId || found.chapterId || found.parent_id || chapter.id || chapter.sectionId || chapterIdFromQuery;
-          sectionData.value = { ...found, parentId: resolvedParentId };
-          breadcrumb.chapter = chapter.title || '';
-          form.title = found.title || '';
-          form.freeFlag = found.freeFlag ?? 0;
-          form.content = found.textContent || found.content || '';
-          if (found.duration) form.durationStr = fmtDuration(found.duration);
-          if (found.mediaUrl) videoUrl.value = found.mediaUrl;
-          return;
-        }
+      outline.value = (res.data || []).map((chapter: any) => ({
+        ...chapter,
+        children: (chapter.children || chapter.sections || []).map((sec: any) => ({
+          ...sec,
+          parentId: sec.parentId || sec.chapterId || chapter.id,
+        })),
+      }));
+      if (tryUseSectionFromOutline(currentSectionId.value)) return;
+      // 路由 id 找不到就回退到第一节
+      const first = outline.value[0]?.children?.[0];
+      if (first) {
+        handleSelectSection(first);
+        return;
       }
     }
   } catch (e) {
@@ -236,25 +368,6 @@ async function loadData() {
     message.error('加载数据失败');
     return;
   }
-
-  // 大纲遍历找不到时，直接查单个小节接口
-  try {
-    const res2: any = await $fetch(`/course/section/detail/${sectionId}`, {
-      baseURL: fetchConfig.baseURL,
-      headers: getAuthHeaders(),
-    });
-    if (res2?.code === 200 && res2.data) {
-      const found = res2.data;
-      const resolvedParentId = found.parentId || found.chapterId || chapterIdFromQuery || null;
-      sectionData.value = { ...found, parentId: resolvedParentId };
-      form.title = found.title || '';
-      form.freeFlag = found.freeFlag ?? 0;
-      form.content = found.textContent || found.content || '';
-      if (found.duration) form.durationStr = fmtDuration(found.duration);
-      if (found.mediaUrl) videoUrl.value = found.mediaUrl;
-      return;
-    }
-  } catch {}
 
   // 最终兜底：至少保证 parentId 有值，不影响保存
   sectionData.value = {
@@ -264,6 +377,246 @@ async function loadData() {
     fileSize: 0,
     duration: 0,
   };
+}
+
+function tryUseSectionFromOutline(sectionId: number) {
+  for (const chapter of outline.value) {
+    const sections = chapter.children || [];
+    const found = sections.find((s: any) => String(s.id) === String(sectionId));
+    if (!found) continue;
+    hydrateSection(found, chapter);
+    return true;
+  }
+  return false;
+}
+
+function hydrateSection(found: any, chapter: any) {
+  const resolvedParentId = found.parentId || chapter?.id || chapterIdFromQuery || null;
+  currentSectionId.value = Number(found.id);
+  sectionData.value = { ...found, parentId: resolvedParentId };
+  breadcrumb.chapter = chapter?.title || '';
+  form.title = found.title || '';
+  form.freeFlag = found.freeFlag ?? 0;
+  form.content = found.textContent || found.content || '';
+  form.docId = found.docId || null;
+  if (found.docId) {
+    form.docBindMode = 'reuse';
+  } else if ((found.textContent || found.content || '').trim()) {
+    form.docBindMode = 'create';
+  } else {
+    form.docBindMode = 'create';
+  }
+  form.anchorType = found.anchorType || 'full';
+  form.anchorStart = found.anchorStart || '';
+  form.anchorEnd = found.anchorEnd || '';
+  form.excerptTitle = found.excerptTitle || '';
+  form.durationStr = found.duration ? fmtDuration(found.duration) : '';
+  videoUrl.value = found.mediaUrl || '';
+  videoRelativePath.value = '';
+  if (String(found.sectionType || found.type || '').toLowerCase() === 'text') {
+    refreshEditorContentFromServer(Number(found.id));
+  }
+}
+
+const reusableDocOptions = computed(() => {
+  const list: Array<{ docId: string; label: string; fullLabel: string; content: string }> = [];
+  const seen = new Set<string>();
+  for (const chapter of outline.value || []) {
+    const sections = chapter.children || [];
+    for (const sec of sections) {
+      const docId = String(sec.docId || '').trim();
+      if (!docId || docId === '0' || seen.has(docId)) continue;
+      seen.add(docId);
+      const title = sec.title || '未命名小节';
+      const shortDocId = docId.length > 8 ? docId.slice(-8) : docId;
+      const label = `${title} (doc:${shortDocId})`;
+      const fullLabel = `${title} (doc:${docId})`;
+      list.push({ docId, label, fullLabel, content: sec.textContent || sec.content || '' });
+    }
+  }
+  return list;
+});
+
+watch(() => form.docBindMode, (mode) => {
+  if (mode === 'create') {
+    form.docId = null;
+    return;
+  }
+  if (mode === 'reuse') {
+    if (!form.docId) {
+      form.content = '';
+      return;
+    }
+    // 避免把当前小节已加载的内容，被下拉里“同 docId 的其他小节缓存内容”覆盖掉。
+    const currentSectionDocId = String(sectionData.value?.docId || '');
+    if (currentSectionDocId && String(form.docId) === currentSectionDocId) {
+      return;
+    }
+    const current = reusableDocOptions.value.find(item => item.docId === String(form.docId || ''));
+    if (current) {
+      form.content = current.content || '';
+    } else {
+      form.content = '';
+    }
+  }
+});
+
+watch(() => sidePanelCollapsed.value, () => {
+  nextTick(() => {
+    clampPanelPosition();
+    updateDocReuseTipPosition();
+  });
+});
+
+watch(() => form.docId, (docId) => {
+  if (form.docBindMode !== 'reuse') return;
+  const currentSectionDocId = String(sectionData.value?.docId || '');
+  if (currentSectionDocId && String(docId || '') === currentSectionDocId) {
+    nextTick(() => {
+      updateDocReuseTipPosition();
+    });
+    return;
+  }
+  const hit = reusableDocOptions.value.find(item => item.docId === String(docId || ''));
+  if (!hit) return;
+  form.content = hit.content || '';
+  nextTick(() => {
+    updateDocReuseTipPosition();
+  });
+});
+
+watch(() => form.docBindMode, () => {
+  nextTick(() => {
+    updateDocReuseTipPosition();
+  });
+});
+
+async function handleSelectSection(section: any) {
+  const chapter = outline.value.find((ch: any) => (ch.children || []).some((s: any) => String(s.id) === String(section.id)));
+  hydrateSection(section, chapter);
+  if (String(section.sectionType || section.type || '').toLowerCase() === 'text') {
+    await refreshEditorContentFromServer(Number(section.id));
+  }
+  await nextTick();
+  if (!isVideo.value) {
+    const anchor = form.anchorStart || form.excerptTitle || '';
+    if (anchor && docEditorRef.value?.scrollToAnchorText) {
+      docEditorRef.value.scrollToAnchorText(anchor);
+    }
+  }
+  updateDocReuseTipPosition();
+  const chapterId = section.parentId || chapter?.id || chapterIdFromQuery || '';
+  router.replace(`/course/lesson/${section.id}?courseId=${courseId}&chapterId=${chapterId}`);
+}
+
+async function refreshEditorContentFromServer(sectionId: number) {
+  if (!sectionId) return;
+  try {
+    const res: any = await $fetch(`/course/section/content/${courseId}/${sectionId}`, {
+      baseURL: fetchConfig.baseURL,
+      headers: getAuthHeaders(),
+    });
+    if (res?.code === 200) {
+      const latest = res.data || '';
+      form.content = latest;
+      sectionData.value = {
+        ...(sectionData.value || {}),
+        textContent: latest,
+        content: latest,
+      };
+    }
+  } catch (err) {
+    console.warn('[lesson] refreshEditorContentFromServer failed:', err);
+  }
+}
+
+function onGlobalPointerDown(event: PointerEvent) {
+  if (sidePanelCollapsed.value) return;
+  const panel = floatingSideRef.value;
+  const target = event.target as Node | null;
+  if (!panel || !target) return;
+  if (!panel.contains(target)) {
+    sidePanelCollapsed.value = true;
+  }
+}
+
+function onPanelHandlePointerDown(event: PointerEvent) {
+  if (event.button !== 0) return;
+  const body = lessonBodyRef.value;
+  if (!body) return;
+  isDraggingPanel.value = true;
+  dragMoved.value = false;
+  dragStartX = event.clientX;
+  dragStartY = event.clientY;
+  panelStartX = panelPos.x;
+  panelStartY = panelPos.y;
+  document.addEventListener('pointermove', onPanelHandlePointerMove, true);
+  document.addEventListener('pointerup', onPanelHandlePointerUp, true);
+}
+
+function onPanelHandlePointerMove(event: PointerEvent) {
+  if (!isDraggingPanel.value) return;
+  const dx = event.clientX - dragStartX;
+  const dy = event.clientY - dragStartY;
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+    dragMoved.value = true;
+  }
+  panelPos.x = panelStartX + dx;
+  panelPos.y = panelStartY + dy;
+  clampPanelPosition();
+}
+
+function onPanelHandlePointerUp() {
+  isDraggingPanel.value = false;
+  document.removeEventListener('pointermove', onPanelHandlePointerMove, true);
+  document.removeEventListener('pointerup', onPanelHandlePointerUp, true);
+}
+
+function onPanelHandleClick() {
+  if (dragMoved.value) return;
+  sidePanelCollapsed.value = !sidePanelCollapsed.value;
+}
+
+function clampPanelPosition() {
+  const body = lessonBodyRef.value;
+  if (!body) return;
+  const bodyRect = body.getBoundingClientRect();
+  const panelWidth = sidePanelCollapsed.value ? 44 : 360;
+  const panelHeight = sidePanelCollapsed.value ? 44 : Math.min(bodyRect.height - 24, bodyRect.height * 0.78);
+  const maxX = Math.max(10, bodyRect.width - panelWidth - 10);
+  const maxY = Math.max(10, bodyRect.height - panelHeight - 10);
+  panelPos.x = Math.min(Math.max(10, panelPos.x), maxX);
+  panelPos.y = Math.min(Math.max(18, panelPos.y), maxY);
+}
+
+function onWindowResize() {
+  clampPanelPosition();
+  updateDocReuseTipPosition();
+}
+
+function updateDocReuseTipPosition() {
+  if (form.docBindMode !== 'reuse' || !form.docId) {
+    docReuseTipLeft.value = null;
+    return;
+  }
+  const container = rightColRef.value;
+  if (!container) return;
+  const leftGroup = container.querySelector('.editor-host .toolbar-left') as HTMLElement | null;
+  const rightGroup = container.querySelector('.editor-host .toolbar-right') as HTMLElement | null;
+  if (!leftGroup || !rightGroup) {
+    docReuseTipLeft.value = null;
+    return;
+  }
+  const containerRect = container.getBoundingClientRect();
+  const leftRect = leftGroup.getBoundingClientRect();
+  const rightRect = rightGroup.getBoundingClientRect();
+  const gapStart = leftRect.right;
+  const gapEnd = rightRect.left;
+  if (gapEnd > gapStart) {
+    docReuseTipLeft.value = (gapStart + gapEnd) / 2 - containerRect.left;
+    return;
+  }
+  docReuseTipLeft.value = null;
 }
 
 // 视频上传
@@ -314,7 +667,7 @@ async function autoSaveVideo() {
       baseURL: fetchConfig.baseURL,
       headers: getAuthHeaders(),
       body: {
-        id: sectionId,
+        id: currentSectionId.value,
         courseId,
         parentId: sectionData.value?.parentId,
         title: form.title.trim() || sectionData.value?.title,
@@ -340,6 +693,10 @@ function scrollToTop() {
 // 保存小节（更新，因为 id 存在后端走 update）
 async function handleSave() {
   if (!form.title.trim()) { message.warning('请输入小节标题'); return; }
+  if (form.docBindMode === 'reuse' && !form.docId) {
+    message.warning('请选择要复用的文档');
+    return;
+  }
   saving.value = true;
   try {
     const isVid = isVideo.value;
@@ -352,14 +709,21 @@ async function handleSave() {
       return;
     }
     const body: any = {
-      id: sectionId,
+      id: currentSectionId.value,
       courseId,
       parentId,
       title: form.title.trim(),
       freeFlag: form.freeFlag,
       sort: sectionData.value?.sort || 1,
-      textContent: form.content,
-      content: form.content,
+      textContent: (form.docBindMode === 'create' || form.docBindMode === 'reuse') ? form.content : '',
+      content: (form.docBindMode === 'create' || form.docBindMode === 'reuse') ? form.content : '',
+      docMode: form.docBindMode === 'reuse' ? 'BIND_EXISTING' : 'CREATE',
+      docId: form.docBindMode === 'reuse' ? form.docId : null,
+      anchorType: form.anchorType || 'full',
+      anchorStart: form.anchorStart || '',
+      anchorEnd: form.anchorEnd || '',
+      excerptTitle: form.excerptTitle || '',
+      docTitle: form.title.trim(),
     };
     if (isVid) {
       // 只有新上传了视频才传 relativePath，否则不传 mediaUrl，后端保持数据库原值
@@ -377,10 +741,9 @@ async function handleSave() {
     });
     if (res?.code === 200) {
       message.success('保存成功 ✓');
-      // 保存成功后跳转回课程详情页
       setTimeout(() => {
         router.push(`/course_detail/${courseId}`);
-      }, 800);
+      }, 600);
     } else if (isAuthExpiredResponse(res)) {
       // 保存接口里再兜一层，避免后端返回业务码时被通用请求层漏掉。
       handleAuthExpired();
@@ -415,7 +778,10 @@ function parseDuration(str: string) {
   inset: 0;
   display: flex;
   flex-direction: column;
-  background: #f0f2f5;
+  background:
+    radial-gradient(circle at 14% 8%, rgba(24, 160, 88, 0.15), transparent 34%),
+    radial-gradient(circle at 88% 12%, rgba(32, 128, 240, 0.12), transparent 32%),
+    linear-gradient(180deg, #eef3f8 0%, #e8edf5 100%);
   z-index: 50;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -424,8 +790,9 @@ function parseDuration(str: string) {
 /* 顶部 */
 .topbar {
   height: 52px;
-  background: #fff;
-  border-bottom: 1px solid #e8e8e8;
+  background: rgba(255, 255, 255, 0.84);
+  border-bottom: 1px solid rgba(221, 228, 237, 0.8);
+  backdrop-filter: blur(8px);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -455,21 +822,84 @@ function parseDuration(str: string) {
 /* 主体布局 */
 .lesson-body {
   flex: 1;
-  display: grid;
-  grid-template-columns: 290px 1fr;
+  position: relative;
+  display: flex;
   overflow: hidden;
   min-height: 0;
 }
 
+/* 悬浮侧边面板 */
+.floating-side {
+  position: absolute;
+  width: 360px;
+  max-width: calc(100vw - 28px);
+  z-index: 8;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.floating-side.collapsed {
+  width: 44px;
+}
+.floating-toggle {
+  width: 44px;
+  height: 34px;
+  border: 1px solid rgba(16, 120, 86, 0.3);
+  border-radius: 12px;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.94), rgba(233, 247, 241, 0.88));
+  color: #126a43;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow:
+    0 12px 26px rgba(14, 122, 62, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+.floating-toggle:hover {
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.97), rgba(220, 244, 232, 0.92));
+  transform: translateY(-1px);
+}
+.floating-toggle:active,
+.floating-toggle.dragging {
+  cursor: grabbing;
+}
+.toggle-icon {
+  line-height: 1;
+  transform: translateX(-0.5px);
+  z-index: 2;
+}
+.toggle-glow {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(24, 160, 88, 0.24), rgba(24, 160, 88, 0));
+  z-index: 1;
+}
+.floating-toggle.collapsed .toggle-icon {
+  transform: translateX(0.5px);
+}
+
 /* 左侧 */
 .left-col {
+  max-height: calc(100vh - 210px);
   overflow-y: auto;
-  padding: 14px;
-  border-right: 1px solid #e8e8e8;
-  background: #f5f6fa;
+  padding: 12px;
+  border: 1px solid rgba(173, 186, 203, 0.45);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(10px);
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: 0 18px 44px rgba(18, 43, 68, 0.14);
 }
 
 /* 右侧 */
@@ -477,17 +907,19 @@ function parseDuration(str: string) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 14px;
+  padding: 10px 16px 16px;
   min-height: 0;
+  width: 100%;
+  position: relative;
 }
 
 /* 卡片 */
 .card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 16px;
-  border: 1px solid #e8e8e8;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  background: rgba(255, 255, 255, 0.78);
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid rgba(223, 230, 238, 0.86);
+  box-shadow: 0 6px 18px rgba(20, 34, 51, 0.06);
 }
 .card-title {
   font-size: 14px; font-weight: 600; color: #222;
@@ -510,8 +942,109 @@ function parseDuration(str: string) {
 .field-input {
   flex: 1; border: 1px solid #d9d9d9; border-radius: 5px;
   padding: 7px 10px; font-size: 13px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+  max-width: 100%;
+  min-width: 0;
 }
 .field-input:focus { border-color: #18a058; box-shadow: 0 0 0 2px rgba(24,160,88,0.1); }
+.select-truncate {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.section-tree { max-height: 220px; overflow-y: auto; }
+.section-empty { font-size: 12px; color: #999; padding: 6px 0; }
+.section-chapter { font-size: 12px; color: #666; margin: 8px 0 4px; font-weight: 600; }
+.section-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #e8e8e8;
+  border-radius: 5px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  background: #fff;
+}
+.section-item:hover { border-color: #b7e4c7; background: #f8fff9; }
+.section-item.active { border-color: #18a058; background: #f0fdf4; }
+.section-item-title {
+  font-size: 12px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.section-anchor {
+  font-size: 11px;
+  color: #18a058;
+  border: 1px solid #18a058;
+  border-radius: 10px;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+.doc-reuse-placeholder {
+  height: 100%;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #666;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+}
+.doc-reuse-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: absolute;
+  top: 15px;
+  z-index: 3;
+  width: auto;
+  max-width: min(360px, calc(100% - 32px));
+  box-sizing: border-box;
+  font-size: 11px;
+  color: #3f4d5a;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(233, 244, 255, 0.86));
+  border: 1px solid rgba(166, 198, 228, 0.7);
+  border-radius: 999px;
+  padding: 4px 9px;
+  margin: 0;
+  box-shadow: 0 7px 18px rgba(27, 66, 100, 0.1);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+.doc-reuse-tip-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #1b8f57;
+  background: radial-gradient(circle at 30% 30%, rgba(226, 255, 239, 0.96), rgba(190, 245, 214, 0.82));
+  border: 1px solid rgba(128, 218, 169, 0.9);
+  flex-shrink: 0;
+}
+.doc-reuse-tip-text {
+  display: block;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #4a5d71;
+  line-height: 1.3;
+}
+.editor-host {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
 
 /* 视频 */
 .video-card { padding: 14px; }
@@ -566,7 +1099,8 @@ function parseDuration(str: string) {
 .lesson-footer {
   height: 58px;
   display: flex; justify-content: space-between; align-items: center;
-  padding: 0 20px; background: #fff; border-top: 1px solid #e8e8e8; flex-shrink: 0;
+  padding: 0 20px; background: rgba(255, 255, 255, 0.88); border-top: 1px solid rgba(221, 228, 237, 0.85); flex-shrink: 0;
+  backdrop-filter: blur(8px);
 }
 .footer-right { display: flex; align-items: center; gap: 12px; }
 .save-tip { font-size: 12px; color: #bbb; }
