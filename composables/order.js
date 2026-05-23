@@ -62,6 +62,26 @@ export function useGetWxpayStatusApi(no){
     })
 }
 
+// 查询统一支付订单状态
+export function usePayStatusApi(orderNo){
+    return useHttpGet("PayStatus",`/pay/status`,{
+        params:{
+            orderNo
+        },
+        $:true
+    })
+}
+
+// 取消统一支付订单
+export function useCancelPayApi(orderNo){
+    return useHttpPost("CancelPay",`/pay/cancel`,{
+        params:{
+            orderNo
+        },
+        $:true
+    })
+}
+
 
 // 当前拼团专栏/课程的可组团列表
 export function useGetGroupWorkListApi(group_id,page = 1){
