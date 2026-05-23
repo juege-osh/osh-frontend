@@ -189,8 +189,12 @@
         class="rich-editor"
         contenteditable="true"
         :data-placeholder="placeholder"
+        @beforeinput="onBeforeInput"
         @input="onInput"
+        @keydown.capture="onKeydownCapture"
         @keydown="onKeydown"
+        @compositionstart="onCompositionStart"
+        @compositionend="onCompositionEnd"
         @mouseup="updateStates"
         @keyup="updateStates"
         @focus="updateStates"
@@ -203,7 +207,11 @@
         v-model="plainText"
         class="plain-editor"
         :placeholder="plainPlaceholder"
+        @beforeinput="onBeforeInput"
         @input="onPlainInput"
+        @keydown.capture="onKeydownCapture"
+        @compositionstart="onCompositionStart"
+        @compositionend="onCompositionEnd"
       />
 
       <!-- 图片浮动工具栏 -->
@@ -281,6 +289,13 @@ const plainEditorRef = ref<HTMLTextAreaElement | null>(null);
 // editFormat 决定实际保存格式，viewMode 只控制编辑区/预览区的展示方式。
 const editFormat = ref<CourseDocFormat>('rich');
 const isComposing = ref(false);
+const lastEmittedModelValue = ref<string | null>(null);
+const compositionEndedAt = ref(0);
+// 用于兜底修复 macOS Chrome 中文 IME 的"首字母先以普通文本落盘"问题。
+// 记录最近一次单 ASCII 字母 insertText 的位置，若紧随其后发生 compositionstart，
+// 则视为 IME 预组合泄漏，在 compositionend 之后将该字符精确移除。
+let suspectStrayChar: { node: Text; offset: number; char: string; time: number } | null = null;
+let pendingStrayRemoval: { node: Text; offset: number; char: string } | null = null;
 
 const fontSizes = [
   { label: '12px 小号', value: '1', px: '12px' },
@@ -336,15 +351,27 @@ onMounted(() => {
 
 // 外部 modelValue 变化时同步（不用 immediate，onMounted 已处理初始值）
 watch(() => props.modelValue, (val) => {
-  // 只在编辑器有实质内容且用户正在编辑时跳过，避免覆盖用户输入
-  // 初始加载（编辑器内容为空或只有空白）时不跳过，确保异步数据能正确写入
-  const editorHasContent = (editorRef.value?.innerText?.trim() || '').length > 0;
-  const plainHasContent = (plainText.value?.trim() || '').length > 0;
+  // 组合输入过程中绝对不允许 hydrate，否则会打断 IME 候选词，造成首字母残留。
+  if (isComposing.value) {
+    return;
+  }
+  const nextValue = val || '';
+  // 防止输入后父组件回传同一份值时再次 hydrate，导致重复写入。
+  if (lastEmittedModelValue.value !== null && nextValue === lastEmittedModelValue.value) {
+    lastEmittedModelValue.value = null;
+    return;
+  }
   const editorFocused = editFormat.value === 'rich' && document.activeElement === editorRef.value;
   const plainFocused = editFormat.value !== 'rich' && document.activeElement === plainEditorRef.value;
-  if ((editorFocused && editorHasContent) || (plainFocused && plainHasContent)) return;
-  hydrateFromModel(val || '');
+  // 编辑器正在聚焦使用时，不再被外部值回灌覆盖，避免 IME 中间态被打断。
+  if (editorFocused || plainFocused) return;
+  hydrateFromModel(nextValue);
 }, { immediate: false });
+
+function emitModelValue(value: string) {
+  lastEmittedModelValue.value = value;
+  emit('update:modelValue', value);
+}
 
 function hydrateFromModel(val: string) {
   const parsed = parseCourseDoc(val || '');
@@ -394,18 +421,65 @@ function bindAllImages() {
 }
 
 // 输入时同步
-function onInput() {
+function onBeforeInput(e: InputEvent) {
+  if (e.isComposing || e.inputType === 'insertCompositionText' || e.inputType === 'deleteCompositionText') {
+    isComposing.value = true;
+  }
+}
+
+// 捕获阶段提前检测 IME 激活键（keyCode 229 / key === 'Process'）。
+// 在某些浏览器/输入法（特别是 macOS 中文 IME）上，compositionstart 比首个 input
+// 晚触发，这里提前把 isComposing 置位，避免首字母被当成普通文本落盘。
+function onKeydownCapture(e: KeyboardEvent) {
+  if ((e as any).isComposing || (e as any).keyCode === 229 || e.key === 'Process') {
+    isComposing.value = true;
+  }
+}
+
+function onInput(e?: InputEvent) {
   if (!editorRef.value) return;
+  if (isComposing.value || e?.isComposing || e?.inputType === 'insertCompositionText' || e?.inputType === 'deleteCompositionText') {
+    return;
+  }
+  // 组合输入结束后的极短窗口内，跳过一次潜在的中间态 input，避免首字母残留。
+  if (Date.now() - compositionEndedAt.value < 12) return;
+
+  // 记录可疑的"单 ASCII 字母 insertText"：若 80ms 内紧跟 compositionstart，
+  // 则判定为 IME 预组合泄漏字符，等 compositionend 后精确清除。
+  if (e?.inputType === 'insertText' && e.data && /^[a-zA-Z]$/.test(e.data)) {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      const node = range.startContainer;
+      if (node.nodeType === Node.TEXT_NODE && range.startOffset > 0) {
+        suspectStrayChar = {
+          node: node as Text,
+          offset: range.startOffset - 1,
+          char: e.data,
+          time: Date.now(),
+        };
+      } else {
+        suspectStrayChar = null;
+      }
+    }
+  } else {
+    suspectStrayChar = null;
+  }
+
   localHtml.value = editorRef.value.innerHTML;
   syncContent();
   updateStates();
 }
 
-function onPlainInput() {
+function onPlainInput(e?: InputEvent) {
+  if (isComposing.value || e?.isComposing || e?.inputType === 'insertCompositionText' || e?.inputType === 'deleteCompositionText') {
+    return;
+  }
+  if (Date.now() - compositionEndedAt.value < 12) return;
   const value = plainText.value || '';
   // Markdown/HTML 模式下预览区复用统一渲染逻辑，保证学习端和编辑端表现一致。
   localHtml.value = editFormat.value === 'markdown' ? renderCourseDoc(`<!--OSH_DOC_FORMAT:MARKDOWN-->\n${value}`) : value;
-  emit('update:modelValue', serializeCourseDoc(value, editFormat.value));
+  emitModelValue(serializeCourseDoc(value, editFormat.value));
 }
 
 // 更新工具栏状态
@@ -441,7 +515,7 @@ function switchFormat(format: CourseDocFormat) {
         bindAllImages()
       }
       localHtml.value = html
-      emit('update:modelValue', serializeCourseDoc(html, 'rich'))
+      emitModelValue(serializeCourseDoc(html, 'rich'))
     })
     return
   }
@@ -457,7 +531,7 @@ function switchFormat(format: CourseDocFormat) {
   localHtml.value = format === 'markdown'
     ? renderCourseDoc(`<!--OSH_DOC_FORMAT:MARKDOWN-->\n${plainText.value}`)
     : plainText.value
-  emit('update:modelValue', serializeCourseDoc(plainText.value, format))
+  emitModelValue(serializeCourseDoc(plainText.value, format))
 }
 
 // 插入链接
@@ -806,7 +880,7 @@ function syncContent() {
 
   const html = clone.innerHTML;
   localHtml.value = editorRef.value.innerHTML; // 预览区保持临时 URL
-  emit('update:modelValue', serializeCourseDoc(html, 'rich'));
+  emitModelValue(serializeCourseDoc(html, 'rich'));
   updateStates();
 }
 
@@ -1033,6 +1107,7 @@ function applyFormatBrush() {
 
 // 键盘快捷键
 function onKeydown(e: KeyboardEvent) {
+  if (isComposing.value || e.isComposing) return;
   if (editFormat.value !== 'rich') return;
   const ctrl = e.ctrlKey || e.metaKey;
   const shift = e.shiftKey;
@@ -1089,6 +1164,121 @@ function onKeydown(e: KeyboardEvent) {
     return;
   }
 }
+
+function onCompositionStart() {
+  // 如果组合开始前 80ms 内有过单 ASCII 字母 insertText，判定为 IME 预组合泄漏，
+  // 标记为待清理（不立即改 DOM，避免打断浏览器的 IME 状态机）。
+  if (suspectStrayChar && Date.now() - suspectStrayChar.time < 80) {
+    pendingStrayRemoval = {
+      node: suspectStrayChar.node,
+      offset: suspectStrayChar.offset,
+      char: suspectStrayChar.char,
+    };
+  }
+  suspectStrayChar = null;
+  isComposing.value = true;
+}
+
+function onCompositionEnd() {
+  compositionEndedAt.value = Date.now();
+  // 等浏览器完成组合态文本提交后再同步，避免首字母中间态被写入。
+  // 注意：isComposing 不能立即置为 false，需要等下一帧之后再松开，
+  // 这样紧跟 compositionend 触发的 trailing input 事件依然会被识别为组合中间态而跳过。
+  requestAnimationFrame(() => {
+    isComposing.value = false;
+    // 移除 IME 预组合泄漏的单 ASCII 字符（macOS Chrome 偶发兜底）。
+    removePendingStrayChar();
+    if (editFormat.value === 'rich') {
+      if (!editorRef.value) return;
+      localHtml.value = editorRef.value.innerHTML;
+      syncContent();
+      updateStates();
+      return;
+    }
+    const value = plainText.value || '';
+    localHtml.value = editFormat.value === 'markdown' ? renderCourseDoc(`<!--OSH_DOC_FORMAT:MARKDOWN-->\n${value}`) : value;
+    emitModelValue(serializeCourseDoc(value, editFormat.value));
+  });
+}
+
+// 兜底清理 IME 预组合阶段泄漏的单 ASCII 字符。
+// 只在 compositionstart 标记过 pendingStrayRemoval 时生效，正常输入不会进入这里。
+function removePendingStrayChar() {
+  const target = pendingStrayRemoval;
+  pendingStrayRemoval = null;
+  if (!target) return;
+  const { node, offset, char } = target;
+  if (!node.isConnected) return;
+  const text = node.textContent || '';
+  if (text[offset] !== char) return;
+
+  const sel = window.getSelection();
+  let savedCaret: { node: Node; offset: number } | null = null;
+  if (sel && sel.rangeCount > 0) {
+    const range = sel.getRangeAt(0);
+    savedCaret = { node: range.startContainer, offset: range.startOffset };
+  }
+
+  node.textContent = text.slice(0, offset) + text.slice(offset + 1);
+
+  // 还原光标位置：若原光标就在被删字符之后的同一节点，需要左移 1 个 offset。
+  if (sel && savedCaret && savedCaret.node === node) {
+    const newOffset = savedCaret.offset > offset
+      ? Math.max(0, savedCaret.offset - 1)
+      : savedCaret.offset;
+    const range = document.createRange();
+    range.setStart(node, Math.min(newOffset, (node.textContent || '').length));
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+
+function scrollToAnchorText(anchorText: string) {
+  const keyword = (anchorText || '').trim();
+  if (!keyword) return false;
+
+  if (editFormat.value !== 'rich') {
+    const text = plainText.value || '';
+    const index = text.indexOf(keyword);
+    if (index < 0 || !plainEditorRef.value) return false;
+    plainEditorRef.value.focus();
+    plainEditorRef.value.setSelectionRange(index, index + keyword.length);
+    const lineHeight = 22;
+    const before = text.slice(0, index);
+    const line = before.split('\n').length;
+    plainEditorRef.value.scrollTop = Math.max(0, (line - 2) * lineHeight);
+    return true;
+  }
+
+  if (!editorRef.value) return false;
+  const root = editorRef.value;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let node: Node | null = walker.nextNode();
+  while (node) {
+    const txt = node.textContent || '';
+    const idx = txt.indexOf(keyword);
+    if (idx >= 0) {
+      const range = document.createRange();
+      range.setStart(node, idx);
+      range.setEnd(node, idx + keyword.length);
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      const el = (node.parentElement || root);
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return true;
+    }
+    node = walker.nextNode();
+  }
+  return false;
+}
+
+defineExpose({
+  scrollToAnchorText,
+});
 </script>
 
 <style scoped>
