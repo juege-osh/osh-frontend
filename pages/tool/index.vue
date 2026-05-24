@@ -338,12 +338,18 @@ import ToolRuntimeTestTest from '~/components/Tool/runtime/test/test.vue';
 
 const route = useRoute();
 const { hasAnyPermission, permissionList } = usePermission();
+const { toolUserNoticeRefreshFlag } = useWebSocket();
 
 const TOOL_PAGE_PERMISSION = 'tool';
 const getRoutePageNum = () => {
   const page = Number(route.query.page || 1);
   return Number.isFinite(page) && page > 0 ? page : 1;
 };
+const getRouteToolId = () => {
+  const toolId = Number(route.query.toolId || 0);
+  return Number.isFinite(toolId) && toolId > 0 ? toolId : null;
+};
+const shouldAutoOpenTool = () => String(route.query.autoOpen || '') === '1';
 
 const canCreate = computed(() => permissionList.value.includes('tool:create'));
 const canUpdate = computed(() => permissionList.value.includes('tool:update'));
@@ -361,7 +367,7 @@ if (!canAccessToolPage.value) {
 
 const queryParams = reactive({
   keyword: '',
-  toolId: null,
+  toolId: getRouteToolId(),
   tags: [],
   pageNum: getRoutePageNum(),
   pageSize: 10,
@@ -427,6 +433,18 @@ watch(
   }
 );
 
+watch(
+  () => [route.query.toolId, route.query.autoOpen],
+  async ([nextRouteToolId, nextRouteAutoOpen], [prevRouteToolId, prevRouteAutoOpen]) => {
+    if (nextRouteToolId === prevRouteToolId && nextRouteAutoOpen === prevRouteAutoOpen) {
+      return;
+    }
+    queryParams.toolId = getRouteToolId();
+    queryParams.pageNum = 1;
+    await loadTools();
+  }
+);
+
 const runtimeToolMap = {
   '/test/test': ToolRuntimeTestTest,
 };
@@ -480,6 +498,9 @@ const expandOnlyTool = (toolId) => {
 const loadTools = async () => {
   await refresh();
   syncToolList(resData.value);
+  if (queryParams.toolId && shouldAutoOpenTool()) {
+    expandOnlyTool(queryParams.toolId);
+  }
 };
 
 const loadRecommendTools = async (type = recommendType.value) => {
@@ -523,6 +544,17 @@ const loadToolUserAnnouncements = async () => {
   }
 };
 
+const handleToolAnnouncementToast = (event) => {
+  const title = event?.detail?.title;
+  if (!title) {
+    return;
+  }
+  message.info(title, {
+    duration: 4000,
+    closable: true,
+  });
+};
+
 const loadTags = async () => {
   try {
     const res = await apiToolTags();
@@ -544,13 +576,26 @@ onMounted(() => {
   loadRecommendTools();
   if (process.client) {
     window.addEventListener('message', handleIframeToolMessage);
+    window.addEventListener('tool-announcement-toast', handleToolAnnouncementToast);
   }
 });
 
 onBeforeUnmount(() => {
   if (process.client) {
     window.removeEventListener('message', handleIframeToolMessage);
+    window.removeEventListener('tool-announcement-toast', handleToolAnnouncementToast);
   }
+});
+
+watch(toolUserNoticeRefreshFlag, async (value) => {
+  if (!process.client || !value) {
+    return;
+  }
+  const currentPath = window.location.pathname || '';
+  if (!currentPath.startsWith('/tool')) {
+    return;
+  }
+  await loadToolUserAnnouncements();
 });
 
 const totalCount = computed(() => {
@@ -656,14 +701,27 @@ async function handleBatchDelete() {
 const handleSearch = () => {
   queryParams.toolId = null;
   queryParams.pageNum = 1;
+  navigateTo({
+    path: '/tool',
+  }, { replace: true });
   loadTools();
 };
 
 const handleRefresh = (page) => {
   queryParams.pageNum = page || 1;
+  const nextQuery = {};
+  if (queryParams.pageNum > 1) {
+    nextQuery.page = String(queryParams.pageNum);
+  }
+  if (queryParams.toolId) {
+    nextQuery.toolId = String(queryParams.toolId);
+    if (shouldAutoOpenTool()) {
+      nextQuery.autoOpen = '1';
+    }
+  }
   navigateTo({
     path: '/tool',
-    query: queryParams.pageNum > 1 ? { page: String(queryParams.pageNum) } : {},
+    query: nextQuery,
   }, { replace: true });
   loadTools();
 };
@@ -687,6 +745,13 @@ const handleRecommendToolClick = async (item) => {
   queryParams.isFollowing = false;
   queryParams.collectionFlag = null;
   queryParams.pageNum = 1;
+  await navigateTo({
+    path: '/tool',
+    query: {
+      toolId: String(item.id),
+      autoOpen: '1',
+    },
+  }, { replace: true });
   await loadTools();
   expandOnlyTool(item.id);
 };

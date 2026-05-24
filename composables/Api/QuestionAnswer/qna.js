@@ -4,7 +4,15 @@
  */
 import { fetchConfig } from '~/composables/useHttp'
 
-const QNA_BASE = fetchConfig.baseURL.replace('/pc', '/api/qna');
+const QNA_BASE = (() => {
+  const base = fetchConfig.baseURL;
+  // 线上：http://43.242.200.25:8081/pc → http://43.242.200.25:8081/api/qna
+  if (base.includes('/pc')) {
+    return base.replace('/pc', '/api/qna');
+  }
+  // 本地开发：/api → /api/qna
+  return '/api/qna';
+})();
 
 // 与 course.js 的 getAuthHeaders 完全一致：localStorage 优先，useCookie 兜底
 const qnaHeaders = () => {
