@@ -503,6 +503,7 @@
     const showPayModal = ref(false)
     const payChannel = ref('wxpay')
     const payQrcode = ref('')
+    const payOrderNo = ref('')
     const payPaymentNo = ref('')
     const payLoading = ref(false)
     const BOOK_PAY_POLLING_INTERVAL = 2000
@@ -572,8 +573,9 @@
                 return
             }
             payQrcode.value = result.payment?.qrcode || result.payment?.payUrl || ''
+            payOrderNo.value = result.orderNo
             payPaymentNo.value = result.paymentNo
-            startBookPayPolling(result.paymentNo)
+            startBookPayPolling(result.orderNo)
             startBookPayCountdown(result.paymentNo)
         } catch(e) {
             createDiscreteApi(['message']).message.error(e.data?.msg || '网络错误')
@@ -585,43 +587,36 @@
     async function cancelCurrentBookPayment() {
         stopBookPayPolling()
         stopBookPayCountdown()
-        const paymentNo = payPaymentNo.value
+        const orderNo = payOrderNo.value
         payQrcode.value = ''
+        payOrderNo.value = ''
         payPaymentNo.value = ''
         bookPayRemainingSeconds.value = BOOK_PAY_ORDER_EXPIRE_SECONDS
 
-        if (!paymentNo) {
+        if (!orderNo) {
             return
         }
 
         try {
-            await $fetch('/pay/cancel', {
-                method: 'POST',
-                baseURL: fetchConfig.baseURL,
-                headers: getAuthHeaders(),
-                params: { outTradeNo: paymentNo }
-            })
+            await useCancelPayApi(orderNo)
         } catch (e) {
             // 取消失败不阻断用户重新选择支付方式，后端幂等处理最终状态
         }
     }
 
-    function startBookPayPolling(paymentNo) {
+    function startBookPayPolling(orderNo) {
         stopBookPayPolling()
         payPollingTimer = setInterval(async () => {
             try {
-                const res = await $fetch('/pay/status', {
-                    baseURL: fetchConfig.baseURL,
-                    headers: getAuthHeaders(),
-                    params: { outTradeNo: paymentNo }
-                })
-                if (payPaymentNo.value !== paymentNo) {
+                const { data: statusResult } = await usePayStatusApi(orderNo)
+                if (payOrderNo.value !== orderNo) {
                     return
                 }
-                if (res.payStatus) {
+                if (statusResult.value?.payStatus) {
                     stopBookPayPolling()
                     stopBookPayCountdown()
                     payQrcode.value = ''
+                    payOrderNo.value = ''
                     payPaymentNo.value = ''
                     bookPayRemainingSeconds.value = BOOK_PAY_ORDER_EXPIRE_SECONDS
                     showPayModal.value = false
