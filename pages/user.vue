@@ -18,11 +18,6 @@
                 <!-- 资产 -->
                 <div class="asset-row">
                     <div class="asset-item">
-                        <span class="asset-value">{{ user?.asset?.goldCoin ?? '—' }}</span>
-                        <span class="asset-label">金币</span>
-                    </div>
-                    <div class="asset-divider" />
-                    <div class="asset-item">
                         <span class="asset-value">{{ user?.asset?.points ?? '—' }}</span>
                         <span class="asset-label">积分</span>
                     </div>

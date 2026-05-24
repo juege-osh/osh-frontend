@@ -4,7 +4,15 @@
  */
 import { fetchConfig } from '~/composables/useHttp'
 
-const BASE = fetchConfig.baseURL.replace(/\/pc$/, '') + '/pc/openproject'
+const BASE = (() => {
+  const base = fetchConfig.baseURL;
+  // 线上：http://43.242.200.25:8081/pc → http://43.242.200.25:8081/pc/openproject
+  if (base.includes('/pc')) {
+    return base + '/openproject';
+  }
+  // 本地开发：/api → /api/openproject
+  return '/api/openproject';
+})();
 
 const getHeaders = () => {
   let token = ''
