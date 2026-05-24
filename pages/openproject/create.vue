@@ -74,20 +74,22 @@
               <n-select
                 v-model:value="res.resourceType"
                 :options="resourceTypeOptions"
-                placeholder="类型"
-                style="width:100px;flex-shrink:0"
+                placeholder="资源类型"
+                style="width:120px;flex-shrink:0"
+                @update:value="(val) => onResTypeChange(idx, val)"
               />
-              <n-input
-                v-model:value="res.resourceUrl"
-                placeholder="资源路由（如 /course/1）"
-                style="flex:1"
+              <n-select
+                v-if="res.resourceType"
+                v-model:value="res.resourceId"
+                :options="res._options"
+                :loading="res._loading"
+                filterable
+                remote
                 clearable
-              />
-              <n-input
-                v-model:value="res.resourceName"
-                placeholder="资源名称（选填）"
-                style="width:160px;flex-shrink:0"
-                clearable
+                placeholder="输入名称搜索并选择"
+                style="flex:1;min-width:0"
+                @search="(kw) => onResSearch(idx, kw)"
+                @update:value="(val) => onResSelect(idx, val)"
               />
               <n-button text type="error" @click="removeResource(idx)">✕</n-button>
             </div>
@@ -96,7 +98,7 @@
             </n-button>
           </div>
           <template #feedback>
-            <span style="font-size:12px;color:#999">可关联本站课程、电子书、工具等多个资源</span>
+            <span style="font-size:12px;color:#999">可关联本站课程、电子书资源</span>
           </template>
         </n-form-item>
       </n-form>
@@ -116,8 +118,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   NBreadcrumb, NBreadcrumbItem, NCard, NForm, NFormItem,
-  NInput, NButton, NSelect, useMessage
+  NInput, NButton, NSelect, NSpace, useMessage
 } from 'naive-ui'
+import { fetchConfig } from '~/composables/useHttp'
 const router = useRouter()
 const message = useMessage()
 const formRef = ref(null)
@@ -137,15 +140,93 @@ const projectForm = reactive({
 const resourceTypeOptions = [
   { label: '课程', value: 'course' },
   { label: '电子书', value: 'book' },
-  { label: '工具', value: 'tool' },
 ]
 
 function addResource() {
-  projectForm.resources.push({ resourceType: 'course', resourceUrl: '', resourceName: '' })
+  projectForm.resources.push({ resourceType: null, resourceId: null, resourceUrl: '', resourceName: '', _options: [], _loading: false })
 }
 
 function removeResource(idx) {
   projectForm.resources.splice(idx, 1)
+}
+
+function buildHeaders() {
+  const headers = { appid: 'bd9d01ecc75dbbaaefce' }
+  if (process.client) {
+    const token = localStorage.getItem('token') || localStorage.getItem('Token') || ''
+    if (token) {
+      headers.token = token
+      headers.Authorization = `Bearer ${token}`
+    }
+  }
+  return headers
+}
+
+async function fetchResourceList(type, keyword = '') {
+  if (!type) return []
+  const url = type === 'course' ? '/course/search' : '/book/search'
+  const body = { pageNum: 1, pageSize: 20 }
+  if (keyword) body.title = keyword
+  try {
+    const res = await $fetch(url, {
+      baseURL: fetchConfig.baseURL,
+      method: 'POST',
+      headers: buildHeaders(),
+      body,
+    })
+    const payload = res?.data || res || {}
+    return payload.rows || payload.records || []
+  } catch (e) {
+    return []
+  }
+}
+
+function onResTypeChange(idx, newType) {
+  const res = projectForm.resources[idx]
+  res.resourceId = null
+  res.resourceUrl = ''
+  res.resourceName = ''
+  res._options = []
+  if (newType) {
+    loadResOptions(idx, '')
+  }
+}
+
+let resSearchTimers = {}
+function onResSearch(idx, keyword) {
+  if (resSearchTimers[idx]) clearTimeout(resSearchTimers[idx])
+  resSearchTimers[idx] = setTimeout(() => {
+    loadResOptions(idx, keyword || '')
+  }, 300)
+}
+
+async function loadResOptions(idx, keyword) {
+  const res = projectForm.resources[idx]
+  if (!res.resourceType) return
+  res._loading = true
+  try {
+    const list = await fetchResourceList(res.resourceType, keyword)
+    res._options = list.map(item => ({
+      label: item.title || `#${item.id}`,
+      value: item.id,
+    }))
+  } finally {
+    res._loading = false
+  }
+}
+
+function onResSelect(idx, selectedId) {
+  const res = projectForm.resources[idx]
+  const selected = res._options.find(o => o.value === selectedId)
+  if (selected) {
+    res.resourceName = selected.label
+    // 根据类型生成 URL
+    if (res.resourceType === 'course') {
+      res.resourceUrl = `/course_detail/${selectedId}`
+    } else if (res.resourceType === 'book') {
+      res.resourceUrl = `/detail/book/${selectedId}`
+    }
+  }
 }
 
 const formRules = {

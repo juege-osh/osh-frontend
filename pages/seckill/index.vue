@@ -1,6 +1,61 @@
 
 <template>
   <div class="seckill-page">
+    <!-- 公告 & 动态滚动栏（顶部，参考首页） -->
+    <div class="seckill-notice-wrap">
+      <!-- 公告行 -->
+      <div class="seckill-notice-bar">
+        <div class="seckill-notice-label seckill-notice-label-yellow">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1l1.8 3.6L14 5.6l-3 2.9.7 4.1L8 10.5l-3.7 2.1.7-4.1-3-2.9 4.2-.6z" stroke="white" stroke-width="1.3" stroke-linejoin="round" fill="rgba(255,255,255,0.2)"/>
+          </svg>
+          <span>公告</span>
+        </div>
+        <div class="seckill-scroll-wrap">
+          <div
+            class="seckill-scroll-track"
+            :style="{ animationDuration: noticeDuration + 's', animationPlayState: noticePaused ? 'paused' : 'running' }"
+            @mouseenter="noticePaused = true"
+            @mouseleave="noticePaused = false"
+          >
+            <span class="seckill-notice-item" v-for="(item, i) in [...noticeItems, ...noticeItems]" :key="'n' + i">
+              <span class="seckill-notice-dot" style="background:#e1251b"></span>
+              🔥 限时秒杀·{{ item.title }}
+              <template v-if="item.totalStock > 0">&nbsp;仅剩 {{ item.availableStock }} 名额</template>
+              <span class="seckill-notice-sep">｜</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 动态行 -->
+      <div class="seckill-notice-bar seckill-notice-bar-blue">
+        <div class="seckill-notice-label seckill-notice-label-blue">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <rect x="2" y="3" width="12" height="2" rx="1" fill="white"/>
+            <rect x="2" y="7" width="9" height="2" rx="1" fill="white"/>
+            <rect x="2" y="11" width="11" height="2" rx="1" fill="white"/>
+          </svg>
+          <span>动态</span>
+        </div>
+        <div class="seckill-scroll-wrap">
+          <div
+            class="seckill-scroll-track"
+            :style="{ animationDuration: dynamicDuration + 's', animationPlayState: dynamicPaused ? 'paused' : 'running' }"
+            @mouseenter="dynamicPaused = true"
+            @mouseleave="dynamicPaused = false"
+          >
+            <span class="seckill-notice-item" v-for="(item, i) in [...dynamicItems, ...dynamicItems]" :key="'d' + i">
+              <span class="seckill-notice-dot" style="background:#3b82f6"></span>
+              🎉 {{ item.username }}&nbsp;{{ item.timeAgo }}抢购了
+              {{ item.goodsType === 2 ? '📖' : '📚' }}&nbsp;{{ item.goodsTitle }}
+              <span class="seckill-notice-sep">｜</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Banner 区 -->
     <div class="seckill-banner">
       <div class="banner-bg-left"></div>
@@ -191,6 +246,7 @@
 <script setup>
 import { createDiscreteApi } from 'naive-ui'
 
+// ── 秒杀模块入口页 ───────────────────────────────────────────
 useHead({ title: '限时秒杀 · IT精品课' })
 
 const { message, dialog } = createDiscreteApi(['message', 'dialog'])
@@ -239,12 +295,76 @@ async function loadActivityList(resetSelection = false, silent = false) {
 let refreshTimer = null
 onMounted(() => {
   loadActivityList()
+  loadDynamicItems()
   // 每 30 秒静默刷新，同步后端活动状态变化
   refreshTimer = setInterval(() => loadActivityList(false, true), 30000)
 })
 onUnmounted(() => {
   if (refreshTimer) clearInterval(refreshTimer)
 })
+
+// ── 公告栏：取进行中活动的商品，按库存紧张度排序，最多5条 ──
+const noticeItems = computed(() => {
+  const items = []
+  for (const a of activityList.value) {
+    if (a.status !== 2) continue
+    const sorted = [...(a.items || [])]
+      .filter(i => i.totalStock > 0)
+      .sort((a, b) => a.availableStock - b.availableStock)
+    items.push(...sorted.slice(0, 5))
+    if (items.length >= 5) break
+  }
+  // 没有限量商品就取前5个不限量的
+  if (items.length === 0) {
+    for (const a of activityList.value) {
+      if (a.status !== 2) continue
+      items.push(...(a.items || []).slice(0, 5))
+      if (items.length >= 5) break
+    }
+  }
+  return items.slice(0, 5)
+})
+const noticeDuration = computed(() => Math.max(20, noticeItems.value.length * 6))
+
+// ── 动态栏：调后端接口获取最近成交记录 ──────────────────────
+const dynamicItems = ref([])
+const dynamicDuration = computed(() => Math.max(25, dynamicItems.value.length * 5))
+const noticePaused = ref(false)
+const dynamicPaused = ref(false)
+
+function timeAgo(createTime) {
+  if (!createTime) return '刚刚'
+  const diff = Date.now() - new Date(createTime.replace(' ', 'T')).getTime()
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return '刚刚'
+  if (min < 60) return `${min}分钟前`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `${h}小时前`
+  return `${Math.floor(h / 24)}天前`
+}
+
+async function loadDynamicItems() {
+  try {
+    const baseURL = process.client
+      ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+          ? 'http://localhost:8081/pc'
+          : 'http://43.242.200.25:8081/pc')
+      : 'http://localhost:8081/pc'
+    const res = await $fetch('/seckill/user/recent/orders', {
+      baseURL,
+      headers: { appid: 'bd9d01ecc75dbbaaefce' },
+      method: 'GET',
+      query: { limit: 10 },
+    })
+    const list = res?.data || res || []
+    dynamicItems.value = list.map(item => ({
+      ...item,
+      timeAgo: timeAgo(item.createTime),
+    }))
+  } catch (e) {
+    console.error('[seckill] loadDynamicItems error:', e)
+  }
+}
 
 // ── 场次 Tab 数据（把活动列表映射为 SessionTabs 需要的格式） ──
 // 根据时间自己判断状态，不完全依赖后端 status（后端定时任务可能有延迟）
@@ -549,7 +669,7 @@ function handleBuy(item) {
 @media (max-width: 640px) { .banner-center { display: none; } .banner-title { font-size: 30px; } }
 
 .seckill-page {
-  background: #f0f0f0;
+  background: #fff;
   min-height: 100vh;
 }
 
@@ -584,7 +704,8 @@ function handleBuy(item) {
   justify-content: space-between; gap: 12px;
   margin-bottom: 14px; padding: 14px 20px;
   background: #fff; border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: none;
+  border: 1px solid #f3f4f6;
 }
 .search-wrap {
   display: flex; align-items: center; flex: 1; max-width: 400px;
@@ -637,7 +758,8 @@ function handleBuy(item) {
   display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
   margin-bottom: 16px; padding: 12px 20px;
   background: #fff; border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: none;
+  border: 1px solid #f3f4f6;
 }
 .filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .filter-label { font-size: 13px; color: #999; white-space: nowrap; font-weight: 500; }
@@ -669,5 +791,130 @@ function handleBuy(item) {
   color: #9ca3af; font-size: 14px;
   background: #fff; border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* ── 公告 & 动态滚动栏 ───────────────────────────────────── */
+.seckill-notice-wrap {
+  background: transparent;
+  padding: 6px 32px;
+}
+.seckill-notice-bar {
+  max-width: 1200px;
+  margin: 0 auto 4px;
+  padding: 0 12px 0 0;
+  display: flex;
+  align-items: center;
+  height: 34px;
+  overflow: hidden;
+  background: linear-gradient(90deg, #fef9c3 0%, #fef3c7 40%, #fce7f3 100%);
+  border: none;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(251,191,36,0.12);
+  animation: seckill-notice-in 0.5s ease both;
+}
+
+.seckill-notice-bar-blue {
+  background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 40%, #ede9fe 100%);
+  border: none;
+  box-shadow: 0 1px 4px rgba(59,130,246,0.08);
+  margin-bottom: 0;
+}
+
+@keyframes seckill-notice-in {
+  from { opacity: 0; transform: translateY(-100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.seckill-notice-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  height: 100%;
+  border-radius: 0 6px 6px 0;
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-right: 14px;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.seckill-notice-label-yellow {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  box-shadow: 2px 0 12px rgba(249,115,22,0.35);
+  animation: label-pulse-yellow 3s ease-in-out infinite;
+}
+
+.seckill-notice-label-blue {
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  box-shadow: 2px 0 12px rgba(99,102,241,0.35);
+  animation: label-pulse-blue 3s ease-in-out infinite;
+}
+
+@keyframes label-pulse-yellow {
+  0%, 100% { box-shadow: 2px 0 12px rgba(249,115,22,0.35); }
+  50%       { box-shadow: 2px 0 20px rgba(249,115,22,0.6); }
+}
+
+@keyframes label-pulse-blue {
+  0%, 100% { box-shadow: 2px 0 12px rgba(99,102,241,0.35); }
+  50%       { box-shadow: 2px 0 20px rgba(99,102,241,0.6); }
+}
+
+.seckill-scroll-wrap {
+  flex: 1;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.seckill-scroll-track {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: seckill-scroll linear infinite;
+}
+
+@keyframes seckill-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.seckill-notice-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #111827;
+  padding-right: 6px;
+  cursor: default;
+  transition: color 0.2s;
+}
+
+.seckill-notice-item:hover { color: #d97706; }
+
+.seckill-notice-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: dot-blink-sk 2s ease-in-out infinite;
+}
+
+@keyframes dot-blink-sk {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(1.4); }
+}
+
+.seckill-notice-sep {
+  color: #d97706;
+  margin: 0 16px 0 8px;
+  font-size: 14px;
+  opacity: 0.5;
 }
 </style>
