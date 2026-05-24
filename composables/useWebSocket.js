@@ -13,6 +13,7 @@ export const useUnreadCount   = () => useState('ws_unread', () => 0)
 export const useWsStatus      = () => useState('ws_status', () => 'disconnected')
 /** 开源项目广播公告列表（type=NEW_OPEN_PROJECT） */
 export const useProjectAnnouncements = () => useState('ws_project_announcements', () => [])
+export const useToolUserNoticeRefreshFlag = () => useState('ws_tool_user_notice_refresh', () => 0)
 
 // ─── WebSocket 单例（非响应式）────────────────────────────────────────────────
 let _ws = null
@@ -44,6 +45,7 @@ export function useWebSocket() {
   const unreadCount   = useUnreadCount()
   const wsStatus      = useWsStatus()
   const projectAnnouncements = useProjectAnnouncements()
+  const toolUserNoticeRefreshFlag = useToolUserNoticeRefreshFlag()
 
   function connect() {
     if (!process.client) return
@@ -89,6 +91,19 @@ export function useWebSocket() {
           projectAnnouncements.value.unshift(msg)
           if (projectAnnouncements.value.length > 10) {
             projectAnnouncements.value = projectAnnouncements.value.slice(0, 10)
+          }
+        }
+
+        if (msg.type === 'TOOL_USER_NOTICE_REFRESH') {
+          toolUserNoticeRefreshFlag.value = Date.now()
+          if (process.client && msg.title) {
+            try {
+              window.dispatchEvent(new CustomEvent('tool-announcement-toast', {
+                detail: { title: msg.title }
+              }))
+            } catch (err) {
+              console.error('[WS] 工具公告提示派发失败', err)
+            }
           }
         }
       } catch (e) {
@@ -141,7 +156,7 @@ export function useWebSocket() {
     unreadCount.value = 0
   }
 
-  return { notifications, unreadCount, wsStatus, connect, disconnect, markAllRead, markRead, clearAll, projectAnnouncements }
+  return { notifications, unreadCount, wsStatus, connect, disconnect, markAllRead, markRead, clearAll, projectAnnouncements, toolUserNoticeRefreshFlag }
 }
 
 // ─── 心跳 ─────────────────────────────────────────────────────────────────────
