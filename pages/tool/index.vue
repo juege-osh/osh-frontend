@@ -338,6 +338,7 @@ import ToolRuntimeTestTest from '~/components/Tool/runtime/test/test.vue';
 
 const route = useRoute();
 const { hasAnyPermission, permissionList } = usePermission();
+const { toolUserNoticeRefreshFlag } = useWebSocket();
 
 const TOOL_PAGE_PERMISSION = 'tool';
 const getRoutePageNum = () => {
@@ -543,6 +544,17 @@ const loadToolUserAnnouncements = async () => {
   }
 };
 
+const handleToolAnnouncementToast = (event) => {
+  const title = event?.detail?.title;
+  if (!title) {
+    return;
+  }
+  message.info(title, {
+    duration: 4000,
+    closable: true,
+  });
+};
+
 const loadTags = async () => {
   try {
     const res = await apiToolTags();
@@ -564,13 +576,26 @@ onMounted(() => {
   loadRecommendTools();
   if (process.client) {
     window.addEventListener('message', handleIframeToolMessage);
+    window.addEventListener('tool-announcement-toast', handleToolAnnouncementToast);
   }
 });
 
 onBeforeUnmount(() => {
   if (process.client) {
     window.removeEventListener('message', handleIframeToolMessage);
+    window.removeEventListener('tool-announcement-toast', handleToolAnnouncementToast);
   }
+});
+
+watch(toolUserNoticeRefreshFlag, async (value) => {
+  if (!process.client || !value) {
+    return;
+  }
+  const currentPath = window.location.pathname || '';
+  if (!currentPath.startsWith('/tool')) {
+    return;
+  }
+  await loadToolUserAnnouncements();
 });
 
 const totalCount = computed(() => {
