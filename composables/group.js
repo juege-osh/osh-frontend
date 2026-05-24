@@ -325,17 +325,17 @@ export function useJoinGroupPaymentApi({ orderNo, payMethod = 'wechat', name = '
  * @returns {Object} { data, error, pending, refresh }
  * 
  * 后端接口文档:
- * GET /pc/group/order/status?orderNo={orderNo}
+ * GET /pc/pay/status?orderNo={orderNo}
  * 
- * 期望返回字段：
+ * 返回字段：
  * - orderNo: 订单号
- * - status: 订单状态 (0-待支付, 1-已支付, 2-已取消, 3-已退款)
- * - payTime: 支付时间
- * - price: 订单金额
- * - needPay: 是否需要支付 (true/false)
+ * - paymentNo: 支付流水号
+ * - orderStatus: 订单状态 (1-已完成, 0-待支付等)
+ * - paymentStatus: 支付状态 (2-已支付等)
+ * - payStatus: boolean - 是否支付成功 (true/false)
  */
 export function useGetOrderStatusApi(orderNo) {
-    return useHttpGet("GetOrderStatus", `/group/order/status?orderNo=${orderNo}`, {
+    return useHttpGet("GetOrderStatus", `/pay/status?orderNo=${orderNo}`, {
         lazy: true,
         initialCache: false,
         onResponseError({ response }) {

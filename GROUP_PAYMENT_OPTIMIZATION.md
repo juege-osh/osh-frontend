@@ -59,8 +59,8 @@ checkApi.then(res=>{
 ```
 
 **优势：**
-- 拼团订单使用 `useGetOrderStatusApi`（调用 `/group/order/status`）
-- 拼团订单状态判断：`status === 1` 表示已支付
+- 拼团订单使用 `useGetOrderStatusApi`（调用 `/pay/status`）
+- 拼团订单状态判断：`payStatus === true` 表示已支付
 - 普通订单使用 `useGetWxpayStatusApi`，状态判断：`trade_state === "SUCCESS"`
 
 #### 1.3 支付成功后跳转优化
@@ -105,9 +105,20 @@ navigateTo(`/pay?no=${orderNo}&name=${encodeURIComponent(data.value?.activity?.t
 | 前端路径 | 后端路径 | 用途 |
 |---------|---------|------|
 | `/api/group/work/pay` | `http://localhost:8081/pc/group/work/pay` | 拼团支付（生成微信支付二维码） |
-| `/api/group/order/status` | `http://localhost:8081/pc/group/order/status` | 查询拼团订单支付状态 |
+| `/api/pay/status` | `http://localhost:8081/pc/pay/status` | 查询拼团订单支付状态（通用支付接口） |
 | `/api/order/wxpay` | `http://localhost:8081/pc/order/wxpay` | 普通订单微信支付 |
 | `/api/order/iswxpay` | `http://localhost:8081/pc/order/iswxpay` | 查询普通订单支付状态 |
+
+### 接口变更历史
+
+#### 2026-05-24：订单状态查询接口升级
+- **旧接口**：`GET /pc/group/order/status?orderNo={orderNo}`
+- **新接口**：`GET /pc/pay/status?orderNo={orderNo}`
+- **变更原因**：统一使用通用支付状态查询接口
+- **返回字段变化**：
+  - 旧：`status` (数字状态码)
+  - 新：`payStatus` (boolean)，`orderStatus`，`paymentStatus`
+- **判断逻辑**：从 `status === 1` 改为 `payStatus === true`
 
 ## 业务流程
 
@@ -131,8 +142,8 @@ navigateTo(`/pay?no=${orderNo}&name=${encodeURIComponent(data.value?.activity?.t
 
 5. **轮询支付状态**
    - 每 2 秒调用 `useGetOrderStatusApi(no)`
-   - 实际请求：`GET /api/group/order/status?orderNo={no}`
-   - 判断 `status === 1` 表示已支付
+   - 实际请求：`GET /api/pay/status?orderNo={no}`
+   - 判断 `payStatus === true` 表示已支付
 
 6. **支付成功处理**
    - 停止轮询
@@ -155,8 +166,8 @@ navigateTo(`/pay?no=${orderNo}&name=${encodeURIComponent(data.value?.activity?.t
    - 用户体验更流畅
 
 3. **状态判断更准确**
-   - 拼团订单使用专用的状态查询接口
-   - 状态码语义更明确（status: 0-待支付, 1-已支付, 2-已取消, 3-已退款）
+   - 拼团订单使用统一的支付状态查询接口
+   - 使用 `payStatus` (boolean) 判断，语义更清晰（true-已支付, false-未支付）
 
 4. **兼容性好**
    - 保留了普通订单的支付逻辑

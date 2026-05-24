@@ -28,8 +28,9 @@
                         <template #icon><n-icon :component="ListOutline" /></template>
                         我的拼团
                     </n-button>
-                    <!-- 发起拼团按钮 - 所有登录用户可见 -->
+                    <!-- 发起拼团按钮 - 需要 group:work:create 权限 -->
                     <n-button 
+                        v-if="hasPermission('group:work:create')"
                         type="primary" 
                         @click="openCreateModal"
                     >
@@ -236,9 +237,9 @@
                                 >
                                     {{ item.status === 3 ? '已结束' : ((item.can_join || (item.status === 2 && item.joined_count < item.total)) ? '立即参团' : '无法参团') }}
                                 </n-button>
-                                <!-- 手动添加按钮：需要管理员权限 + 进行中或已成功时显示 -->
+                                <!-- 手动添加按钮：需要 group:user:add 权限 + 进行中或已成功时显示 -->
                                 <n-button
-                                    v-if="isAdmin && (item.status === 1 || item.status === 2)"
+                                    v-if="hasPermission('group:user:add') && (item.status === 1 || item.status === 2)"
                                     type="default"
                                     size="large"
                                     @click.stop="openAddUserModal(item)"
@@ -327,7 +328,7 @@ import {
     createDiscreteApi
 } from "naive-ui"
 import { AddOutline, PersonAddOutline, ListOutline } from '@vicons/ionicons5'
-import { useIsAdmin } from '~~/composables/useAuth'
+import { usePermission } from '~~/composables/usePermission'
 
 definePageMeta({
     name: 'group'
@@ -346,7 +347,7 @@ const typeOptions = [
 ]
 
 // 权限检查
-const isAdmin = useIsAdmin()
+const { hasPermission } = usePermission()
 
 // 优化:使用 lazy: true 避免阻塞页面渲染
 const {

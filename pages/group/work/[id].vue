@@ -142,9 +142,9 @@
                     <template #header>
                         <div class="flex items-center justify-between">
                             <h3 class="text-lg font-bold">参团用户 ({{ data.users?.length || 0 }}/{{ data.total }})</h3>
-                            <!-- 手动添加用户按钮：所有登录用户可见 -->
+                            <!-- 手动添加用户按钮：需要 group:user:add 权限 -->
                             <n-button
-                                v-if="data.status === 1 || data.status === 2"
+                                v-if="hasPermission('group:user:add') && (data.status === 1 || data.status === 2)"
                                 type="primary"
                                 size="small"
                                 ghost
@@ -397,13 +397,13 @@ import {
     FlashOutline,
     CloudOutline
 } from '@vicons/ionicons5'
-import { useIsAdmin } from '~~/composables/useAuth'
+import { usePermission } from '~~/composables/usePermission'
 
 const route = useRoute()
 const groupWorkId = route.params.id
 
 // 权限检查
-const isAdmin = useIsAdmin()
+const { hasPermission } = usePermission()
 
 const defaultAvatar = 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'
 const showPassword = ref(false)

@@ -17,7 +17,7 @@
                 </p>
                 <h5 class="flex justify-center py-5 payment-amount">
                     支付总额：
-                    <Price :value="data.price"/>
+                    <Price :value="displayPrice"/>
                 </h5>
                 <!-- 二维码组件 -->
                 <QrCode :data="data.qrcode" v-if="data.qrcode"/>
@@ -54,6 +54,16 @@
     const route = useRoute()
     const { no, type, name, price, activityId } = route.query
 
+    // 计算显示价格：优先使用接口返回的 price，其次使用 URL 参数
+    const displayPrice = computed(() => {
+        // 拼团支付：接口返回的数据结构是 data.data，需要取内层
+        if (type === 'group') {
+            return data.value?.data?.price || data.value?.price || price || 0
+        }
+        // 普通支付：直接取 data.price
+        return data.value?.price || price || 0
+    })
+
     // 支付超时
     const isTimeOut = ref(false)
     function handleTimeOut(){
@@ -85,10 +95,10 @@
                 : useGetWxpayStatusApi(no)
             
             checkApi.then(res=>{
-                // 拼团订单：status === 'paid' 表示已支付
+                // 拼团订单：payStatus === true 表示已支付成功
                 // 普通订单：trade_state === "SUCCESS" 表示已支付
                 const isPaid = type === 'group' 
-                    ? (!res.error.value && res.data.value?.status === 'paid')
+                    ? (!res.error.value && res.data.value?.payStatus === true)
                     : (!res.error.value && res.data.value?.trade_state === "SUCCESS")
                 
                 if(isPaid){
