@@ -66,7 +66,7 @@ export function useUserHistoryApi(query) {
 
 // 获取购买记录
 export function useOrderListApi(page, status) {
-    let url = `/order/list?page=${page}`
+    let url = `/user/order/list?page=${page}`
     if (status !== undefined && status !== null && status !== '') {
         url += `&status=${status}`
     }
