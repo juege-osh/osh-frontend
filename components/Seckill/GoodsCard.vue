@@ -242,3 +242,74 @@ function handleCardClick() {
 .btn-soldout:hover { background: #eee; }
 .btn-purchased { background: #fff8f0; color: #e1251b; border: 1px solid #ffd0cc; }
 </style>
+
+<style>
+/* ===== 商品卡片 · 太空风格 ===== */
+[data-theme="space"] .seckill-card {
+  background: #0d1117 !important;
+  border-color: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .seckill-card:hover {
+  box-shadow: 0 4px 16px rgba(88,166,255,0.12) !important;
+  border-color: #58a6ff !important;
+}
+[data-theme="space"] .seckill-card.selected {
+  border-color: #58a6ff !important;
+  box-shadow: 0 0 0 2px rgba(88,166,255,0.2) !important;
+}
+[data-theme="space"] .card-cover {
+  background: #161b22 !important;
+}
+[data-theme="space"] .card-title {
+  color: #e6edf3 !important;
+}
+[data-theme="space"] .card-meta {
+  color: #484f58 !important;
+}
+[data-theme="space"] .meta-divider {
+  color: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .card-divider {
+  background: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .price-original {
+  color: #484f58 !important;
+}
+[data-theme="space"] .price-seckill {
+  color: #79c0ff !important;
+}
+[data-theme="space"] .btn-active {
+  background: linear-gradient(135deg, #1d4ed8, #0ea5e9) !important;
+}
+[data-theme="space"] .btn-active:hover {
+  background: linear-gradient(135deg, #1e40af, #0284c7) !important;
+}
+[data-theme="space"] .btn-pending {
+  background: #161b22 !important;
+  color: #484f58 !important;
+}
+[data-theme="space"] .btn-soldout {
+  background: #161b22 !important;
+  color: #484f58 !important;
+  border-color: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .btn-soldout:hover {
+  background: #1c2128 !important;
+}
+[data-theme="space"] .btn-purchased {
+  background: #0d1f3c !important;
+  color: #58a6ff !important;
+  border-color: rgba(88,166,255,0.25) !important;
+}
+[data-theme="space"] .checkbox {
+  background: #161b22 !important;
+  border-color: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .checkbox:hover {
+  border-color: #58a6ff !important;
+}
+[data-theme="space"] .checkbox.checked {
+  background: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
+}
+</style>
