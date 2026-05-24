@@ -1,37 +1,53 @@
 <template>
   <div class="info-gap-container">
-    <n-alert title="平台风险公告" type="warning" class="notice-bar">
+    <n-alert title="平台风险公告" type="warning" class="risk-alert">
       不良信息、恶法内容将被加入页面名单，严重者封封！警告三次将永久封禁账号！
     </n-alert>
 
-    <section class="home-notice-section">
-      <div class="home-notice-bar">
-        <div class="home-notice-label">
+    <section class="notice-section">
+      <div class="notice-bar">
+        <div class="notice-label">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M8 1l1.8 3.6L14 5.6l-3 2.9.7 4.1L8 10.5l-3.7 2.1.7-4.1-3-2.9 4.2-.6z" stroke="white" stroke-width="1.3" stroke-linejoin="round" fill="rgba(255,255,255,0.2)"/>
           </svg>
           <span>公告</span>
         </div>
-        <div class="home-notice-scroll-wrap">
+        <div class="notice-scroll-wrap">
           <div
-            class="home-notice-scroll-track"
+            class="notice-scroll-track"
             :style="{ animationPlayState: noticePaused ? 'paused' : 'running' }"
             @mouseenter="noticePaused = true"
             @mouseleave="noticePaused = false"
           >
-            <span class="home-notice-item" v-for="(n, i) in [...notices, ...notices]" :key="i">
-              <span class="home-notice-dot" :style="{ background: n.color }"></span>
+            <span class="notice-item" v-for="(n, i) in [...notices, ...notices]" :key="i">
+              <span class="notice-dot" :style="{ background: n.color }"></span>
               {{ n.text }}
-              <span class="home-notice-sep">·</span>
+              <span class="notice-sep">｜</span>
             </span>
           </div>
         </div>
-        <nuxt-link class="home-notice-more" to="/bbs/1/1">
-          更多
-          <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-            <path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </div>
+      <div class="notice-bar notice-bar-2">
+        <div class="notice-label notice-label-2">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 4h12M2 8h12M2 12h8" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
           </svg>
-        </nuxt-link>
+          <span>动态</span>
+        </div>
+        <div class="notice-scroll-wrap">
+          <div
+            class="notice-scroll-track"
+            :style="{ animationPlayState: noticePaused2 ? 'paused' : 'running' }"
+            @mouseenter="noticePaused2 = true"
+            @mouseleave="noticePaused2 = false"
+          >
+            <span class="notice-item" v-for="(n, i) in [...notices2, ...notices2]" :key="'n2-'+i">
+              <span class="notice-dot" :style="{ background: n.color }"></span>
+              {{ n.text }}
+              <span class="notice-sep">｜</span>
+            </span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -415,13 +431,24 @@ import InfoGapHotList from "~/components/InfoGapHotList.vue";
 const route = useRoute();
 const hasHydratedInfoGapRoute = ref(false);
 const noticePaused = ref(false);
+const noticePaused2 = ref(false);
 const notices = [
-  { text: '平台全新改版上线，体验更流畅，欢迎反馈意见', color: '#6366f1' },
-  { text: '新增 500+ 电子书，涵盖前端、后端、AI 方向', color: '#10b981' },
-  { text: '秒杀专区每日 10:00 准时开抢，低至 1 折', color: '#ef4444' },
-  { text: '拼团活动进行中，邀请好友最高享 7 折优惠', color: '#f59e0b' },
-  { text: '问答社区上线，专家在线实时解答你的问题', color: '#8b5cf6' },
-  { text: 'Vue3 + TypeScript 全栈实战课程限时特惠 ¥19', color: '#ec4899' },
+  { text: '🎉 平台全新改版上线，体验更流畅！欢迎反馈意见', color: '#6366f1' },
+  { text: '📚 新增 500+ 电子书，涵盖前端、后端、AI 方向', color: '#10b981' },
+  { text: '⚡ 秒杀专区每日 10:00 准时开抢，低至 1 折', color: '#ef4444' },
+  { text: '👥 拼团活动进行中，邀请好友最高享 7 折优惠', color: '#f59e0b' },
+  { text: '🏆 答疑社区上线，专家在线实时解答你的问题', color: '#8b5cf6' },
+  { text: '🔥 Vue3 + TypeScript 全栈实战课程限时特惠 ¥19', color: '#ec4899' },
+  { text: '🎓 在线考试系统全面升级，支持智能组卷和错题回顾', color: '#0ea5e9' },
+  { text: '💡 新增 Docker + K8s 云原生实战课程，企业级项目实操', color: '#14b8a6' },
+];
+const notices2 = [
+  { text: '📢 Spring Boot 3.x 微服务架构课程上新，限时 8 折', color: '#ef4444' },
+  { text: '🎯 每周五晚 8 点直播答疑，名师在线互动', color: '#6366f1' },
+  { text: '🌟 优秀学员作品展示，快来投票点赞', color: '#f59e0b' },
+  { text: '📝 在线考试新增错题本功能，智能复习更高效', color: '#10b981' },
+  { text: '🚀 React 18 + Next.js 企业级项目实战课程已上线', color: '#8b5cf6' },
+  { text: '💰 邀请好友注册，双方各得 20 元优惠券', color: '#ec4899' },
 ];
 
 // 列表查询参数：同时驱动 UI、URL 和后端请求
@@ -1094,21 +1121,30 @@ useHead({ title: '信息差 - 开源助手' });
 .info-gap-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 20px 16px;
+  margin-top: -24px;
+  padding: 0 16px 20px;
   display: flex;
   flex-direction: column;
 }
 
-.notice-bar {
+.risk-alert {
   margin-bottom: 16px;
 }
 
-.home-notice-section {
+.notice-section {
+  padding: 0;
+  margin-top: 0;
   margin-bottom: 16px;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   order: -1;
 }
 
-.home-notice-bar {
+.notice-bar {
+  width: 100%;
+  margin: 0;
   padding: 0 12px;
   display: flex;
   align-items: center;
@@ -1127,7 +1163,7 @@ useHead({ title: '信息差 - 开源助手' });
   to { opacity: 1; transform: translateY(0); }
 }
 
-.home-notice-label {
+.notice-label {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1151,7 +1187,7 @@ useHead({ title: '信息差 - 开源助手' });
   50% { box-shadow: 2px 0 20px rgba(249, 115, 22, 0.6); }
 }
 
-.home-notice-scroll-wrap {
+.notice-scroll-wrap {
   flex: 1;
   overflow: hidden;
   height: 100%;
@@ -1160,11 +1196,11 @@ useHead({ title: '信息差 - 开源助手' });
   align-items: center;
 }
 
-.home-notice-scroll-track {
+.notice-scroll-track {
   display: flex;
   align-items: center;
   white-space: nowrap;
-  animation: notice-scroll 32s linear infinite;
+  animation: notice-scroll 60s linear infinite;
 }
 
 @keyframes notice-scroll {
@@ -1172,7 +1208,27 @@ useHead({ title: '信息差 - 开源助手' });
   100% { transform: translateX(-50%); }
 }
 
-.home-notice-item {
+@keyframes notice-scroll-reverse {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+
+.notice-scroll-track-reverse {
+  animation: notice-scroll-reverse 36s linear infinite !important;
+}
+
+.notice-bar-2 {
+  background: linear-gradient(90deg, #ecfdf5 0%, #e0f2fe 40%, #ede9fe 100%);
+  border-color: #6ee7b7;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+}
+
+.notice-label-2 {
+  background: linear-gradient(135deg, #10b981, #06b6d4) !important;
+  box-shadow: 2px 0 12px rgba(16, 185, 129, 0.35) !important;
+}
+
+.notice-item {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1184,11 +1240,11 @@ useHead({ title: '信息差 - 开源助手' });
   transition: color 0.2s ease;
 }
 
-.home-notice-item:hover {
+.notice-item:hover {
   color: #d97706;
 }
 
-.home-notice-dot {
+.notice-dot {
   display: inline-block;
   width: 7px;
   height: 7px;
@@ -1202,32 +1258,11 @@ useHead({ title: '信息差 - 开源助手' });
   50% { opacity: 0.5; transform: scale(1.4); }
 }
 
-.home-notice-sep {
+.notice-sep {
   color: #d97706;
   margin: 0 16px 0 8px;
   font-size: 14px;
   opacity: 0.5;
-}
-
-.home-notice-more {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 6px 16px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #b45309;
-  text-decoration: none;
-  white-space: nowrap;
-  flex-shrink: 0;
-  border-left: 1.5px solid #fbbf24;
-  margin-left: 16px;
-  transition: color 0.15s ease, gap 0.2s ease;
-}
-
-.home-notice-more:hover {
-  color: #92400e;
-  gap: 6px;
 }
 
 .top-toolbar {
