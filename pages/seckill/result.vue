@@ -51,23 +51,17 @@
 
         <!-- 支付区域 -->
         <div class="qr-section" v-if="!payDone && !payExpired">
-          <!-- 未发起支付 -->
-          <template v-if="!payData">
-            <button class="btn-primary" :disabled="payLoading" @click="handlePay">
-              <span v-if="payLoading">⏳ 正在获取支付码...</span>
-              <span v-else>立即支付 ¥{{ payAmount }}</span>
-            </button>
-          </template>
-          <!-- 已获取二维码 -->
-          <template v-else>
+          <!-- 有二维码：直接展示，无需点击"立即支付" -->
+          <template v-if="payData">
             <p class="qr-tip">请使用微信扫码完成支付</p>
             <!-- qrcode/payUrl 都是支付链接，用 QrCode 组件生成二维码 -->
             <QrCode v-if="payData.qrcode" :data="payData.qrcode" />
             <QrCode v-else-if="payData.payUrl" :data="payData.payUrl" />
             <p class="qr-sub-tip">二维码有效期内请尽快扫码支付</p>
-            <button class="btn-refresh" @click="handlePay" :disabled="payLoading">
-              {{ payLoading ? '刷新中...' : '🔄 刷新二维码' }}
-            </button>
+          </template>
+          <!-- 无二维码（异常情况） -->
+          <template v-else>
+            <p class="qr-tip" style="color:#9ca3af;">支付信息加载中，请稍候...</p>
           </template>
         </div>
 
@@ -100,6 +94,13 @@ import { createDiscreteApi } from 'naive-ui'
 const route = useRoute()
 const { status, title, cover, price, totalAmount, originPrice, seckillNo, payExpireTime } = route.query
 
+// 新增：从 URL 参数读取 orderNo、qrcode、payUrl（由 detail 页轮询结果传入）
+// 过滤掉 "null" 字符串，避免用 null 去查支付状态
+const sanitize = v => (v && v !== 'null') ? v : ''
+const orderNo      = sanitize(route.query.orderNo) || sanitize(seckillNo)
+const qrcodeParam  = sanitize(route.query.qrcode)  ? decodeURIComponent(sanitize(route.query.qrcode))  : ''
+const payUrlParam  = sanitize(route.query.payUrl)  ? decodeURIComponent(sanitize(route.query.payUrl))  : ''
+
 // 应付金额：优先用 totalAmount（单价×数量），没有则降级用 price（单件价）
 const payAmount = computed(() => totalAmount || price)
 
@@ -124,54 +125,31 @@ function handlePayExpire() {
   stopPayPolling()
 }
 
-// ── 页面加载时查一次真实订单状态，避免依赖 URL 参数里的过期时间 ──
-onMounted(async () => {
-  if (!seckillNo) return
-  try {
-    const res = await seckillFetch(`/seckill/user/order/status/${seckillNo}`)
-    if (res?.code !== 200 || !res?.data) return
-    const s = res.data.status
-    if (s === 1) {
-      // 已支付，直接跳转
-      handlePaySuccess()
-    } else if (s === 2 || s === 3) {
-      // 已取消或已超时，标记为超时
-      payExpired.value = true
-    }
-    // s === 0 待支付，正常展示页面
-  } catch {
-    // 查询失败，不影响页面展示
+// ── 二维码数据：直接从 URL 参数初始化，无需再调发起支付接口 ──
+// payData = { qrcode, payUrl } 或 null（无需支付时）
+const payData = ref(
+  (qrcodeParam || payUrlParam)
+    ? { qrcode: qrcodeParam, payUrl: payUrlParam }
+    : null
+)
+const payTimer = ref(null)
+
+// ── 页面加载：只展示二维码，不提前查支付状态 ─────────────────
+// 正确时序：展示二维码 → 用户扫码 → 再轮询 /pay/status 确认结果
+// /pay/status 在用户扫码之前调会报"订单不存在"，因为支付记录还没生成
+onMounted(() => {
+  // 有二维码才需要轮询支付结果，且延迟5秒再开始——给用户扫码的时间
+  // 用户扫码后微信会回调后端生成支付记录，此时 /pay/status 才能查到
+  if (payData.value && orderNo) {
+    setTimeout(() => {
+      if (!payDone.value && !payExpired.value) {
+        startPayPolling()
+      }
+    }, 5000)
   }
 })
 
-// ── 发起支付（接口：POST /seckill/user/order/pay/{seckillNo}） ─
-const payLoading = ref(false)
-const payData    = ref(null)  // { code, payUrl, qrcode, outTradeNo }
-const payTimer   = ref(null)
-
-async function handlePay() {
-  if (!seckillNo) return
-  payLoading.value = true
-  try {
-    // 先主动查一次状态，防止已支付还能重新发起
-    await checkPayStatus()
-    if (payDone.value) return
-
-    const res = await seckillFetch(`/seckill/user/order/pay/${seckillNo}`, { method: 'POST' })
-    if (res?.code === 200 && res?.data) {
-      payData.value = res.data
-      startPayPolling()
-    } else {
-      message.error(res?.msg || '获取支付信息失败')
-    }
-  } catch (e) {
-    message.error(e?.data?.msg || '获取支付信息失败，请重试')
-  } finally {
-    payLoading.value = false
-  }
-}
-
-// ── 轮询支付状态（接口：GET /seckill/user/order/status/{seckillNo}）
+// ── 轮询支付状态（接口：GET /pay/status?orderNo={orderNo}）────
 // 每2秒轮询，无上限——直到支付成功、超时、取消才停止
 function startPayPolling() {
   stopPayPolling()
@@ -181,17 +159,21 @@ function startPayPolling() {
 }
 
 // 单次查询支付状态，可复用（轮询 & 手动触发）
+// 新接口 GET /pay/status 返回 R<T> 格式，业务数据在 res.data
 async function checkPayStatus() {
+  if (!orderNo) return
   let res
   try {
-    res = await seckillFetch(`/seckill/user/order/status/${seckillNo}`)
+    res = await seckillFetch(`/pay/status?orderNo=${encodeURIComponent(orderNo)}`)
   } catch {
     return
   }
 
   if (res?.code !== 200 || !res?.data) return
 
-  const s = res.data.status
+  // 后端字段：orderStatus / payStatus / payStatus(bool)，兼容多种格式
+  const d = res.data
+  const s = d.orderStatus ?? d.paymentStatus ?? (d.payStatus === true ? 1 : d.status)
   if (s === 1) {
     handlePaySuccess()
   } else if (s === 0) {
@@ -223,11 +205,12 @@ function handlePaySuccess() {
   setTimeout(() => navigateTo('/user/buy/1', { replace: true }), 2000)
 }
 
-// ── 取消订单（接口：POST /seckill/user/order/cancel/{seckillNo}）
+// ── 取消订单（接口：POST /seckill/user/order/cancel/{orderNo}）
+// 路径参数传 orderNo，后端两者现在是同一个值
 const cancelLoading = ref(false)
 
 async function handleCancel() {
-  if (!seckillNo) return
+  if (!orderNo) return
 
   // 取消前先查一次最新状态，防止已支付的订单被取消
   await checkPayStatus()
@@ -250,7 +233,8 @@ async function handleCancel() {
   if (!confirmed) return
   cancelLoading.value = true
   try {
-    const res = await seckillFetch(`/seckill/user/order/cancel/${seckillNo}`, { method: 'POST' })
+    // 路径参数传 orderNo（后端 seckillNo 与 orderNo 现在是同一个值）
+    const res = await seckillFetch(`/seckill/user/order/cancel/${encodeURIComponent(orderNo)}`, { method: 'POST' })
     if (res?.code === 200) {
       message.success('订单已取消')
       stopPayPolling()
