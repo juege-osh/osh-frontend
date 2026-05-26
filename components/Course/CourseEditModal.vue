@@ -188,7 +188,8 @@ const matInputRef = ref(null);
 // 标签列表：优先用父组件传入，否则自己加载
 const innerTagOptions = ref([]);
 const mergedTagOptions = computed(() => {
-  if (props.tagOptions && props.tagOptions.length > 0) return props.tagOptions;
+  const parent = Array.isArray(props.tagOptions) ? props.tagOptions : [];
+  if (parent.length > 0) return parent;
   return innerTagOptions.value;
 });
 
@@ -196,15 +197,12 @@ const loadInnerTags = async () => {
   try {
     const res = await $fetch('/course/tags', {
       baseURL: fetchConfig.baseURL,
-      headers: {
-        token: process.client ? (localStorage.getItem('token') || localStorage.getItem('Token') || '') : '',
-        appid: fetchConfig.headers.appid,
-      },
+      headers: getAuthHeaders(),
     });
     const list = res?.code === 200 ? (res.data || []) : (Array.isArray(res) ? res : []);
     innerTagOptions.value = list.map(item => ({
       label: item.name || item.tagName || String(item),
-      value: Number(item.id ?? item),  // 统一转数字
+      value: item.id ?? item,
     }));
   } catch (e) {
     console.error('加载标签失败', e);
@@ -254,8 +252,8 @@ const resourceTypeOptions = [
 // 弹窗打开时加载标签，并回显数据
 watch(() => props.show, async (val) => {
   if (val) {
-    // 先加载标签，确保 options 有数据再回显 tagIds，避免显示数字
-    if (mergedTagOptions.value.length === 0) await loadInnerTags();
+    // 每次打开弹窗都刷新标签，避免首次加载失败或 token 未就绪导致 No Data
+    await loadInnerTags();
     // 有 initData 时回显（编辑模式），否则重置（新增模式）
     if (props.initData) {
       console.log('[CourseEditModal] initData:', JSON.stringify({

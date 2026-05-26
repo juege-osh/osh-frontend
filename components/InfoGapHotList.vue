@@ -68,6 +68,7 @@
                 <span>收藏 {{ item.collectCount || 0 }}</span>
               </div>
               <div class="slide-meta-row">
+                <span>{{ item.no ?? 'null' }}</span>
                 <span>{{ item.nickname || '匿名用户' }}</span>
                 <span>{{ formatTime(item.updateTime || item.createTime) }}</span>
               </div>
@@ -124,6 +125,7 @@
                 <span>收藏 {{ item.collectCount || 0 }}</span>
               </div>
               <div class="slide-meta-row">
+                <span>{{ item.no ?? 'null' }}</span>
                 <span>{{ item.nickname || '匿名用户' }}</span>
                 <span>{{ formatTime(item.updateTime || item.createTime) }}</span>
               </div>
@@ -256,11 +258,23 @@ const handleTagSearch = (tag) => {
 
 const toggleContent = async (item, index) => {
   const key = getItemKey(item, index);
-  expandedMap.value = {
-    ...expandedMap.value,
-    [key]: !expandedMap.value[key],
-  };
-  await measureScroll();
+
+  if (expandedMap.value[key]) {
+    expandedMap.value = {
+      ...expandedMap.value,
+      [key]: false,
+    };
+    await measureScroll();
+    return;
+  }
+
+  useHasAuth(async () => {
+    expandedMap.value = {
+      ...expandedMap.value,
+      [key]: true,
+    };
+    await measureScroll();
+  });
 };
 
 const stopAutoScroll = () => {
@@ -388,6 +402,7 @@ const loadHotInfoGapList = async () => {
     expandedMap.value = {};
     items.value = rows.map((item) => ({
       ...item,
+      no: item.no ?? null,
       searchTags: buildSearchTags(item),
     }));
   } catch (err) {
