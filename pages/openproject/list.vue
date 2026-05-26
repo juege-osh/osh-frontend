@@ -1,14 +1,14 @@
 <template>
   <div class="open-project-page">
+    <!-- 公告栏（最顶部） -->
+    <OpenProjectAnnouncementBar />
+
     <n-breadcrumb class="breadcrumb-wrapper">
       <n-breadcrumb-item><nuxt-link to="/">首页</nuxt-link></n-breadcrumb-item>
       <n-breadcrumb-item>开源项目</n-breadcrumb-item>
     </n-breadcrumb>
 
     <OpenProjectSearch :tag-options="tagOptions" @search="handleSearch" />
-
-    <!-- 新项目广播公告栏 -->
-    <OpenProjectAnnouncementBar />
 
     <div class="page-layout">
       <!-- 左侧：项目列表 -->
@@ -135,8 +135,9 @@
                         <n-button
                           v-for="res in detailData.resources"
                           :key="res.id"
-                          :type="res.resourceType === 'course' ? 'success' : res.resourceType === 'book' ? 'info' : 'default'"
+                          type="default"
                           size="small"
+                          secondary
                           @click.stop="navigateTo(res.resourceUrl)"
                         >
                           {{ resourceLabel(res.resourceType) }}{{ res.resourceName ? '：' + res.resourceName : '' }}
@@ -295,7 +296,7 @@ const handlePageChange = (page) => {
 }
 
 function resourceLabel(type) {
-  const map = { course: '查看课程', book: '查看电子书', tool: '查看工具' }
+  const map = { course: '查看课程', book: '查看电子书' }
   return map[type] || '查看资源'
 }
 
@@ -465,7 +466,7 @@ onMounted(() => {
 .dm-value.star { color: #f59e0b; }
 .dm-value.muted { color: #9ca3af; }
 
-.detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.detail-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
 
 /* 展开动画 */
 .expand-enter-active, .expand-leave-active {
