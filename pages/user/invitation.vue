@@ -6,10 +6,14 @@
             <div class="invite-code-box">
                 <span class="invite-code-text">{{ inviteCode || '暂无邀请码' }}</span>
                 <n-button size="small" type="primary" @click="copyCode" :disabled="!inviteCode">
-                    复制
+                    复制邀请码
+                </n-button>
+                <n-button size="small" type="info" @click="copyLink" :disabled="!inviteCode">
+                    复制邀请链接
                 </n-button>
             </div>
-            <p class="invite-tip">分享邀请码给好友，好友注册时填写即可建立邀请关系</p>
+            <p class="invite-tip">邀请链接：{{ inviteLink }}</p>
+            <p class="invite-tip">分享邀请码或邀请链接给好友，好友注册时自动填入邀请码</p>
         </div>
 
         <!-- 邀请记录 -->
@@ -38,6 +42,15 @@ const defaultAvatar = DEFAULT_AVATAR
 const inviteCode = ref('')
 const inviteeList = ref([])
 
+// 生成邀请链接
+const inviteLink = computed(() => {
+    if (!inviteCode.value) return ''
+    if (process.client) {
+        return `${window.location.origin}/register?code=${inviteCode.value}`
+    }
+    return `/register?code=${inviteCode.value}`
+})
+
 // 获取邀请码
 const loadInviteCode = async () => {
     const { data } = await useMyInviteCodeApi()
@@ -61,6 +74,19 @@ const copyCode = async () => {
         await navigator.clipboard.writeText(inviteCode.value)
         const { message } = createDiscreteApi(["message"])
         message.success("邀请码已复制")
+    } catch (e) {
+        const { message } = createDiscreteApi(["message"])
+        message.error("复制失败，请手动复制")
+    }
+}
+
+// 复制邀请链接
+const copyLink = async () => {
+    if (!inviteLink.value) return
+    try {
+        await navigator.clipboard.writeText(inviteLink.value)
+        const { message } = createDiscreteApi(["message"])
+        message.success("邀请链接已复制")
     } catch (e) {
         const { message } = createDiscreteApi(["message"])
         message.error("复制失败，请手动复制")
