@@ -18,10 +18,14 @@
         <n-form-item path="repassword" v-if="type != 'login'" :show-label="false"  >
             <n-input v-model:value="form.repassword" placeholder="确认密码" type="password"/>
         </n-form-item>
+
+        <n-form-item v-if="type != 'login'" :show-label="false" >
+            <n-input v-model:value="form.inviteCode" placeholder="邀请码（选填）"/>
+        </n-form-item>
         
         <n-form-item path="uniqueId" v-if="type != 'login'" :show-label="false" >
-            <n-input  v-model:value="form.uniqueId" placeholder="uniqueId" />
-            <SendCode  v-if="type != 'login'"   :email="form.email" :username="form.username" :password="form.password" :repassword="form.repassword" />
+            <n-input  v-model:value="form.uniqueId" placeholder="唯一标识" />
+            <SendCode  v-if="type != 'login'"   :email="form.email" :username="form.username" :password="form.password" :repassword="form.repassword" :inviteCode="form.inviteCode" />
         </n-form-item>
 
         <div class="button-container">
@@ -70,7 +74,8 @@ const form = reactive({
     password: "",
     repassword: "",
     email:"",
-    uniqueId:""
+    uniqueId:"",
+    inviteCode:""
 })
 
 // 表单验证规则
@@ -102,7 +107,7 @@ const rules = computed(() => {
         }],
         uniqueId: [{
             required: true,
-            message: "请输入uniqueId"
+            message: "请输入唯一标识"
         }]
     }
 
@@ -157,6 +162,7 @@ const changeType = () => {
     form.repassword = ""
     form.email = ""
     form.uniqueId = ""
+    form.inviteCode = ""
     // 还原验证状态
     formRef.value.restoreValidation()
 }
