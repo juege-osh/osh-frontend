@@ -345,10 +345,9 @@ import {
 import ToolRuntimeTestTest from '~/components/Tool/runtime/test/test.vue';
 
 const route = useRoute();
-const { hasAnyPermission, permissionList } = usePermission();
+const { permissionList } = usePermission();
 const { toolUserNoticeRefreshFlag } = useWebSocket();
 
-const TOOL_PAGE_PERMISSION = 'tool';
 const getRoutePageNum = () => {
   const page = Number(route.query.page || 1);
   return Number.isFinite(page) && page > 0 ? page : 1;
@@ -368,10 +367,6 @@ const canCollect = computed(() => canAddCollection.value || canRemoveCollection.
 const canVoteGood = computed(() => permissionList.value.includes('tool:vote:good'));
 const canVoteBad = computed(() => permissionList.value.includes('tool:vote:bad'));
 const canCreateQuestion = computed(() => permissionList.value.includes('qna:question:create'));
-const canAccessToolPage = computed(() => hasAnyPermission(TOOL_PAGE_PERMISSION));
-if (!canAccessToolPage.value) {
-  navigateTo('/');
-}
 
 const queryParams = reactive({
   keyword: '',
@@ -424,12 +419,6 @@ const duplicatedUserAnnouncements = computed(() => toolUserAnnouncements.value.l
   ? [...toolUserAnnouncements.value, ...toolUserAnnouncements.value]
   : toolUserAnnouncements.value);
 
-watch(canAccessToolPage, (allowed) => {
-  if (!allowed) {
-    guardToolAccess();
-  }
-});
-
 watch(
   () => route.query.page,
   (value) => {
@@ -457,15 +446,6 @@ watch(
 const runtimeToolMap = {
   '/test/test': ToolRuntimeTestTest,
 };
-
-function guardToolAccess() {
-  if (canAccessToolPage.value) {
-    return true;
-  }
-  message.error('没有工具模块访问权限');
-  navigateTo('/');
-  return false;
-}
 
 const syncToolList = (payload) => {
   if (!payload) {

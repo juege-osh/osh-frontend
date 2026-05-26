@@ -21,7 +21,8 @@
 
       <button
         class="follow-btn"
-        :class="{ active: modelValue.isFollowing }"
+        :class="{ active: modelValue.isFollowing, disabled: !loggedIn }"
+        :disabled="!loggedIn"
         @click="toggleFollowing"
       >
         <span class="heart-icon">{{ modelValue.isFollowing ? '♥' : '♡' }}</span>
@@ -63,12 +64,15 @@
 
 <script setup>
 import { NSelect } from 'naive-ui';
+import { computed } from 'vue';
 
 const props = defineProps({
   modelValue: { type: Object, default: () => ({}) },
   tagOptions: { type: Array, default: () => [] },
 });
 const emit = defineEmits(['update:modelValue', 'search']);
+const user = useUser();
+const loggedIn = computed(() => !!user.value);
 
 const resourceOptions = [
   { label: '全部', value: 'all' },
@@ -80,6 +84,9 @@ const resourceOptions = [
 ];
 
 const toggleFollowing = () => {
+  if (!loggedIn.value) {
+    return;
+  }
   props.modelValue.isFollowing = !props.modelValue.isFollowing;
   handleSearch();
 };
@@ -134,6 +141,18 @@ const handleSearch = () => {
   border-color: #18a058;
   color: #18a058;
   font-weight: 500;
+}
+.follow-btn.disabled,
+.follow-btn:disabled {
+  background: #f5f7fa;
+  border-color: #e5e7eb;
+  color: #b0b7c3;
+  cursor: not-allowed;
+}
+.follow-btn.disabled:hover,
+.follow-btn:disabled:hover {
+  border-color: #e5e7eb;
+  color: #b0b7c3;
 }
 .heart-icon { font-size: 14px; }
 .search-wrap {
