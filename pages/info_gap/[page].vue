@@ -245,6 +245,9 @@
                     {{ item.collectCount || 0 }}
                   </span>
 
+                  <span class="feed-stat">
+                    {{ item.no ?? 'null' }}
+                  </span>
                   <span class="feed-publisher">
                     <n-icon><PersonOutline /></n-icon>
                     {{ item.nickname || '匿名用户' }}
@@ -677,6 +680,7 @@ const loadData = async () => {
       // 统一初始化交互字段，避免模板侧出现 undefined
       rows.value = (data.value.rows || []).map((row) => ({
         ...row,
+        no: row.no ?? null,
         // 显式补齐时间字段，兼容后端仅返回 createTime 的场景
         updateTime: row.updateTime || row.createTime || '',
         isVoted: row.isVoted || 0,
