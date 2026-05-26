@@ -1079,35 +1079,38 @@ const handleFollow = async (item) => {
 };
 
 const toggleExpand = async (item) => {
-  item.isExpanded = !item.isExpanded;
-
-  if (!item.isExpanded) {
+  if (item.isExpanded) {
+    item.isExpanded = false;
     return;
   }
 
-  if (queryParams.type === 'myself') {
-    return;
-  }
+  useHasAuth(async () => {
+    item.isExpanded = true;
 
-  const originalReadCount = Number(item.readCount || item.viewCount || 0);
-  item.readCount = originalReadCount + 1;
-
-  try {
-    const { error } = await useHttpGet(
-      `info-gap-view-${item.id}`,
-      '/info_gap/view',
-      {
-        query: { infoGapId: item.id },
-        $: true,
-      }
-    );
-
-    if (error.value) {
-      throw error.value;
+    if (queryParams.type === 'myself') {
+      return;
     }
-  } catch (err) {
-    item.readCount = originalReadCount;
-  }
+
+    const originalReadCount = Number(item.readCount || item.viewCount || 0);
+    item.readCount = originalReadCount + 1;
+
+    try {
+      const { error } = await useHttpGet(
+        `info-gap-view-${item.id}`,
+        '/info_gap/view',
+        {
+          query: { infoGapId: item.id },
+          $: true,
+        }
+      );
+
+      if (error.value) {
+        throw error.value;
+      }
+    } catch (err) {
+      item.readCount = originalReadCount;
+    }
+  });
 };
 
 // 统一更新三种评价计数
