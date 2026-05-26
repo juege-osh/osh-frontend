@@ -105,3 +105,47 @@ defineEmits(['update:modelValue'])
   color: #6b7280;
 }
 </style>
+
+<style>
+/* ===== 场次 Tab · 太空风格 ===== */
+[data-theme="space"] .session-tabs {
+  background: transparent !important;
+}
+[data-theme="space"] .session-tab {
+  background: #161b22 !important;
+  border-color: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .session-tab:hover {
+  border-color: #58a6ff !important;
+}
+[data-theme="space"] .session-tab.active {
+  background: #0d2137 !important;
+  border-color: #58a6ff !important;
+}
+[data-theme="space"] .session-name {
+  color: #e6edf3 !important;
+}
+[data-theme="space"] .status-ended .session-name {
+  color: #484f58 !important;
+}
+[data-theme="space"] .status-active .session-badge {
+  background: linear-gradient(135deg, #1d4ed8, #0ea5e9) !important;
+}
+[data-theme="space"] .status-pending .session-badge {
+  background: #b45309 !important;
+}
+[data-theme="space"] .status-ended .session-badge {
+  background: #21262d !important;
+  color: #484f58 !important;
+}
+[data-theme="space"] .status-draft .session-badge {
+  background: #312e81 !important;
+}
+[data-theme="space"] .status-draft .session-name {
+  color: #818cf8 !important;
+}
+[data-theme="space"] .draft-tag {
+  background: #21262d !important;
+  color: #484f58 !important;
+}
+</style>

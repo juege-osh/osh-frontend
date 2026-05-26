@@ -63,6 +63,7 @@
                 @click="handleSelectSection(sec)"
               >
                 <span class="section-item-title">{{ sec.title }}</span>
+                <span v-if="isSectionDocReused(sec)" class="section-reuse-tag">复用</span>
                 <span v-if="sec.anchorType === 'range'" class="section-anchor">片段</span>
               </div>
             </template>
@@ -91,7 +92,7 @@
           </div>
           <div class="field-row">
             <span class="field-label">文档来源</span>
-            <select v-model="form.docBindMode" class="field-input">
+            <select v-model="form.docBindMode" class="field-input" :disabled="isReuseReadonly">
               <option value="">请选择</option>
               <option value="create">新建文档</option>
               <option value="reuse">复用已有文档</option>
@@ -186,20 +187,34 @@
       <!-- 右侧：文档编辑器 -->
       <div ref="rightColRef" class="right-col">
         <div
-          v-if="form.docBindMode === 'reuse' && form.docId"
+          v-if="isReuseReadonly && reusedFromSection"
+          class="doc-reuse-tip readonly"
+          :style="docReuseTipStyle"
+          role="status"
+          aria-live="polite"
+        >
+          <span class="doc-reuse-tip-icon">⟲</span>
+          <span class="doc-reuse-tip-text">
+            复用自根小节「{{ reusedFromSection.title }}」的文档，当前为只读。
+            <button type="button" class="doc-reuse-link" @click="goToRootSection">前往根小节编辑</button>
+          </span>
+        </div>
+        <div
+          v-else-if="form.docBindMode === 'reuse' && form.docId"
           class="doc-reuse-tip"
           :style="docReuseTipStyle"
           role="status"
           aria-live="polite"
         >
           <span class="doc-reuse-tip-icon">⟲</span>
-          <span class="doc-reuse-tip-text">复用模式：保存后将同步到关联小节</span>
+          <span class="doc-reuse-tip-text">复用模式：保存后仅绑定引用，不会修改根文档内容</span>
         </div>
         <DocEditor
           v-if="form.docBindMode === 'create' || form.docBindMode === 'reuse'"
           class="editor-host"
           ref="docEditorRef"
           v-model="form.content"
+          :readonly="isReuseReadonly"
           placeholder="在此输入课程文档内容..."
           style="height:100%;border:1px solid #e8e8e8;border-radius:6px;"
         />
@@ -399,9 +414,11 @@ function hydrateSection(found: any, chapter: any) {
   form.freeFlag = found.freeFlag ?? 0;
   form.content = found.textContent || found.content || '';
   form.docId = found.docId || null;
-  if (found.docId) {
+  const rootSection = found.docId ? findDocRootSection(found.docId) : null;
+  const isRootDocSection = !found.docId || (rootSection && String(rootSection.id) === String(found.id));
+  if (found.docId && !isRootDocSection) {
     form.docBindMode = 'reuse';
-  } else if ((found.textContent || found.content || '').trim()) {
+  } else if (found.docId || (found.textContent || found.content || '').trim()) {
     form.docBindMode = 'create';
   } else {
     form.docBindMode = 'create';
@@ -419,7 +436,7 @@ function hydrateSection(found: any, chapter: any) {
 }
 
 const reusableDocOptions = computed(() => {
-  const list: Array<{ docId: string; label: string; fullLabel: string; content: string }> = [];
+  const list: Array<{ docId: string; label: string; fullLabel: string; content: string; rootTitle: string }> = [];
   const seen = new Set<string>();
   for (const chapter of outline.value || []) {
     const sections = chapter.children || [];
@@ -427,15 +444,63 @@ const reusableDocOptions = computed(() => {
       const docId = String(sec.docId || '').trim();
       if (!docId || docId === '0' || seen.has(docId)) continue;
       seen.add(docId);
+      const root = findDocRootSection(docId);
       const title = sec.title || '未命名小节';
+      const rootTitle = root?.title || title;
       const shortDocId = docId.length > 8 ? docId.slice(-8) : docId;
-      const label = `${title} (doc:${shortDocId})`;
-      const fullLabel = `${title} (doc:${docId})`;
-      list.push({ docId, label, fullLabel, content: sec.textContent || sec.content || '' });
+      const label = `${rootTitle} (doc:${shortDocId})`;
+      const fullLabel = `${rootTitle} (doc:${docId})`;
+      list.push({ docId, label, fullLabel, content: sec.textContent || sec.content || '', rootTitle });
     }
   }
   return list;
 });
+
+function findDocRootSection(docId: string | number | null | undefined) {
+  const targetDocId = String(docId || '').trim();
+  if (!targetDocId) return null;
+  let root: any = null;
+  for (const chapter of outline.value || []) {
+    for (const sec of chapter.children || []) {
+      if (String(sec.docId || '').trim() !== targetDocId) continue;
+      if (!root) {
+        root = sec;
+        continue;
+      }
+      const secTime = new Date(sec.createTime || 0).getTime();
+      const rootTime = new Date(root.createTime || 0).getTime();
+      if (secTime < rootTime || (secTime === rootTime && Number(sec.id) < Number(root.id))) {
+        root = sec;
+      }
+    }
+  }
+  return root;
+}
+
+const reusedFromSection = computed(() => {
+  const docId = form.docId || sectionData.value?.docId;
+  if (!docId) return null;
+  return findDocRootSection(docId);
+});
+
+const isReuseReadonly = computed(() => {
+  const docId = form.docId || sectionData.value?.docId;
+  if (!docId || !reusedFromSection.value) return false;
+  return String(reusedFromSection.value.id) !== String(currentSectionId.value);
+});
+
+function isSectionDocReused(sec: any) {
+  const docId = sec?.docId;
+  if (!docId) return false;
+  const root = findDocRootSection(docId);
+  return !!(root && String(root.id) !== String(sec.id));
+}
+
+function goToRootSection() {
+  const root = reusedFromSection.value;
+  if (!root) return;
+  handleSelectSection(root);
+}
 
 watch(() => form.docBindMode, (mode) => {
   if (mode === 'create') {
@@ -595,7 +660,7 @@ function onWindowResize() {
 }
 
 function updateDocReuseTipPosition() {
-  if (form.docBindMode !== 'reuse' || !form.docId) {
+  if (!form.docId || (form.docBindMode !== 'reuse' && !isReuseReadonly.value)) {
     docReuseTipLeft.value = null;
     return;
   }
@@ -715,16 +780,18 @@ async function handleSave() {
       title: form.title.trim(),
       freeFlag: form.freeFlag,
       sort: sectionData.value?.sort || 1,
-      textContent: (form.docBindMode === 'create' || form.docBindMode === 'reuse') ? form.content : '',
-      content: (form.docBindMode === 'create' || form.docBindMode === 'reuse') ? form.content : '',
-      docMode: form.docBindMode === 'reuse' ? 'BIND_EXISTING' : 'CREATE',
-      docId: form.docBindMode === 'reuse' ? form.docId : null,
+      docMode: (form.docBindMode === 'reuse' || isReuseReadonly.value) ? 'BIND_EXISTING' : 'CREATE',
+      docId: (form.docBindMode === 'reuse' || isReuseReadonly.value) ? (form.docId || sectionData.value?.docId) : null,
       anchorType: form.anchorType || 'full',
       anchorStart: form.anchorStart || '',
       anchorEnd: form.anchorEnd || '',
       excerptTitle: form.excerptTitle || '',
       docTitle: form.title.trim(),
     };
+    if (!isReuseReadonly.value && (form.docBindMode === 'create' || form.docBindMode === 'reuse')) {
+      body.textContent = form.content;
+      body.content = form.content;
+    }
     if (isVid) {
       // 只有新上传了视频才传 relativePath，否则不传 mediaUrl，后端保持数据库原值
       if (videoRelativePath.value) {
@@ -984,6 +1051,15 @@ function parseDuration(str: string) {
   padding: 0 6px;
   flex-shrink: 0;
 }
+.section-reuse-tag {
+  font-size: 10px;
+  color: #ad6800;
+  border: 1px solid rgba(250, 173, 20, 0.55);
+  background: #fff7e6;
+  border-radius: 10px;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
 .doc-reuse-placeholder {
   height: 100%;
   border: 1px solid #e8e8e8;
@@ -1030,6 +1106,29 @@ function parseDuration(str: string) {
   background: radial-gradient(circle at 30% 30%, rgba(226, 255, 239, 0.96), rgba(190, 245, 214, 0.82));
   border: 1px solid rgba(128, 218, 169, 0.9);
   flex-shrink: 0;
+}
+.doc-reuse-tip.readonly {
+  max-width: min(520px, calc(100% - 32px));
+  color: #7c4a03;
+  background: linear-gradient(135deg, rgba(255, 251, 235, 0.96), rgba(255, 244, 214, 0.9));
+  border-color: rgba(250, 173, 20, 0.45);
+  pointer-events: auto;
+}
+.doc-reuse-link {
+  margin-left: 6px;
+  border: none;
+  background: none;
+  color: #1677ff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+.doc-reuse-tip.readonly .doc-reuse-tip-icon {
+  color: #ad6800;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 247, 230, 0.96), rgba(255, 231, 186, 0.82));
+  border-color: rgba(250, 173, 20, 0.55);
 }
 .doc-reuse-tip-text {
   display: block;
