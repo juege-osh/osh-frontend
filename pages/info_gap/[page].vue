@@ -245,6 +245,9 @@
                     {{ item.collectCount || 0 }}
                   </span>
 
+                  <span class="feed-stat">
+                    {{ item.no ?? 'null' }}
+                  </span>
                   <span class="feed-publisher">
                     <n-icon><PersonOutline /></n-icon>
                     {{ item.nickname || '匿名用户' }}
@@ -677,6 +680,7 @@ const loadData = async () => {
       // 统一初始化交互字段，避免模板侧出现 undefined
       rows.value = (data.value.rows || []).map((row) => ({
         ...row,
+        no: row.no ?? null,
         // 显式补齐时间字段，兼容后端仅返回 createTime 的场景
         updateTime: row.updateTime || row.createTime || '',
         isVoted: row.isVoted || 0,
@@ -1075,35 +1079,38 @@ const handleFollow = async (item) => {
 };
 
 const toggleExpand = async (item) => {
-  item.isExpanded = !item.isExpanded;
-
-  if (!item.isExpanded) {
+  if (item.isExpanded) {
+    item.isExpanded = false;
     return;
   }
 
-  if (queryParams.type === 'myself') {
-    return;
-  }
+  useHasAuth(async () => {
+    item.isExpanded = true;
 
-  const originalReadCount = Number(item.readCount || item.viewCount || 0);
-  item.readCount = originalReadCount + 1;
-
-  try {
-    const { error } = await useHttpGet(
-      `info-gap-view-${item.id}`,
-      '/info_gap/view',
-      {
-        query: { infoGapId: item.id },
-        $: true,
-      }
-    );
-
-    if (error.value) {
-      throw error.value;
+    if (queryParams.type === 'myself') {
+      return;
     }
-  } catch (err) {
-    item.readCount = originalReadCount;
-  }
+
+    const originalReadCount = Number(item.readCount || item.viewCount || 0);
+    item.readCount = originalReadCount + 1;
+
+    try {
+      const { error } = await useHttpGet(
+        `info-gap-view-${item.id}`,
+        '/info_gap/view',
+        {
+          query: { infoGapId: item.id },
+          $: true,
+        }
+      );
+
+      if (error.value) {
+        throw error.value;
+      }
+    } catch (err) {
+      item.readCount = originalReadCount;
+    }
+  });
 };
 
 // 统一更新三种评价计数
