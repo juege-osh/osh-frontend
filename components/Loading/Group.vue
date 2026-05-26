@@ -7,7 +7,7 @@
         </template>
         <template v-else-if="error">
             <n-result class="result-container" status="500" title="错误提示" 
-            :description="error?.data?.data || '页面走丢了~'">
+            :description="getErrorDescription(error)">
                 <template #footer>
                     <n-button @click="$router.go(-1)">返回上一页</n-button>
                 </template>
@@ -33,7 +33,7 @@ const props = defineProps({
         default: false
     },
     error: {
-        type: [String, Boolean, Symbol],
+        type: [String, Boolean, Symbol, Error, Object],
         default: false
     },
     isEmpty:{
@@ -53,6 +53,32 @@ const stop = watchEffect(()=>{
     }
 })
 onBeforeUnmount(()=>stop())
+
+// 获取错误描述
+function getErrorDescription(error) {
+    if (!error) return '页面走丢了~'
+    
+    // 如果是Error对象
+    if (error instanceof Error || error?.message) {
+        return error.message || '请求失败，请检查网络连接'
+    }
+    
+    // 如果是HTTP错误响应
+    if (error?.data?.data) {
+        return error.data.data
+    }
+    
+    if (error?.data?.msg) {
+        return error.data.msg
+    }
+    
+    // 如果是字符串
+    if (typeof error === 'string') {
+        return error
+    }
+    
+    return '页面走丢了~'
+}
 </script>
 <style scoped>
 .loading-group-container {

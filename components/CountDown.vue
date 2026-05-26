@@ -10,6 +10,8 @@
     </div>
 </template>
 <script setup>
+import { onUnmounted } from 'vue'
+
 const props = defineProps({
     time:{
         type:[String,Number],
@@ -32,7 +34,15 @@ function useCountDown(end_time){
     timeout.value = (end_time - Date.now()) / 1000
 
     // 如果timeout<=0, 直接结束
-    if(timeout.value <= 0) return emit("end")
+    if(timeout.value <= 0) {
+        emit("end")
+        return computed(() => ({
+            days: '00',
+            hours: '00',
+            minutes: '00',
+            seconds: '00'
+        }))
+    }
 
     close()
 
@@ -49,6 +59,11 @@ function useCountDown(end_time){
     function close(){
         if(Timer.value) clearInterval(Timer.value)
     }
+
+    // 组件卸载时清理定时器
+    onUnmounted(() => {
+        close()
+    })
 
     // 将 秒 转 天/时/分/秒
     const d = computed(()=>formatDiffDate(timeout.value))

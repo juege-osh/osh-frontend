@@ -76,10 +76,12 @@ import {
   NAvatar,
   createDiscreteApi,
 } from 'naive-ui';
-import { h, watch, onMounted, onBeforeUnmount } from 'vue';
+import { h, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const user = useUser();
 const route = useRoute();
+const permissions = usePermissions();
+const { hasAnyPermission } = usePermission();
 
 // ── WebSocket：用户登录后自动连接，退出后断开 ──────────────────────────────
 const { connect, disconnect } = useWebSocket();
@@ -177,6 +179,9 @@ const PlanIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', f
   h('path', { d: 'M6 7h6M6 10h4M9 3v2', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' }),
 ]);
 
+const AUDIT_MENU_PERMISSION = 'audit';
+const TOOL_MENU_PERMISSION = 'tool';
+
 const menus = ref([
   { name: '首页', path: '/', iconComponent: HomeIcon },
   { name: '课程', path: '/course/1', match: [{ name: 'course-page' }], iconComponent: CourseIcon },
@@ -184,14 +189,14 @@ const menus = ref([
   { name: '考试', path: '/paper/1', match: [{ name: 'paper-page' }], iconComponent: ExamIcon },
   { name: '答疑', path: '/question_answer/1', match: [{ name: 'question_answer-page' }], iconComponent: QAIcon },
   { name: '秒杀', path: '/seckill', match: [{ name: 'seckill' }], iconComponent: FlashIcon },
-  { name: '拼团', path: '/list/group/1', match: [{ name: 'list-type-page', params: { type: 'group' } }], iconComponent: GroupIcon },
+  { name: '拼团', path: '/group', match: [{ name: 'group-index' }], iconComponent: GroupIcon },
   { name: '开源项目', path: '/openproject/list', match: [{ name: 'openproject-list' }], iconComponent: ProjectIcon },
   { name: '实用网站', path: '/usefull/list', match: [{ name: 'usefull-list' }], iconComponent: LinkIcon },
-  { name: '工具', path: '/tool/1', match: [{ name: 'tool-page' }], iconComponent: ToolIcon },
+  { name: '工具', path: '/tool', match: [{ name: 'tool' }, { name: 'tool-page' }], iconComponent: ToolIcon },
   { name: '信息差', path: '/info_gap/1', match: [{ name: 'info_gap-page' }], iconComponent: InfoIcon },
   { name: '反馈', path: '/feedback/list', match: [{ name: 'feedback-list' }], iconComponent: FeedbackIcon },
-  { 
-    name: '内部资源', 
+  {
+    name: '内部资源',
     iconComponent: SiteIcon,
     children: [
       { name: '内部网站', path: '/site', match: [{ name: 'site-index' }] , iconComponent: SiteIcon},
@@ -202,23 +207,37 @@ const menus = ref([
 ]);
 
 onMounted(() => {
+  if (!hasAnyPermission(TOOL_MENU_PERMISSION)) {
+    const toolMenuIndex = menus.value.findIndex(item => item.path === '/tool');
+    if (toolMenuIndex !== -1) {
+      menus.value.splice(toolMenuIndex, 1);
+    }
+  }
+
+  if (!hasAnyPermission(AUDIT_MENU_PERMISSION)) {
+    const auditMenuIndex = menus.value.findIndex(item => item.path === '/audit');
+    if (auditMenuIndex !== -1) {
+      menus.value.splice(auditMenuIndex, 1);
+    }
+  }
+
   const permissions = usePermissions()
   const internalMenuIndex = menus.value.findIndex(item => item.name === '内部资源');
-  
+
   if (internalMenuIndex !== -1) {
     const internalMenu = menus.value[internalMenuIndex];
     const visibleChildren = [];
-    
+
     // 检查内部网站权限
     if (permissions.value.innerSite !== undefined) {
       visibleChildren.push(internalMenu.children[0]); // 内部网站
     }
-    
+
     // 检查内部资源权限
     if (permissions.value.internalResource !== undefined) {
       visibleChildren.push(internalMenu.children[1]); // 内部资源
     }
-    
+
     // 如果没有任何权限，移除整个内部菜单
     if (visibleChildren.length === 0) {
       menus.value.splice(internalMenuIndex, 1);
