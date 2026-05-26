@@ -3,7 +3,7 @@
     <!-- 顶部导航栏 -->
     <div class="study-topbar">
       <div class="topbar-left">
-        <button class="btn-back" @click="$router.push('/course')">← 返回列表</button>
+        <button class="btn-back" @click="goBackToDetail">← 返回列表</button>
         <span class="topbar-sep">|</span>
         <span class="course-name">{{ data.title }}</span>
         <span v-if="currentSection.title" class="section-name-bar">
@@ -149,7 +149,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { fetchConfig } from '~/composables/useHttp';
 import { getAuthHeaders, apiGetMaterialUrl } from '~/composables/Api/Course/course';
 import CourseQuestionPanel from '~/components/Course/CourseQuestionPanel.vue';
@@ -167,7 +167,12 @@ const accessLevel = computed(() => {
 });
 
 const route = useRoute();
+const router = useRouter();
 const courseId = computed(() => props.data?.id || route.params.id);
+
+function goBackToDetail() {
+  router.push(`/course_detail/${courseId.value}`);
+}
 
 // ===== 当前播放小节 =====
 const currentSection = ref({});

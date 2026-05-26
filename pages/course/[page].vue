@@ -69,7 +69,7 @@
       </div>
     </div>
 
-    <CourseEditModal v-model:show="showCreateModal" :tag-options="tagOptions" @success="handleRefresh" />
+    <CourseEditModal v-model:show="showCreateModal" :tag-options="tagOptions" @success="handleCreateSuccess" />
   </div>
 </template><script setup>
 import { ref, reactive, computed, onMounted, onActivated } from 'vue';
@@ -79,13 +79,31 @@ import CourseFilter from '~/components/Course/CourseFilter.vue';
 import CourseCard from '~/components/Course/CourseCard.vue';
 import { NGrid, NGi, NPagination } from 'naive-ui';
 import { fetchConfig } from '~/composables/useHttp';
-import { apiCollectCourse, apiRemoveCollect, apiGetCoverUrls, getAuthHeaders } from '~/composables/Api/Course/course';
+import { apiCollectCourse, apiRemoveCollect, apiGetCoverUrls, apiSyncCoursesToEs, getAuthHeaders } from '~/composables/Api/Course/course';
 
 const { hasPermission, permissionList } = usePermission();
 
 // 响应式权限判断，确保 user 数据加载后自动更新
 const canCreate = computed(() => permissionList.value.includes('course:create'));
 const canDelete = computed(() => permissionList.value.includes('course:delete'));
+const canUpdate = computed(() => permissionList.value.includes('course:update'));
+const canManageCourse = computed(() => canCreate.value || canDelete.value || canUpdate.value);
+
+// 进入课程页时自动同步 ES，等价于手动 esSync，保证审核页能读到最新待审课程。
+let lastEsSyncAt = 0;
+const ES_SYNC_COOLDOWN_MS = 15_000;
+
+async function triggerCourseEsSync() {
+  if (!canManageCourse.value) return;
+  const now = Date.now();
+  if (now - lastEsSyncAt < ES_SYNC_COOLDOWN_MS) return;
+  lastEsSyncAt = now;
+  try {
+    await apiSyncCoursesToEs();
+  } catch (_) {
+    // 同步失败不阻塞列表展示
+  }
+}
 
 // 1. 核心修复：在查询参数中增加新的两个字段，并给默认排序赋值
 const queryParams = reactive({
@@ -162,12 +180,14 @@ async function refreshCoverUrls() {
 }
 
 onMounted(() => {
+  triggerCourseEsSync();
   loadCourses();
 });
 
 // 从详情页返回列表页时，页面实例可能被复用，onMounted 不会再次触发。
 // 补充 onActivated 强制拉新，避免列表卡片仍显示旧状态/旧标题。
 onActivated(() => {
+  triggerCourseEsSync();
   loadCourses();
 });
 
@@ -276,6 +296,13 @@ const handleRefresh = (page) => {
   // 这里的 page 是 n-pagination 传回来的页码
   queryParams.pageNum = page || 1;
   loadCourses();
+};
+
+const handleCreateSuccess = async () => {
+  lastEsSyncAt = 0;
+  await triggerCourseEsSync();
+  queryParams.pageNum = 1;
+  await loadCourses();
 };
 
 const handleDetail = (id) => {
