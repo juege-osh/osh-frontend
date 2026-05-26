@@ -101,6 +101,7 @@ export function useWebSocket() {
               window.dispatchEvent(new CustomEvent('tool-announcement-toast', {
                 detail: { title: msg.title }
               }))
+              console.log('title : ' , msg.title);
             } catch (err) {
               console.error('[WS] 工具公告提示派发失败', err)
             }

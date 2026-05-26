@@ -9,7 +9,7 @@ import {
     createDiscreteApi
 } from "naive-ui"
 
-const props = defineProps(["email","username","password","repassword"])
+const props = defineProps(["email","username","password","repassword","inviteCode"])
 const time = ref(0)
 const timer = ref(null)
 const loading = ref(false)
@@ -33,7 +33,7 @@ const text = computed(()=>{
     if(!props.repassword){
         return "请输入确认密码"
     }
-    return "发送uniqueid到邮箱"
+    return "发送唯一标识到邮箱"
 })
 
 // 发送验证码
@@ -44,7 +44,7 @@ const send = async ()=>{
     let {
         data,
         error
-    } = await useGetCaptchaApi(props.email,props.username,props.password,props.repassword)
+    } = await useGetCaptchaApi(props.email,props.username,props.password,props.repassword,props.inviteCode)
 
     loading.value = false
 

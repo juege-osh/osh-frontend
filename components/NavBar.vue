@@ -180,7 +180,6 @@ const PlanIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', f
 ]);
 
 const AUDIT_MENU_PERMISSION = 'audit';
-const TOOL_MENU_PERMISSION = 'tool';
 
 const menus = ref([
   { name: '首页', path: '/', iconComponent: HomeIcon },
@@ -207,13 +206,6 @@ const menus = ref([
 ]);
 
 onMounted(() => {
-  if (!hasAnyPermission(TOOL_MENU_PERMISSION)) {
-    const toolMenuIndex = menus.value.findIndex(item => item.path === '/tool');
-    if (toolMenuIndex !== -1) {
-      menus.value.splice(toolMenuIndex, 1);
-    }
-  }
-
   if (!hasAnyPermission(AUDIT_MENU_PERMISSION)) {
     const auditMenuIndex = menus.value.findIndex(item => item.path === '/audit');
     if (auditMenuIndex !== -1) {

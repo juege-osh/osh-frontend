@@ -21,7 +21,8 @@
 
       <button
         class="follow-btn"
-        :class="{ active: modelValue.isFollowing }"
+        :class="{ active: modelValue.isFollowing, disabled: !loggedIn }"
+        :disabled="!loggedIn"
         @click="toggleFollowing"
       >
         <span class="heart-icon">{{ modelValue.isFollowing ? '♥' : '♡' }}</span>
@@ -39,14 +40,15 @@
         <span v-if="modelValue.keyword" class="search-clear" @click="modelValue.keyword = ''; handleSearch()">✕</span>
       </div>
 
-      <div class="search-wrap no-num is-disabled">
+      <div class="search-wrap no-num">
         <span class="search-icon">🔢</span>
         <input
-          v-model="modelValue.toolId"
+          v-model="modelValue.no"
           class="search-input"
           placeholder="工具编号..."
-          disabled
+          @keyup.enter="handleSearch"
         />
+        <span v-if="modelValue.no" class="search-clear" @click="modelValue.no = ''; handleSearch()">✕</span>
       </div>
 
       <button class="btn-query" @click="handleSearch">
@@ -62,12 +64,15 @@
 
 <script setup>
 import { NSelect } from 'naive-ui';
+import { computed } from 'vue';
 
 const props = defineProps({
   modelValue: { type: Object, default: () => ({}) },
   tagOptions: { type: Array, default: () => [] },
 });
 const emit = defineEmits(['update:modelValue', 'search']);
+const user = useUser();
+const loggedIn = computed(() => !!user.value);
 
 const resourceOptions = [
   { label: '全部', value: 'all' },
@@ -79,6 +84,9 @@ const resourceOptions = [
 ];
 
 const toggleFollowing = () => {
+  if (!loggedIn.value) {
+    return;
+  }
   props.modelValue.isFollowing = !props.modelValue.isFollowing;
   handleSearch();
 };
@@ -134,6 +142,18 @@ const handleSearch = () => {
   color: #18a058;
   font-weight: 500;
 }
+.follow-btn.disabled,
+.follow-btn:disabled {
+  background: #f5f7fa;
+  border-color: #e5e7eb;
+  color: #b0b7c3;
+  cursor: not-allowed;
+}
+.follow-btn.disabled:hover,
+.follow-btn:disabled:hover {
+  border-color: #e5e7eb;
+  color: #b0b7c3;
+}
 .heart-icon { font-size: 14px; }
 .search-wrap {
   display: flex;
@@ -167,24 +187,6 @@ const handleSearch = () => {
 .search-clear { font-size: 12px; color: #bbb; cursor: pointer; }
 .search-clear:hover { color: #666; }
 .no-num .search-input { width: 110px; }
-.is-disabled {
-  background: #f0f2f5;
-  border-color: #e5e7eb;
-  cursor: not-allowed;
-}
-.is-disabled:focus-within {
-  border-color: #e5e7eb;
-  box-shadow: none;
-  background: #f0f2f5;
-}
-.is-disabled .search-icon,
-.is-disabled .search-input,
-.is-disabled .search-input::placeholder {
-  color: #b0b7c3;
-}
-.is-disabled .search-input {
-  cursor: not-allowed;
-}
 .btn-query {
   background: #18a058;
   color: #fff;
