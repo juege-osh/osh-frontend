@@ -269,10 +269,7 @@ const loadTags = async () => {
   try {
     const res = await $fetch('/course/tags', {
       baseURL: fetchConfig.baseURL,
-      headers: {
-        token: process.client ? (localStorage.getItem('token') || localStorage.getItem('Token') || '') : '',
-        appid: 'bd9d01ecc75dbbaaefce',
-      },
+      headers: getAuthHeaders(),
     });
     const list = res?.code === 200 ? (res.data || []) : (Array.isArray(res) ? res : []);
     tagOptions.value = list.map(item => ({
