@@ -169,20 +169,20 @@ export async function apiCreateToolPurchaseOrder(body) {
   });
 }
 
-export async function apiCancelToolPurchaseOrder(paymentNo) {
+export async function apiCancelToolPurchaseOrder(orderNo) {
   return $fetch('/tool/purchase/cancel', {
     method: 'POST',
     baseURL,
     headers: getToolAuthHeaders(),
-    body: { paymentNo },
+    body: { orderNo },
   });
 }
 
-export async function apiPayStatus(outTradeNo) {
+export async function apiPayStatus(orderNo) {
   return $fetch('/pay/status', {
     method: 'GET',
     baseURL,
     headers: getToolAuthHeaders(),
-    params: { outTradeNo },
+    params: { orderNo },
   });
 }

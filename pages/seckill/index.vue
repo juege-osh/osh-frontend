@@ -19,9 +19,8 @@
             @mouseleave="noticePaused = false"
           >
             <span class="seckill-notice-item" v-for="(item, i) in [...noticeItems, ...noticeItems]" :key="'n' + i">
-              <span class="seckill-notice-dot" style="background:#e1251b"></span>
-              🔥 限时秒杀·{{ item.title }}
-              <template v-if="item.totalStock > 0">&nbsp;仅剩 {{ item.availableStock }} 名额</template>
+              <span class="seckill-notice-dot" :style="{ background: item.iconColor || '#e1251b' }"></span>
+              {{ item.icon || '🔥' }} {{ item.title }}
               <span class="seckill-notice-sep">｜</span>
             </span>
           </div>
@@ -46,9 +45,8 @@
             @mouseleave="dynamicPaused = false"
           >
             <span class="seckill-notice-item" v-for="(item, i) in [...dynamicItems, ...dynamicItems]" :key="'d' + i">
-              <span class="seckill-notice-dot" style="background:#3b82f6"></span>
-              🎉 {{ item.username }}&nbsp;{{ item.timeAgo }}抢购了
-              {{ item.goodsType === 2 ? '📖' : '📚' }}&nbsp;{{ item.goodsTitle }}
+              <span class="seckill-notice-dot" :style="{ background: item.iconColor || '#3b82f6' }"></span>
+              {{ item.icon || '🎉' }} {{ item.title }}
               <span class="seckill-notice-sep">｜</span>
             </span>
           </div>
@@ -261,12 +259,10 @@ const stats = [
 ]
 
 // ── 活动列表 ─────────────────────────────────────────────────
-// 秒杀活动列表接口响应结构：{ code, rows, total }（rows 在顶层）
-// 在客户端执行，避免 SSR 阶段 window 不存在的问题
+// 接口返回结构：{ code, rows, total }，rows 里每条是活动，活动下嵌套 items
 const activityList = ref([])
 const pending = ref(false)
 
-// 必须先定义，loadActivityList 内部会引用
 const activeActivityId = ref(null)
 
 async function loadActivityList(resetSelection = false, silent = false) {
@@ -274,13 +270,10 @@ async function loadActivityList(resetSelection = false, silent = false) {
   try {
     const res = await fetchSeckillAdminActivityRows({ pageNum: 1, pageSize: 50 })
     activityList.value = res?.rows || []
-    // 重置选中 或 当前选中的活动已不存在时，重新选择
-    const stillExists = activityList.value.some(a => a.id === activeActivityId.value)
+    const stillExists = activityList.value.some(a => String(a.id) === String(activeActivityId.value))
     if (resetSelection || !activeActivityId.value || !stillExists) {
-      activeActivityId.value =
-        activityList.value.find(a => a.status === 2)?.id ||
-        activityList.value[0]?.id ||
-        null
+      const found = activityList.value.find(a => a.status === 2) || activityList.value[0]
+      activeActivityId.value = found ? String(found.id) : null
     }
     await loadGoods(silent)
   } catch (e) {
@@ -293,55 +286,66 @@ async function loadActivityList(resetSelection = false, silent = false) {
 // 客户端挂载后加载（跳过 SSR）
 // 同时每 30 秒轮询一次，自动同步后端活动状态变化（如 未开始→进行中）
 let refreshTimer = null
+const { connect: wsConnect, disconnect: wsDisconnect, notifications } = useWebSocket()
+
 onMounted(() => {
   loadActivityList()
+  loadNoticeItems()
   loadDynamicItems()
   // 每 30 秒静默刷新，同步后端活动状态变化
   refreshTimer = setInterval(() => loadActivityList(false, true), 30000)
+
+  // WebSocket：登录用户才连接
+  wsConnect()
 })
+
+// 监听 WebSocket 消息，处理秒杀相关推送
+watch(notifications, (msgs) => {
+  if (!msgs.length) return
+  const latest = msgs[0]
+  if (latest.type === 'SECKILL_NOTICE_UPDATE') {
+    loadNoticeItems()
+  } else if (latest.type === 'SECKILL_DYNAMIC_NEW') {
+    dynamicItems.value = [
+      { title: latest.title, icon: '🎉', iconColor: '#3b82f6' },
+      ...dynamicItems.value,
+    ].slice(0, 10)
+  }
+}, { deep: false })
+
 onUnmounted(() => {
   if (refreshTimer) clearInterval(refreshTimer)
+  wsDisconnect()
 })
 
-// ── 公告栏：取进行中活动的商品，按库存紧张度排序，最多5条 ──
-const noticeItems = computed(() => {
-  const items = []
-  for (const a of activityList.value) {
-    if (a.status !== 2) continue
-    const sorted = [...(a.items || [])]
-      .filter(i => i.totalStock > 0)
-      .sort((a, b) => a.availableStock - b.availableStock)
-    items.push(...sorted.slice(0, 5))
-    if (items.length >= 5) break
-  }
-  // 没有限量商品就取前5个不限量的
-  if (items.length === 0) {
-    for (const a of activityList.value) {
-      if (a.status !== 2) continue
-      items.push(...(a.items || []).slice(0, 5))
-      if (items.length >= 5) break
-    }
-  }
-  return items.slice(0, 5)
-})
+// ── 公告栏：调新接口，直接取 title 展示 ──────────────────────
+const noticeItems = ref([])
 const noticeDuration = computed(() => Math.max(20, noticeItems.value.length * 6))
+const noticePaused = ref(false)
 
-// ── 动态栏：调后端接口获取最近成交记录 ──────────────────────
+async function loadNoticeItems() {
+  try {
+    const baseURL = process.client
+      ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+          ? 'http://localhost:8081/pc'
+          : 'http://43.242.200.25:8081/pc')
+      : 'http://localhost:8081/pc'
+    const res = await $fetch('/seckill/user/announcement/notices', {
+      baseURL,
+      headers: { appid: 'bd9d01ecc75dbbaaefce' },
+      method: 'GET',
+      query: { limit: 10 },
+    })
+    noticeItems.value = res?.data || res || []
+  } catch (e) {
+    console.error('[seckill] loadNoticeItems error:', e)
+  }
+}
+
+// ── 动态栏：调后端接口，直接取 title 展示 ────────────────────
 const dynamicItems = ref([])
 const dynamicDuration = computed(() => Math.max(25, dynamicItems.value.length * 5))
-const noticePaused = ref(false)
 const dynamicPaused = ref(false)
-
-function timeAgo(createTime) {
-  if (!createTime) return '刚刚'
-  const diff = Date.now() - new Date(createTime.replace(' ', 'T')).getTime()
-  const min = Math.floor(diff / 60000)
-  if (min < 1) return '刚刚'
-  if (min < 60) return `${min}分钟前`
-  const h = Math.floor(min / 60)
-  if (h < 24) return `${h}小时前`
-  return `${Math.floor(h / 24)}天前`
-}
 
 async function loadDynamicItems() {
   try {
@@ -356,11 +360,7 @@ async function loadDynamicItems() {
       method: 'GET',
       query: { limit: 10 },
     })
-    const list = res?.data || res || []
-    dynamicItems.value = list.map(item => ({
-      ...item,
-      timeAgo: timeAgo(item.createTime),
-    }))
+    dynamicItems.value = res?.data || res || []
   } catch (e) {
     console.error('[seckill] loadDynamicItems error:', e)
   }
@@ -394,7 +394,7 @@ const sessions = computed(() =>
 
 // 当前选中的活动对象
 const activeActivity = computed(() =>
-  activityList.value.find(a => a.id === activeActivityId.value) || null
+  activityList.value.find(a => String(a.id) === String(activeActivityId.value)) || null
 )
 
 // 倒计时目标时间
@@ -422,15 +422,17 @@ const typeOptions = [
 const filterType = ref('')
 const searchKeyword = ref('')
 
-// ── 商品列表（从当前活动的 items 中取） ──────────────────────
+// ── 商品列表（从当前活动的 items 中取） ────────────────────
 const goodsList = ref([])
 
 async function loadGoods(silent = false) {
   if (!silent) pending.value = true
+  console.log('[seckill] loadGoods, activeActivity:', activeActivity.value, 'items:', activeActivity.value?.items?.length)
   let items = activeActivity.value?.items || []
   if (filterType.value !== '') items = items.filter(g => g.goodsType === filterType.value)
   if (searchKeyword.value) items = items.filter(g => g.title?.includes(searchKeyword.value))
   goodsList.value = items
+  console.log('[seckill] goodsList:', goodsList.value.length, 'pending will be:', silent ? 'unchanged' : false)
   if (!silent) pending.value = false
 }
 
@@ -831,6 +833,7 @@ function handleBuy(item) {
   gap: 5px;
   padding: 0 10px;
   height: 100%;
+  width: 64px;
   border-radius: 0 6px 6px 0;
   color: white;
   font-size: 11px;
@@ -840,6 +843,7 @@ function handleBuy(item) {
   margin-right: 14px;
   letter-spacing: 0.08em;
   text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  justify-content: center;
 }
 
 .seckill-notice-label-yellow {
@@ -916,5 +920,161 @@ function handleBuy(item) {
   margin: 0 16px 0 8px;
   font-size: 14px;
   opacity: 0.5;
+}
+</style>
+
+<!-- 太空风格覆盖（非 scoped，通过 data-theme 属性控制） -->
+<style>
+/* ===== 秒杀页 · 太空风格 ===== */
+
+/* 页面背景 */
+[data-theme="space"] .seckill-page {
+  background: #020817 !important;
+}
+
+/* 公告栏 */
+[data-theme="space"] .seckill-notice-bar {
+  background: linear-gradient(90deg, #0d1f3c 0%, #0d2137 40%, #1a1040 100%) !important;
+  box-shadow: 0 1px 4px rgba(88,166,255,0.1) !important;
+}
+[data-theme="space"] .seckill-notice-bar-blue {
+  background: linear-gradient(90deg, #0d1117 0%, #0d1f3c 40%, #130d2e 100%) !important;
+  box-shadow: 0 1px 4px rgba(99,102,241,0.1) !important;
+}
+[data-theme="space"] .seckill-notice-item {
+  color: #8b949e !important;
+}
+[data-theme="space"] .seckill-notice-item:hover {
+  color: #58a6ff !important;
+}
+[data-theme="space"] .seckill-notice-sep {
+  color: #58a6ff !important;
+}
+
+/* Banner */
+[data-theme="space"] .seckill-banner {
+  background: #020817 !important;
+}
+[data-theme="space"] .banner-bg-left {
+  background: linear-gradient(105deg, #0a1628 0%, #0d2137 40%, #1d4ed8 80%, #0ea5e9 100%) !important;
+}
+[data-theme="space"] .banner-bg-right {
+  background: radial-gradient(circle, rgba(88,166,255,0.15) 0%, transparent 70%) !important;
+}
+[data-theme="space"] .banner-wave {
+  background: linear-gradient(90deg, transparent, #58a6ff, #a5d6ff, #58a6ff, transparent) !important;
+}
+[data-theme="space"] .banner-sub {
+  color: #79c0ff !important;
+}
+[data-theme="space"] .feature-item {
+  background: rgba(88,166,255,0.1) !important;
+  border-color: rgba(88,166,255,0.25) !important;
+}
+[data-theme="space"] .stat-num {
+  color: #79c0ff !important;
+}
+[data-theme="space"] .countdown-card {
+  background: rgba(13,33,55,0.6) !important;
+  border-color: rgba(88,166,255,0.2) !important;
+}
+[data-theme="space"] .countdown-widget :deep(small) {
+  background: #0d1117 !important;
+}
+
+/* Body 区域 */
+[data-theme="space"] .seckill-body {
+  background: transparent !important;
+}
+
+/* 场次 Tab */
+[data-theme="space"] :deep(.session-tabs) {
+  background: #0d1117 !important;
+  border: 1px solid rgba(48,54,61,0.8) !important;
+  box-shadow: none !important;
+}
+[data-theme="space"] :deep(.session-tab) {
+  background: #161b22 !important;
+  border-color: rgba(48,54,61,0.8) !important;
+  color: #8b949e !important;
+}
+[data-theme="space"] :deep(.session-tab:hover) {
+  border-color: #58a6ff !important;
+  color: #58a6ff !important;
+}
+[data-theme="space"] :deep(.session-tab.active) {
+  background: #0d2137 !important;
+  border-color: #58a6ff !important;
+  color: #58a6ff !important;
+}
+[data-theme="space"] :deep(.status-active .session-badge) {
+  background: #1d4ed8 !important;
+}
+
+/* 操作栏 */
+[data-theme="space"] .action-bar {
+  background: #0d1117 !important;
+  border-color: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .search-wrap {
+  background: #161b22 !important;
+  border-color: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .search-wrap:focus-within {
+  border-color: #58a6ff !important;
+  background: #0d1117 !important;
+  box-shadow: 0 0 0 3px rgba(88,166,255,0.12) !important;
+}
+[data-theme="space"] .search-icon {
+  color: #484f58 !important;
+}
+[data-theme="space"] .search-input {
+  color: #e6edf3 !important;
+}
+[data-theme="space"] .search-input::placeholder {
+  color: #484f58 !important;
+}
+[data-theme="space"] .search-btn {
+  background: linear-gradient(135deg, #1d4ed8, #0ea5e9) !important;
+}
+[data-theme="space"] .search-btn:hover {
+  background: linear-gradient(135deg, #1e40af, #0284c7) !important;
+}
+[data-theme="space"] .manage-btn {
+  background: #161b22 !important;
+}
+
+/* 筛选栏 */
+[data-theme="space"] .filter-bar {
+  background: #0d1117 !important;
+  border-color: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .filter-label {
+  color: #484f58 !important;
+}
+[data-theme="space"] .filter-btn {
+  background: #161b22 !important;
+  border-color: rgba(48,54,61,0.8) !important;
+  color: #8b949e !important;
+}
+[data-theme="space"] .filter-btn:hover {
+  border-color: #58a6ff !important;
+  color: #58a6ff !important;
+  background: #0d1f3c !important;
+}
+[data-theme="space"] .filter-btn.active {
+  background: linear-gradient(135deg, #1d4ed8, #0ea5e9) !important;
+  border-color: #1d4ed8 !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(29,78,216,0.35) !important;
+}
+
+/* 加载 / 空状态 */
+[data-theme="space"] .loading-tip,
+[data-theme="space"] .empty-tip {
+  background: #0d1117 !important;
+  color: #484f58 !important;
+  border: 1px solid rgba(48,54,61,0.8) !important;
+  box-shadow: none !important;
 }
 </style>

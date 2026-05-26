@@ -598,12 +598,7 @@
         }
 
         try {
-            await $fetch('/pay/cancel', {
-                method: 'POST',
-                baseURL: fetchConfig.baseURL,
-                headers: getAuthHeaders(),
-                params: { orderNo }
-            })
+            await useCancelPayApi(orderNo)
         } catch (e) {
             // 取消失败不阻断用户重新选择支付方式，后端幂等处理最终状态
         }
@@ -613,16 +608,11 @@
         stopBookPayPolling()
         payPollingTimer = setInterval(async () => {
             try {
-                const res = await $fetch('/pay/status', {
-                    baseURL: fetchConfig.baseURL,
-                    headers: getAuthHeaders(),
-                    params: { orderNo }
-                })
+                const { data: statusResult } = await usePayStatusApi(orderNo)
                 if (payOrderNo.value !== orderNo) {
                     return
                 }
-                const statusResult = res.data || res
-                if (statusResult.payStatus) {
+                if (statusResult.value?.payStatus) {
                     stopBookPayPolling()
                     stopBookPayCountdown()
                     payQrcode.value = ''
