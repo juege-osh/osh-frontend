@@ -589,7 +589,7 @@ const handleTagClick = (tag) => {
   if (isTagSelected(tag)) return;
   if (selectedTags.value.length >= MAX_TAG_COUNT) {
     const { message } = createDiscreteApi(['message']);
-    message.warning(`最多只能选择 ${MAX_TAG_COUNT} 个标签`);
+    message.warning(`最多只能选择 ${MAX_TAG_COUNT} 个标签!!!`);
     return;
   }
   selectedTags.value.push(tag);
