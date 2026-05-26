@@ -366,3 +366,12 @@ export async function apiGetCourseDetail(courseId) {
     headers: getAuthHeaders(),
   });
 }
+
+/** 全量同步课程到 ES（供审核页等读取最新待审数据） */
+export async function apiSyncCoursesToEs() {
+  return $fetch('/course/esSync/all', {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+  });
+}
