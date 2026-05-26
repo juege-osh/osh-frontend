@@ -13,7 +13,9 @@
         <n-form-item label="工具名称">
           <n-input v-model:value="formValue.toolName" placeholder="请输入工具名称，如图片转PDF" />
         </n-form-item>
+      </div>
 
+      <div class="form-grid">
         <n-form-item label="前端路由">
           <n-input
             v-model:value="formValue.routePath"
@@ -119,6 +121,7 @@ const loading = ref(false);
 const formValue = reactive({
   id: null,
   toolName: '',
+  no: '',
   description: '',
   routePath: '',
   githubUrl: '',
@@ -158,6 +161,7 @@ function resetForm() {
   const source = props.editData || {};
   formValue.id = source.id || null;
   formValue.toolName = source.toolName || '';
+  formValue.no = source.no || '';
   formValue.description = source.description || '';
   formValue.routePath = source.routePath || source.route_path || '';
   formValue.githubUrl = source.githubUrl || source.github_url || '';

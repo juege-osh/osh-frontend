@@ -150,6 +150,14 @@
                       >
                         剩余 {{ item.remainingCount || 0 }} 次
                       </span>
+                      <button
+                        v-if="item.no"
+                        class="tool-no-copy"
+                        type="button"
+                        @click.stop="handleCopyToolNo(item.no)"
+                      >
+                        编号 {{ item.no }}
+                      </button>
                       <span class="meta-item">{{ item.viewCount || 0 }} 浏览</span>
                       <span class="meta-item">{{ item.totalUsage || 0 }} 次使用</span>
                       <span class="meta-item">{{ item.collectionCount || 0 }} 收藏</span>
@@ -367,6 +375,7 @@ if (!canAccessToolPage.value) {
 
 const queryParams = reactive({
   keyword: '',
+  no: '',
   toolId: getRouteToolId(),
   tags: [],
   pageNum: getRoutePageNum(),
@@ -919,6 +928,23 @@ const formatRecommendTime = (item) => {
   return item?.createTime || item?.create_time || '最近发布';
 };
 
+const handleCopyToolNo = async (toolNo) => {
+  const { message } = createDiscreteApi(['message']);
+  if (!toolNo) {
+    return;
+  }
+  if (!process.client || !navigator?.clipboard?.writeText) {
+    message.warning('当前环境暂不支持复制');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(toolNo);
+    message.success(`已复制工具编号：${toolNo}`);
+  } catch (e) {
+    message.error('复制失败，请重试');
+  }
+};
+
 const handleDoCollect = async (toolId) => {
   const { message } = createDiscreteApi(['message']);
   const tool = toolList.value.find((item) => item.id === toolId);
@@ -1305,6 +1331,26 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   font-size: 12px;
   flex: 0 1 auto;
   min-width: 0;
+}
+.tool-no-copy {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid #dbe4ee;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.tool-no-copy:hover {
+  border-color: #26a67a;
+  color: #18a058;
+  background: #f0fdf4;
 }
 .meta-item {
   white-space: nowrap;
