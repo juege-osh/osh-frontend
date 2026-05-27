@@ -428,14 +428,20 @@ import {
   ThumbsDownSharp, PauseCircleOutline, PauseCircleSharp, FlameSharp, FlameOutline, PersonSharp,
 } from '@vicons/ionicons5';
 import InfoGapHotList from "~/components/InfoGapHotList.vue";
+import {
+  apiToolSystemAnnouncements,
+  apiToolUserAnnouncements,
+} from '~/composables/Api/Tool/tool';
 
 // ==================== 2) 页面状态 ====================
 // 路由对象：用于读取 page 参数和 query 参数
 const route = useRoute();
+const { toolUserNoticeRefreshFlag } = useWebSocket();
+const { message: noticeMessage } = createDiscreteApi(['message']);
 const hasHydratedInfoGapRoute = ref(false);
 const noticePaused = ref(false);
 const noticePaused2 = ref(false);
-const notices = [
+const defaultNotices = [
   { text: '🎉 平台全新改版上线，体验更流畅！欢迎反馈意见', color: '#6366f1' },
   { text: '📚 新增 500+ 电子书，涵盖前端、后端、AI 方向', color: '#10b981' },
   { text: '⚡ 秒杀专区每日 10:00 准时开抢，低至 1 折', color: '#ef4444' },
@@ -445,7 +451,7 @@ const notices = [
   { text: '🎓 在线考试系统全面升级，支持智能组卷和错题回顾', color: '#0ea5e9' },
   { text: '💡 新增 Docker + K8s 云原生实战课程，企业级项目实操', color: '#14b8a6' },
 ];
-const notices2 = [
+const defaultNotices2 = [
   { text: '📢 Spring Boot 3.x 微服务架构课程上新，限时 8 折', color: '#ef4444' },
   { text: '🎯 每周五晚 8 点直播答疑，名师在线互动', color: '#6366f1' },
   { text: '🌟 优秀学员作品展示，快来投票点赞', color: '#f59e0b' },
@@ -455,6 +461,76 @@ const notices2 = [
 ];
 
 // 列表查询参数：同时驱动 UI、URL 和后端请求
+const NOTICE_COLORS = ['#6366f1', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#0ea5e9', '#14b8a6'];
+const DYNAMIC_COLORS = ['#ef4444', '#6366f1', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+const notices = ref([{ text: '当前暂无工具模块系统通知', color: '#6366f1' }]);
+const notices2 = ref([{ text: '当前暂无工具模块业务公告', color: '#ef4444' }]);
+
+function buildNoticeFallback(text, color) {
+  return [{ text, color }];
+}
+
+function normalizeAnnouncementList(payload) {
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  return [];
+}
+
+function mapAnnouncementsToNoticeItems(list, colors, fallbackText) {
+  const mapped = list
+    .map((item, index) => ({
+      text: String(item?.title || '').trim(),
+      color: colors[index % colors.length],
+      link: item?.link || '',
+    }))
+    .filter((item) => item.text);
+
+  return mapped.length > 0 ? mapped : buildNoticeFallback(fallbackText, colors[0]);
+}
+
+async function loadInfoGapSystemNotices() {
+  try {
+    const res = await apiToolSystemAnnouncements();
+    notices.value = mapAnnouncementsToNoticeItems(
+      normalizeAnnouncementList(res),
+      NOTICE_COLORS,
+      '当前暂无工具模块系统通知'
+    );
+  } catch (err) {
+    console.error('load info gap system notices failed', err);
+    notices.value = buildNoticeFallback('当前暂无工具模块系统通知', NOTICE_COLORS[0]);
+  }
+}
+
+async function loadInfoGapDynamicNotices() {
+  try {
+    const res = await apiToolUserAnnouncements();
+    notices2.value = mapAnnouncementsToNoticeItems(
+      normalizeAnnouncementList(res),
+      DYNAMIC_COLORS,
+      '当前暂无工具模块业务公告'
+    );
+  } catch (err) {
+    console.error('load info gap dynamic notices failed', err);
+    notices2.value = buildNoticeFallback('当前暂无工具模块业务公告', DYNAMIC_COLORS[0]);
+  }
+}
+
+function handleToolAnnouncementToast(event) {
+  const title = event?.detail?.title;
+  if (!title) {
+    return;
+  }
+  noticeMessage.info(title, {
+    duration: 4000,
+    closable: true,
+  });
+}
+
 const queryParams = reactive({
   pageNum: 1,
   pageSize: 10,
@@ -1121,6 +1197,31 @@ const updateCount = (item, type, delta) => {
 };
 
 // ==================== 9) 页面元信息 ====================
+onMounted(() => {
+  loadInfoGapSystemNotices();
+  loadInfoGapDynamicNotices();
+  if (process.client) {
+    window.addEventListener('tool-announcement-toast', handleToolAnnouncementToast);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (process.client) {
+    window.removeEventListener('tool-announcement-toast', handleToolAnnouncementToast);
+  }
+});
+
+watch(toolUserNoticeRefreshFlag, async (value) => {
+  if (!process.client || !value) {
+    return;
+  }
+  const currentPath = window.location.pathname || '';
+  if (!currentPath.startsWith('/info_gap')) {
+    return;
+  }
+  await loadInfoGapDynamicNotices();
+});
+
 useHead({ title: '信息差 - 开源助手' });
 </script>
 
