@@ -83,6 +83,12 @@ const menuGroups = [
         ]
     },
     {
+        label: '邀请好友',
+        items: [
+            { title: '我的邀请', name: 'user-invitation' },
+        ]
+    },
+    {
         label: '账号设置',
         items: [
             { title: '基本信息', name: 'user-profile' },
