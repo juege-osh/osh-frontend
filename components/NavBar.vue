@@ -202,7 +202,8 @@ const menus = ref([
       { name: '内部资源', path: '/resource', match: [{ name: 'resource' }], iconComponent: InfoIcon }
     ]
   },
-  { name: '审核', path: '/audit', match: [{ name: 'audit' }], iconComponent: AuditIcon }
+  { name: '审核', path: '/audit', match: [{ name: 'audit' }], iconComponent: AuditIcon },
+  { name: '用户管理', path: '/admin/users', match: [{ name: 'admin-users' }], iconComponent: AuditIcon }
 ]);
 
 onMounted(() => {
@@ -244,6 +245,22 @@ onMounted(() => {
     } else {
       // 有多个子项，保留下拉菜单
       internalMenu.children = visibleChildren;
+    }
+  }
+
+  // 用户管理：仅 level >= 4 可见
+  let isAdmin = false
+  try {
+    const roleStr = localStorage.getItem('__user_role__')
+    if (roleStr) {
+      const role = JSON.parse(roleStr)
+      isAdmin = parseInt(role.level || '0') >= 4
+    }
+  } catch {}
+  if (!isAdmin) {
+    const adminMenuIndex = menus.value.findIndex(item => item.path === '/admin/users')
+    if (adminMenuIndex !== -1) {
+      menus.value.splice(adminMenuIndex, 1)
     }
   }
 });
