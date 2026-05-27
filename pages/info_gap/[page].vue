@@ -313,38 +313,58 @@
         <n-form-item label-width="220">
           <template #label>
             <div class="tag-label">
-              <span>标签选择</span>
+              <span>标签</span>
               <span class="tag-count"
                 >已选 {{ selectedTags.length }}/{{ MAX_TAG_COUNT }}</span
               >
-              <n-button size="tiny" secondary @click="openCustomTagModal">自定义标签</n-button>
+              <span class="custom-tag-button-wrap" @click.stop>
+                <n-button tag="span" size="tiny" secondary @click.stop.prevent="openCustomTagModal">自定义标签</n-button>
+              </span>
             </div>
           </template>
-          <n-space :size="8" wrap>
-            <n-tag
-              v-for="tag in candidateTags"
-              :key="tag"
-              size="large"
-              round
-              :type="isTagSelected(tag) ? 'success' : 'default'"
-              :bordered="!isTagSelected(tag)"
-              :closable="isTagSelected(tag)"
-              :style="{
-                cursor:
-                  isTagSelected(tag) || selectedTags.length < MAX_TAG_COUNT
-                    ? 'pointer'
-                    : 'not-allowed',
-                opacity:
-                  isTagSelected(tag) || selectedTags.length < MAX_TAG_COUNT
-                    ? 1
-                    : 0.5,
-              }"
-              @click="handleTagClick(tag)"
-              @close="handleTagClose(tag, $event)"
-            >
-              {{ tag.name }}
-            </n-tag>
-          </n-space>
+          <div class="tag-select-block">
+            <n-select
+              v-model:value="selectedTagIdsForSelect"
+              multiple
+              filterable
+              clearable
+              :max-tag-count="MAX_TAG_COUNT"
+              :options="candidateTagOptions"
+              placeholder="选择已有标签（最多3个）"
+              placement="bottom"
+              :consistent-menu-width="false"
+              :filter="filterCandidateTagOption"
+              @update:value="handleSelectedTagsChange"
+            />
+            <div class="recommend-tag-row">
+              <span class="recommend-tag-label">推荐标签：</span>
+              <n-space :size="8" wrap>
+                <n-tag
+                  v-for="tag in candidateTags"
+                  :key="tag.id"
+                  size="large"
+                  round
+                  :type="isTagSelected(tag) ? 'success' : 'default'"
+                  :bordered="!isTagSelected(tag)"
+                  :closable="isTagSelected(tag)"
+                  :style="{
+                    cursor:
+                      isTagSelected(tag) || selectedTags.length < MAX_TAG_COUNT
+                        ? 'pointer'
+                        : 'not-allowed',
+                    opacity:
+                      isTagSelected(tag) || selectedTags.length < MAX_TAG_COUNT
+                        ? 1
+                        : 0.5,
+                  }"
+                  @click="handleTagClick(tag)"
+                  @close="handleTagClose(tag, $event)"
+                >
+                  {{ tag.name }}
+                </n-tag>
+              </n-space>
+            </div>
+          </div>
         </n-form-item>
       </n-form>
 
@@ -564,6 +584,20 @@ const isSearchMode = ref(false);
 const MAX_TAG_COUNT = 3;
 const selectedTags = ref([]);
 const candidateTags = ref([]);
+const candidateTagOptions = computed(() =>
+  candidateTags.value.map((tag) => ({
+    label: tag.name,
+    value: tag.id,
+  }))
+);
+const selectedTagIdsForSelect = computed({
+  get() {
+    return selectedTags.value.map((tag) => tag.id).filter((id) => id != null);
+  },
+  set(value) {
+    handleSelectedTagsChange(value);
+  },
+});
 
 const normalizeSearchKeyword = (value) => String(value || '').trim();
 
@@ -674,6 +708,27 @@ const handleTagClick = (tag) => {
 const handleTagClose = (tag, e) => {
   e?.stopPropagation?.(); // 防止 close 触发 click 导致又被加回去
   selectedTags.value = selectedTags.value.filter((t) => t.id !== tag.id);
+};
+
+const handleSelectedTagsChange = (value) => {
+  const nextIds = Array.isArray(value) ? value.filter((id) => id != null) : [];
+  const limitedIds = nextIds.slice(0, MAX_TAG_COUNT);
+
+  if (nextIds.length > MAX_TAG_COUNT) {
+    const { message } = createDiscreteApi(['message']);
+    message.warning(`最多只能选择 ${MAX_TAG_COUNT} 个标签!!!`);
+  }
+
+  selectedTags.value = limitedIds
+    .map((id) => candidateTags.value.find((tag) => tag.id === id))
+    .filter(Boolean);
+};
+
+const filterCandidateTagOption = (pattern, option) => {
+  const keyword = normalizeSearchKeyword(pattern).toLowerCase();
+  if (!keyword) return true;
+  const label = normalizeSearchKeyword(option?.label).toLowerCase();
+  return label.includes(keyword);
 };
 
 const openCustomTagModal = () => {
@@ -1392,6 +1447,30 @@ useHead({ title: '信息差 - 开源助手' });
   font-size: 12px;
   color: #999;
   font-weight: 400;
+}
+
+.custom-tag-button-wrap {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.tag-select-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.recommend-tag-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recommend-tag-label {
+  font-size: 12px;
+  line-height: 1;
+  color: #999;
 }
 
 .pagination-wrapper {
