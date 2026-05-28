@@ -138,7 +138,13 @@
                           <ChevronForwardOutline />
                         </n-icon>
                       </span>
-                      <span class="feed-tag">[{{ item.tag }}]</span>
+                      <button
+                        type="button"
+                        class="feed-tag feed-tag-button"
+                        @click.stop="handleCategorySearch(item.tag)"
+                      >
+                        [{{ item.tag }}]
+                      </button>
                       <span class="feed-title">{{ item.title }}</span>
                       <div v-if="item.searchTags?.length" class="feed-tag-actions">
                         <button
@@ -594,6 +600,7 @@ const error = ref(null);
 const total = ref(0);
 const rows = ref([]);
 const activeSearchTagId = ref(null);
+const activeSearchCategory = ref('');
 const isSearchMode = ref(false);
 
 // 发布信息差表格中标签相关内容
@@ -706,14 +713,14 @@ const buildListRequestConfig = () => {
 
   return {
     method: 'POST',
-    key: `info-gap-search-${queryParams.type}-p${queryParams.pageNum}-${activeSearchTagId.value ?? 'keyword'}-${encodeURIComponent(title || 'all')}`,
+    key: `info-gap-search-${queryParams.type}-p${queryParams.pageNum}-${activeSearchTagId.value ?? activeSearchCategory.value ?? 'keyword'}-${encodeURIComponent(title || 'all')}`,
     url: '/info_gap/search',
     payload: {
       pageNum: queryParams.pageNum,
       pageSize: queryParams.pageSize,
-      keyword: activeSearchTagId.value != null ? undefined : title,
+      keyword: activeSearchTagId.value != null || activeSearchCategory.value ? undefined : title,
       tagId: activeSearchTagId.value,
-      category: '',
+      category: activeSearchCategory.value,
     },
   };
 };
@@ -895,6 +902,7 @@ const handleSearch = async () => {
   queryParams.title = normalizeSearchKeyword(queryParams.title);
   isSearchMode.value = !!queryParams.title;
   activeSearchTagId.value = null;
+  activeSearchCategory.value = '';
   await syncToPage(1);
 };
 
@@ -902,6 +910,7 @@ const handleClearSearch = async () => {
   queryParams.title = '';
   isSearchMode.value = false;
   activeSearchTagId.value = null;
+  activeSearchCategory.value = '';
   await syncToPage(1);
 };
 
@@ -909,6 +918,16 @@ const handleTagSearch = async (tag) => {
   queryParams.title = normalizeSearchKeyword(tag?.label);
   isSearchMode.value = !!queryParams.title;
   activeSearchTagId.value = tag?.id ?? null;
+  activeSearchCategory.value = '';
+  queryParams.type = 'hot';
+  await syncToPage(1);
+};
+
+const handleCategorySearch = async (category) => {
+  queryParams.title = normalizeSearchKeyword(category);
+  isSearchMode.value = !!queryParams.title;
+  activeSearchTagId.value = null;
+  activeSearchCategory.value = queryParams.title;
   queryParams.type = 'hot';
   await syncToPage(1);
 };
@@ -919,6 +938,8 @@ const getRouteType = () => route.query.type || 'hot';
 const getRouteSearchMode = () => route.query.search === '1';
 const getRouteTitle = () =>
   typeof route.query.title === 'string' ? normalizeSearchKeyword(route.query.title) : '';
+const getRouteCategory = () =>
+  typeof route.query.category === 'string' ? normalizeSearchKeyword(route.query.category) : '';
 const getRouteTagId = () => {
   const raw = route.query.tagId;
   if (raw === undefined || raw === null || raw === '') return null;
@@ -936,12 +957,14 @@ const syncToPage = async (page) => {
   const nextTitle = queryParams.title;
   const nextSearchMode = isSearchMode.value && !!nextTitle;
   const nextTagId = activeSearchTagId.value;
+  const nextCategory = activeSearchCategory.value;
   const shouldNavigate =
     getRoutePageNum() !== page ||
     getRouteType() !== nextType ||
     getRouteTitle() !== nextTitle ||
     getRouteSearchMode() !== nextSearchMode ||
-    getRouteTagId() !== nextTagId;
+    getRouteTagId() !== nextTagId ||
+    getRouteCategory() !== nextCategory;
 
   if (!shouldNavigate) {
     await loadData();
@@ -961,10 +984,16 @@ const syncToPage = async (page) => {
     } else {
       delete nextQuery.tagId;
     }
+    if (nextCategory) {
+      nextQuery.category = nextCategory;
+    } else {
+      delete nextQuery.category;
+    }
   } else {
     delete nextQuery.title;
     delete nextQuery.search;
     delete nextQuery.tagId;
+    delete nextQuery.category;
   }
 
   await navigateTo({
@@ -975,21 +1004,19 @@ const syncToPage = async (page) => {
 
 // 监听 URL 页码变化，并把 URL 上的 type/title 同步回查询参数
 watch(
-  () => [route.params.page, route.query.type, route.query.title, route.query.search, route.query.tagId],
+  () => [route.params.page, route.query.type, route.query.title, route.query.search, route.query.tagId, route.query.category],
   async () => {
     if (!hasHydratedInfoGapRoute.value) {
       hasHydratedInfoGapRoute.value = true;
       await loadCandidateTags();
 
       if (getRouteSearchMode()) {
-        queryParams.type = 'hot';
-        queryParams.title = '';
-        isSearchMode.value = false;
-        activeSearchTagId.value = null;
-        await navigateTo({
-          path: '/info_gap/1',
-          query: { type: 'hot' },
-        }, { replace: true });
+        queryParams.type = getRouteType();
+        queryParams.title = getRouteTitle();
+        isSearchMode.value = !!queryParams.title;
+        activeSearchTagId.value = getRouteTagId();
+        activeSearchCategory.value = getRouteCategory();
+        loadData();
         return;
       }
     }
@@ -999,6 +1026,7 @@ watch(
     queryParams.title = getRouteTitle();
     isSearchMode.value = getRouteSearchMode() && !!queryParams.title;
     activeSearchTagId.value = isSearchMode.value ? getRouteTagId() : null;
+    activeSearchCategory.value = isSearchMode.value ? getRouteCategory() : '';
     loadData();
   },
   { immediate: true }
@@ -1579,6 +1607,14 @@ useHead({ title: '信息差 - 开源助手' });
   line-height: 1.6;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.feed-tag-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
 }
 
 .feed-title {

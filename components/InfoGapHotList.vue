@@ -43,7 +43,11 @@
             </div>
 
             <div class="slide-tag-row">
-              <span class="slide-category">[{{ item.tag || '未分类' }}]</span>
+              <button
+                type="button"
+                class="slide-category slide-category-button"
+                @click.stop="handleCategorySearch(item.tag)"
+              >[{{ item.tag || '未分类' }}]</button>
               <div v-if="item.searchTags.length" class="slide-search-tags">
                 <button
                   v-for="tag in item.searchTags"
@@ -100,7 +104,11 @@
             </div>
 
             <div class="slide-tag-row">
-              <span class="slide-category">[{{ item.tag || '未分类' }}]</span>
+              <button
+                type="button"
+                class="slide-category slide-category-button"
+                @click.stop="handleCategorySearch(item.tag)"
+              >[{{ item.tag || '未分类' }}]</button>
               <div v-if="item.searchTags.length" class="slide-search-tags">
                 <button
                   v-for="tag in item.searchTags"
@@ -261,6 +269,21 @@ const handleTagSearch = (tag) => {
   navigateTo({
     path: "/info_gap/1",
     query,
+  });
+};
+
+const handleCategorySearch = (category) => {
+  const label = normalizeText(category);
+  if (!label) return;
+
+  navigateTo({
+    path: "/info_gap/1",
+    query: {
+      type: "hot",
+      title: label,
+      search: "1",
+      category: label,
+    },
   });
 };
 
@@ -576,6 +599,14 @@ await loadHotInfoGapList();
   color: #0b7285;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.slide-category-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
 }
 
 .slide-search-tags {
