@@ -20,7 +20,8 @@
                             :headers="uploadHeaders"
                             name="file"
                             :show-file-list="false"
-                            :max="1"
+                            :default-file-list="fileList"
+                            @before-upload="onBeforeUpload"
                             @finish="onAvatarUploaded"
                             @error="onAvatarError"
                         >
@@ -130,6 +131,7 @@ const defaultAvatar = DEFAULT_AVATAR
 
 // ── 头像（独立逻辑） ──
 const avatarUploading = ref(false)
+const fileList = ref([])
 const currentAvatar = computed(() => user.value?.avatar || defaultAvatar)
 
 // 上传配置：直接对接后端 /pc/user/upload_avatar
@@ -145,12 +147,17 @@ const { action: uploadAction, headers: uploadHeaders } = (() => {
     }
 })()
 
+function onBeforeUpload() {
+    avatarUploading.value = true
+    return true
+}
+
 function onAvatarUploaded({ event }) {
     avatarUploading.value = false
+    fileList.value = []
     try {
         const res = JSON.parse(event.target.response)
         if (res.code === 200 && res.data) {
-            // 后端返回新头像 URL，更新全局 user
             user.value = { ...user.value, avatar: res.data }
             const { message } = createDiscreteApi(['message'])
             message.success('头像更新成功')
@@ -166,6 +173,7 @@ function onAvatarUploaded({ event }) {
 
 function onAvatarError() {
     avatarUploading.value = false
+    fileList.value = []
     const { message } = createDiscreteApi(['message'])
     message.error('头像上传失败')
 }
