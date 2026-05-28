@@ -682,10 +682,13 @@ const buildListRequestConfig = () => {
   const shouldUseSearch = isSearchMode.value && (!!title || activeSearchTagId.value != null);
 
   if (!shouldUseSearch) {
+    const listUrl = queryParams.type === 'myself' || queryParams.type === 'follow'
+      ? '/info_gap/list/user'
+      : '/info_gap/list';
     return {
       method: 'GET',
       key: `info-gap-list-${queryParams.type}-p${queryParams.pageNum}-all`,
-      url: '/info_gap/list',
+      url: listUrl,
       payload: {
         ...queryParams,
         title: undefined,
@@ -1013,8 +1016,8 @@ const formatInfoGapStatus = (status) => {
   const statusMap = {
     0: '未审核',
     2: '未审核',
-    4: '发布',
-    6: '下架',
+    4: '已发布',
+    6: '已下架',
   };
   return statusMap[String(status ?? '').trim()] || '未知';
 };
