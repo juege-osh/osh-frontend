@@ -43,7 +43,11 @@
             </div>
 
             <div class="slide-tag-row">
-              <span class="slide-category">[{{ item.tag || '未分类' }}]</span>
+              <button
+                type="button"
+                class="slide-category slide-category-button"
+                @click.stop="handleCategorySearch(item.tag)"
+              >[{{ item.tag || '未分类' }}]</button>
               <div v-if="item.searchTags.length" class="slide-search-tags">
                 <button
                   v-for="tag in item.searchTags"
@@ -100,7 +104,11 @@
             </div>
 
             <div class="slide-tag-row">
-              <span class="slide-category">[{{ item.tag || '未分类' }}]</span>
+              <button
+                type="button"
+                class="slide-category slide-category-button"
+                @click.stop="handleCategorySearch(item.tag)"
+              >[{{ item.tag || '未分类' }}]</button>
               <div v-if="item.searchTags.length" class="slide-search-tags">
                 <button
                   v-for="tag in item.searchTags"
@@ -159,6 +167,14 @@ let lastFrameTime = 0;
 const normalizeText = (value) => {
   const text = String(value ?? "").trim();
   return text.toLowerCase() === "null" ? "" : text;
+};
+
+const stripInfoGapNoPrefix = (value) => {
+  const text = String(value ?? "").trim();
+  if (!text || text.toLowerCase() === "null") {
+    return null;
+  }
+  return text.replace(/^info:/i, "");
 };
 
 const normalizeTagId = (value) => {
@@ -253,6 +269,21 @@ const handleTagSearch = (tag) => {
   navigateTo({
     path: "/info_gap/1",
     query,
+  });
+};
+
+const handleCategorySearch = (category) => {
+  const label = normalizeText(category);
+  if (!label) return;
+
+  navigateTo({
+    path: "/info_gap/1",
+    query: {
+      type: "hot",
+      title: label,
+      search: "1",
+      category: label,
+    },
   });
 };
 
@@ -402,7 +433,7 @@ const loadHotInfoGapList = async () => {
     expandedMap.value = {};
     items.value = rows.map((item) => ({
       ...item,
-      no: item.no ?? null,
+      no: stripInfoGapNoPrefix(item.no),
       searchTags: buildSearchTags(item),
     }));
   } catch (err) {
@@ -568,6 +599,14 @@ await loadHotInfoGapList();
   color: #0b7285;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.slide-category-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
 }
 
 .slide-search-tags {
