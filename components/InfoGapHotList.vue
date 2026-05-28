@@ -161,6 +161,14 @@ const normalizeText = (value) => {
   return text.toLowerCase() === "null" ? "" : text;
 };
 
+const stripInfoGapNoPrefix = (value) => {
+  const text = String(value ?? "").trim();
+  if (!text || text.toLowerCase() === "null") {
+    return null;
+  }
+  return text.replace(/^info:/i, "");
+};
+
 const normalizeTagId = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
@@ -402,7 +410,7 @@ const loadHotInfoGapList = async () => {
     expandedMap.value = {};
     items.value = rows.map((item) => ({
       ...item,
-      no: item.no ?? null,
+      no: stripInfoGapNoPrefix(item.no),
       searchTags: buildSearchTags(item),
     }));
   } catch (err) {

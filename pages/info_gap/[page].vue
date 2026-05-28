@@ -617,6 +617,14 @@ const selectedTagIdsForSelect = computed({
 
 const normalizeSearchKeyword = (value) => String(value || '').trim();
 
+const stripInfoGapNoPrefix = (value) => {
+  const text = String(value ?? '').trim();
+  if (!text || text.toLowerCase() === 'null') {
+    return null;
+  }
+  return text.replace(/^info:/i, '');
+};
+
 const loadCandidateTags = async () => {
   try {
     const { data, error: fetchError } = await useHttpGet(
@@ -830,7 +838,7 @@ const loadData = async () => {
       // 统一初始化交互字段，避免模板侧出现 undefined
       rows.value = (data.value.rows || []).map((row) => ({
         ...row,
-        no: row.no ?? null,
+        no: stripInfoGapNoPrefix(row.no),
         // 显式补齐时间字段，兼容后端仅返回 createTime 的场景
         updateTime: row.updateTime || row.createTime || '',
         isVoted: row.isVoted || 0,
