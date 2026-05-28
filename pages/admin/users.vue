@@ -1,6 +1,11 @@
 <template>
   <div class="user-manage-page">
-    <h2 class="page-title">用户管理</h2>
+    <h2 class="page-title">
+      用户管理
+      <n-button v-if="isFounder" type="primary" size="small" class="invite-btn" @click="showInviteModal = true">
+        邀请管理员
+      </n-button>
+    </h2>
 
     <!-- 搜索/筛选栏 -->
     <div class="filter-bar">
@@ -213,17 +218,56 @@
         <n-button type="primary" size="small" @click="submitViolation" :loading="recordLoading">确认</n-button>
       </template>
     </n-modal>
+
+    <!-- 邀请管理员弹窗 -->
+    <n-modal v-model:show="showInviteModal" preset="card" title="邀请管理员注册" style="width: 460px;">
+      <n-form size="small" ref="inviteFormRef" :model="inviteForm" :rules="inviteRules">
+        <n-form-item label="用户名" path="username">
+          <n-input v-model:value="inviteForm.username" placeholder="4-20位，字母开头，字母数字下划线" />
+        </n-form-item>
+        <n-form-item label="邮箱" path="email">
+          <n-input v-model:value="inviteForm.email" placeholder="被邀请人邮箱" />
+        </n-form-item>
+        <n-form-item label="角色" path="roleId">
+          <n-select v-model:value="inviteForm.roleId" :options="inviteRoleOptions" placeholder="选择角色" />
+        </n-form-item>
+      </n-form>
+      <div v-if="inviteResult" class="invite-result">
+        <p>邀请链接已生成（{{ inviteResult.expireDays }}天有效）：</p>
+        <code class="invite-link">{{ inviteResult.inviteLink }}</code>
+        <n-button size="tiny" type="primary" @click="copyInviteLink">复制链接</n-button>
+      </div>
+      <template #footer>
+        <n-button type="primary" size="small" @click="submitInvite" :loading="inviteLoading" :disabled="!inviteForm.username || !inviteForm.email || !inviteForm.roleId">
+          发送邀请
+        </n-button>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, computed } from 'vue'
 import {
   NInput, NSelect, NButton, NTag, NAvatar, NPagination, NSpin, NModal, NForm, NFormItem
 } from 'naive-ui'
+import { fetchConfig } from '~/composables/useHttp'
 import { apiGetUserManageList, apiRecordViolation, apiGetViolationList, apiRevokeViolation, apiGetAssignableRoles, apiAddUserRole, apiRemoveUserRole } from '~/composables/Api/Admin/userManage'
 
 const defaultAvatar = '/default-avatar.png'
+
+// 判断是否为创始人
+const isFounder = computed(() => {
+  if (!process.client) return false
+  try {
+    const roleStr = localStorage.getItem('__user_role__')
+    if (roleStr) {
+      const role = JSON.parse(roleStr)
+      return parseInt(role.level || '0') >= 6
+    }
+  } catch {}
+  return false
+})
 
 const loading = ref(false)
 const userList = ref([])
@@ -407,6 +451,83 @@ async function submitViolation() {
 const addRoleId = ref(null)
 const assignableRoleOptions = ref([])
 
+// ── 邀请管理员 ──
+const showInviteModal = ref(false)
+const inviteLoading = ref(false)
+const inviteResult = ref(null)
+const inviteFormRef = ref(null)
+const inviteForm = reactive({ username: '', email: '', roleId: null })
+const inviteRoleOptions = [
+  { label: '普通管理员', value: 5 },
+  { label: '核心开发者', value: 6 },
+]
+const inviteRules = {
+  username: [
+    { required: true, message: '请输入用户名' },
+    {
+      validator: (_rule, value) => /^[a-zA-Z][a-zA-Z0-9_]{3,19}$/.test(value),
+      message: '用户名必须是4-20位字母、数字、下划线组成，且以字母开头',
+      trigger: ['input', 'blur']
+    }
+  ],
+  email: [
+    { required: true, message: '请输入邮箱' },
+    {
+      validator: (_rule, value) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value),
+      message: '请输入有效邮箱格式',
+      trigger: ['input', 'blur']
+    }
+  ],
+  roleId: [
+    { required: true, message: '请选择角色', type: 'number' }
+  ]
+}
+
+async function submitInvite() {
+  // 表单校验
+  try {
+    await inviteFormRef.value.validate()
+  } catch {
+    return
+  }
+  inviteLoading.value = true
+  inviteResult.value = null
+  try {
+    const res = await $fetch(`${fetchConfig.baseURL}/admin/invite/create`, {
+      method: 'POST',
+      headers: getAuthHeadersLocal(),
+      body: inviteForm
+    })
+    if (res?.code === 200 && res?.data) {
+      inviteResult.value = res.data
+      alert('邀请已发送到对方邮箱')
+    } else {
+      alert(res?.msg || '邀请失败')
+    }
+  } catch (e) {
+    alert(e?.data?.msg || '邀请失败')
+  } finally {
+    inviteLoading.value = false
+  }
+}
+
+function copyInviteLink() {
+  if (!inviteResult.value?.inviteLink) return
+  navigator.clipboard.writeText(inviteResult.value.inviteLink)
+  alert('链接已复制')
+}
+
+function getAuthHeadersLocal() {
+  const headers = { appid: 'bd9d01ecc75dbbaaefce' }
+  if (process.client) {
+    let token = ''
+    try { token = useCookie('token').value || '' } catch {}
+    if (!token) token = localStorage.getItem('token') || ''
+    if (token) { headers.token = token; headers.Authorization = `Bearer ${token}` }
+  }
+  return headers
+}
+
 async function loadAssignableRoles() {
   try {
     const res = await apiGetAssignableRoles()
@@ -466,6 +587,33 @@ useHead({ title: '用户管理' })
   font-weight: 600;
   color: #1a202c;
   margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.invite-btn {
+  font-size: 12px;
+}
+
+.invite-result {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.invite-link {
+  display: block;
+  word-break: break-all;
+  margin: 8px 0;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 12px;
 }
 
 .filter-bar {
