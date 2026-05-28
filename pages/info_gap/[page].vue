@@ -449,9 +449,9 @@ import {
 } from '@vicons/ionicons5';
 import InfoGapHotList from "~/components/InfoGapHotList.vue";
 import {
-  apiToolSystemAnnouncements,
-  apiToolUserAnnouncements,
+  getToolAuthHeaders,
 } from '~/composables/Api/Tool/tool';
+import { fetchConfig } from '~/composables/useHttp';
 
 // ==================== 2) 页面状态 ====================
 // 路由对象：用于读取 page 参数和 query 参数
@@ -512,9 +512,17 @@ function mapAnnouncementsToNoticeItems(list, colors, fallbackText) {
   return mapped.length > 0 ? mapped : buildNoticeFallback(fallbackText, colors[0]);
 }
 
+async function apiInfoGapSystemAnnouncements() {
+  return $fetch('/info_gap/announcement/list/systemNotice', {
+    method: 'GET',
+    baseURL: fetchConfig.baseURL,
+    headers: getToolAuthHeaders(),
+  });
+}
+
 async function loadInfoGapSystemNotices() {
   try {
-    const res = await apiToolSystemAnnouncements();
+    const res = await apiInfoGapSystemAnnouncements();
     notices.value = mapAnnouncementsToNoticeItems(
       normalizeAnnouncementList(res),
       NOTICE_COLORS,
@@ -526,9 +534,17 @@ async function loadInfoGapSystemNotices() {
   }
 }
 
+async function apiInfoGapUserAnnouncements() {
+  return $fetch('/info_gap/announcement/list/userNotice', {
+    method: 'GET',
+    baseURL: fetchConfig.baseURL,
+    headers: getToolAuthHeaders(),
+  });
+}
+
 async function loadInfoGapDynamicNotices() {
   try {
-    const res = await apiToolUserAnnouncements();
+    const res = await apiInfoGapUserAnnouncements();
     notices2.value = mapAnnouncementsToNoticeItems(
       normalizeAnnouncementList(res),
       DYNAMIC_COLORS,
