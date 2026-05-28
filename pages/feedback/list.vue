@@ -185,6 +185,8 @@ import AnnouncementMarquee from '~/components/feedback/AnnouncementMarquee.vue'
 
 const router = useRouter()
 const message = useMessage()
+const user = useUser()
+const isLoggedIn = computed(() => !!user.value)
 
 const categories = ref([])
 const feedbackTags = ref([])
@@ -285,7 +287,9 @@ onMounted(() => {
   loadTags()
   loadAnnouncements()
   loadFeedback()
-  loadPendingConfirmCount()
+  if (isLoggedIn.value) {
+    loadPendingConfirmCount()
+  }
 })
 
 onActivated(() => {
