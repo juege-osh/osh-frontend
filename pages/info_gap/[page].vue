@@ -346,7 +346,7 @@
               <span class="recommend-tag-label">推荐标签：</span>
               <n-space :size="8" wrap>
                 <n-tag
-                  v-for="tag in candidateTags"
+                  v-for="tag in recommendTags"
                   :key="tag.id"
                   size="large"
                   round
@@ -607,6 +607,7 @@ const isSearchMode = ref(false);
 const MAX_TAG_COUNT = 3;
 const selectedTags = ref([]);
 const candidateTags = ref([]);
+const recommendTags = ref([]);
 const candidateTagOptions = computed(() =>
   candidateTags.value.map((tag) => ({
     label: tag.name,
@@ -654,6 +655,31 @@ const loadCandidateTags = async () => {
     })).filter((tag) => tag.id && tag.name);
   } catch (err) {
     candidateTags.value = [];
+  }
+};
+
+const loadRecommendTags = async () => {
+  try {
+    const { data, error: fetchError } = await useHttpGet(
+      'info-gap-tag-list-recommend',
+      '/info_gap/tag/list/recommend',
+      {
+        watch: false,
+        $: true,
+      }
+    );
+
+    if (fetchError.value) {
+      throw fetchError.value;
+    }
+
+    const list = Array.isArray(data.value) ? data.value : (data.value?.rows || data.value?.data || []);
+    recommendTags.value = list.map((tag) => ({
+      id: Number(tag.id),
+      name: tag.name || tag.tagName || '',
+    })).filter((tag) => tag.id && tag.name);
+  } catch (err) {
+    recommendTags.value = [];
   }
 };
 
@@ -791,6 +817,7 @@ const confirmCustomTag = async () => {
   }
 
   await loadCandidateTags();
+  await loadRecommendTags();
   customTagInput.value = '';
   showCustomTagModal.value = false;
   message.success('新增标签成功');
@@ -1009,6 +1036,7 @@ watch(
     if (!hasHydratedInfoGapRoute.value) {
       hasHydratedInfoGapRoute.value = true;
       await loadCandidateTags();
+      await loadRecommendTags();
 
       if (getRouteSearchMode()) {
         queryParams.type = getRouteType();
