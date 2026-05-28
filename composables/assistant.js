@@ -170,18 +170,11 @@ export function apiGetPendingConfirmCount() {
  * 获取反馈分类列表
  */
 export function apiGetFeedbackCategories() {
-  return $fetch('/public/feedback/category/list', {
-    baseURL: fetchConfig.baseURL,
-    headers: { appid: fetchConfig.headers.appid },
-  })
+  return assistantFetch('/public/feedback/category/list')
 }
 
 export function apiGetFeedbackTags(params = {}) {
-  return $fetch('/public/feedback/tag/list', {
-    baseURL: fetchConfig.baseURL,
-    headers: { appid: fetchConfig.headers.appid },
-    query: params,
-  })
+  return assistantFetch('/public/feedback/tag/list', { query: params })
 }
 
 export function apiCreateFeedbackTag(payload) {
@@ -223,9 +216,7 @@ export function apiGetFeedbackProcessRecords(feedbackId) {
  * 获取反馈评论列表
  */
 export function apiGetFeedbackComments(feedbackId, pageNum = 1, pageSize = 20) {
-  return $fetch(`/public/feedback/${feedbackId}/comment/list`, {
-    baseURL: fetchConfig.baseURL,
-    headers: { appid: fetchConfig.headers.appid },
+  return assistantFetch(`/public/feedback/${feedbackId}/comment/list`, {
     params: { pageNum, pageSize },
   })
 }
