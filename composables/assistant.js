@@ -195,6 +195,15 @@ export function apiPageFeedback(params) {
 }
 
 /**
+ * 拉取反馈公告。
+ */
+export function apiGetFeedbackAnnouncements(limit = 10) {
+  return assistantFetch('/public/feedback/announcement/list', {
+    query: { limit },
+  })
+}
+
+/**
  * 获取反馈详情
  */
 export function apiGetFeedbackDetail(id) {
@@ -251,16 +260,6 @@ export function apiCreateComment(feedbackId, payload) {
 }
 
 // ==================== 反馈系统 - 管理员接口 ====================
-
-/**
- * 创建公告（仅管理员）
- */
-export function apiCreateAnnouncement(payload) {
-  return assistantFetch('/admin/feedback/announcement/create', {
-    method: 'POST',
-    body: payload,
-  })
-}
 
 /**
  * 反馈管理列表（分页）
