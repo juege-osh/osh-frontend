@@ -65,6 +65,7 @@
 import { ref, onMounted } from 'vue';
 import { NSelect } from 'naive-ui';
 import { fetchConfig } from '~/composables/useHttp';
+import { getAuthHeaders } from '~/composables/Api/Course/course';
 
 const props = defineProps({
   modelValue: { type: Object, default: () => ({}) },
@@ -77,18 +78,16 @@ onMounted(async () => {
   try {
     const res = await $fetch('/course/tags', {
       baseURL: fetchConfig.baseURL,
-      headers: {
-        ...fetchConfig.headers,
-        token: localStorage.getItem('Token') || '',
-      },
+      headers: getAuthHeaders(),
     });
-    if (res?.code === 200) {
-      tagOptions.value = (res.data || []).map((item) => ({
-        label: item.name,
-        value: item.id,
-      }));
-    }
-  } catch (e) {}
+    const list = res?.code === 200 ? (res.data || []) : (Array.isArray(res) ? res : []);
+    tagOptions.value = list.map((item) => ({
+      label: item.name || item.tagName || String(item),
+      value: item.id ?? item,
+    }));
+  } catch (e) {
+    console.error('加载标签失败', e);
+  }
 });
 
 const sortOptions = [

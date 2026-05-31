@@ -1,7 +1,7 @@
 <template>
-  <div class="doc-editor" @click.stop>
+  <div class="doc-editor" :class="{ 'is-readonly': readonly }" @click.stop>
     <!-- 工具栏 -->
-    <div class="toolbar">
+    <div v-if="!readonly" class="toolbar">
       <div class="toolbar-left">
         <!-- 标题下拉 -->
         <div class="tb-dropdown" @mousedown.prevent @click.stop="showHeadingMenu = !showHeadingMenu">
@@ -187,7 +187,8 @@
         v-show="viewMode !== 'preview' && editFormat === 'rich'"
         ref="editorRef"
         class="rich-editor"
-        contenteditable="true"
+        :contenteditable="readonly ? 'false' : 'true'"
+        :class="{ 'is-readonly': readonly }"
         :data-placeholder="placeholder"
         @beforeinput="onBeforeInput"
         @input="onInput"
@@ -206,6 +207,7 @@
         ref="plainEditorRef"
         v-model="plainText"
         class="plain-editor"
+        :readonly="readonly"
         :placeholder="plainPlaceholder"
         @beforeinput="onBeforeInput"
         @input="onPlainInput"
@@ -261,6 +263,7 @@ import { parseCourseDoc, renderCourseDoc, serializeCourseDoc, htmlToMarkdown, ty
 const props = defineProps<{
   modelValue: string;
   placeholder?: string;
+  readonly?: boolean;
 }>();
 const emit = defineEmits(['update:modelValue']);
 
@@ -1569,4 +1572,13 @@ defineExpose({
 }
 .status-item { font-size: 11px; color: #999; }
 .status-tip { font-size: 11px; color: #bbb; }
+
+.doc-editor.is-readonly .rich-editor.is-readonly,
+.doc-editor.is-readonly .plain-editor {
+  background: #f8fafc;
+  cursor: default;
+}
+.doc-editor.is-readonly .status-tip {
+  color: #94a3b8;
+}
 </style>

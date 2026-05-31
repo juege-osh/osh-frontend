@@ -153,7 +153,11 @@ function removeResource(idx) {
 function buildHeaders() {
   const headers = { appid: 'bd9d01ecc75dbbaaefce' }
   if (process.client) {
-    const token = localStorage.getItem('token') || localStorage.getItem('Token') || ''
+    let token = ''
+    try { token = useCookie('token').value || '' } catch {}
+    if (!token) {
+      token = localStorage.getItem('token') || localStorage.getItem('Token') || ''
+    }
     if (token) {
       headers.token = token
       headers.Authorization = `Bearer ${token}`
