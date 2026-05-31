@@ -138,7 +138,13 @@
                           <ChevronForwardOutline />
                         </n-icon>
                       </span>
-                      <span class="feed-tag">[{{ item.tag }}]</span>
+                      <button
+                        type="button"
+                        class="feed-tag feed-tag-button"
+                        @click.stop="handleCategorySearch(item.tag)"
+                      >
+                        [{{ item.tag }}]
+                      </button>
                       <span class="feed-title">{{ item.title }}</span>
                       <div v-if="item.searchTags?.length" class="feed-tag-actions">
                         <button
@@ -313,38 +319,57 @@
         <n-form-item label-width="220">
           <template #label>
             <div class="tag-label">
-              <span>标签选择</span>
+              <span>标签</span>
               <span class="tag-count"
                 >已选 {{ selectedTags.length }}/{{ MAX_TAG_COUNT }}</span
               >
-              <n-button size="tiny" secondary @click="openCustomTagModal">自定义标签</n-button>
             </div>
           </template>
-          <n-space :size="8" wrap>
-            <n-tag
-              v-for="tag in candidateTags"
-              :key="tag"
-              size="large"
-              round
-              :type="isTagSelected(tag) ? 'success' : 'default'"
-              :bordered="!isTagSelected(tag)"
-              :closable="isTagSelected(tag)"
-              :style="{
-                cursor:
-                  isTagSelected(tag) || selectedTags.length < MAX_TAG_COUNT
-                    ? 'pointer'
-                    : 'not-allowed',
-                opacity:
-                  isTagSelected(tag) || selectedTags.length < MAX_TAG_COUNT
-                    ? 1
-                    : 0.5,
-              }"
-              @click="handleTagClick(tag)"
-              @close="handleTagClose(tag, $event)"
-            >
-              {{ tag.name }}
-            </n-tag>
-          </n-space>
+          <div class="tag-select-block">
+            <n-select
+              v-model:value="selectedTagValuesForSelect"
+              multiple
+              filterable
+              tag
+              clearable
+              :max-tag-count="MAX_TAG_COUNT"
+              :options="candidateTagOptions"
+              placeholder="输入标签后回车，或选择已有标签（最多3个）"
+              placement="bottom"
+              :consistent-menu-width="false"
+              :filter="filterCandidateTagOption"
+              :on-create="handleCreateTagOption"
+              @update:value="handleSelectedTagsChange"
+            />
+            <div class="recommend-tag-row">
+              <span class="recommend-tag-label">推荐标签：</span>
+              <n-space :size="8" wrap>
+                <n-tag
+                  v-for="tag in recommendTags"
+                  :key="tag.id"
+                  size="large"
+                  round
+                  :type="isTagSelected(tag) ? 'success' : 'default'"
+                  :bordered="!isTagSelected(tag)"
+                  :closable="isTagSelected(tag)"
+                  :style="{
+                    cursor:
+                      isTagSelected(tag) || selectedTags.length < MAX_TAG_COUNT
+                        ? 'pointer'
+                        : 'not-allowed',
+                    opacity:
+                      isTagSelected(tag) || selectedTags.length < MAX_TAG_COUNT
+                        ? 1
+                        : 0.5,
+                  }"
+                  @click="handleTagClick(tag)"
+                  @close="handleTagClose(tag, $event)"
+                >
+                  {{ tag.name }}
+                </n-tag>
+              </n-space>
+            </div>
+          </div>
         </n-form-item>
       </n-form>
 
@@ -355,26 +380,6 @@
           <n-button type="primary" :loading="btnLoading" @click="confirmPublish">
             {{ isEditMode ? '确认修改' : '确认发布' }}
           </n-button>
-        </n-space>
-      </template>
-    </n-modal>
-
-    <n-modal
-      v-model:show="showCustomTagModal"
-      preset="card"
-      title="自定义标签"
-      style="width: 420px"
-    >
-      <n-input
-        v-model:value="customTagInput"
-        placeholder="请输入内容"
-        clearable
-      />
-
-      <template #footer>
-        <n-space justify="end">
-          <n-button @click="showCustomTagModal = false">取消</n-button>
-          <n-button type="primary" @click="confirmCustomTag">确认</n-button>
         </n-space>
       </template>
     </n-modal>
@@ -428,14 +433,20 @@ import {
   ThumbsDownSharp, PauseCircleOutline, PauseCircleSharp, FlameSharp, FlameOutline, PersonSharp,
 } from '@vicons/ionicons5';
 import InfoGapHotList from "~/components/InfoGapHotList.vue";
+import {
+  getToolAuthHeaders,
+} from '~/composables/Api/Tool/tool';
+import { fetchConfig } from '~/composables/useHttp';
 
 // ==================== 2) 页面状态 ====================
 // 路由对象：用于读取 page 参数和 query 参数
 const route = useRoute();
+const { toolUserNoticeRefreshFlag } = useWebSocket();
+const { message: noticeMessage } = createDiscreteApi(['message']);
 const hasHydratedInfoGapRoute = ref(false);
 const noticePaused = ref(false);
 const noticePaused2 = ref(false);
-const notices = [
+const defaultNotices = [
   { text: '🎉 平台全新改版上线，体验更流畅！欢迎反馈意见', color: '#6366f1' },
   { text: '📚 新增 500+ 电子书，涵盖前端、后端、AI 方向', color: '#10b981' },
   { text: '⚡ 秒杀专区每日 10:00 准时开抢，低至 1 折', color: '#ef4444' },
@@ -445,7 +456,7 @@ const notices = [
   { text: '🎓 在线考试系统全面升级，支持智能组卷和错题回顾', color: '#0ea5e9' },
   { text: '💡 新增 Docker + K8s 云原生实战课程，企业级项目实操', color: '#14b8a6' },
 ];
-const notices2 = [
+const defaultNotices2 = [
   { text: '📢 Spring Boot 3.x 微服务架构课程上新，限时 8 折', color: '#ef4444' },
   { text: '🎯 每周五晚 8 点直播答疑，名师在线互动', color: '#6366f1' },
   { text: '🌟 优秀学员作品展示，快来投票点赞', color: '#f59e0b' },
@@ -455,6 +466,92 @@ const notices2 = [
 ];
 
 // 列表查询参数：同时驱动 UI、URL 和后端请求
+const NOTICE_COLORS = ['#6366f1', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#0ea5e9', '#14b8a6'];
+const DYNAMIC_COLORS = ['#ef4444', '#6366f1', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+const notices = ref([{ text: '当前暂无工具模块系统通知', color: '#6366f1' }]);
+const notices2 = ref([{ text: '当前暂无工具模块业务公告', color: '#ef4444' }]);
+
+function buildNoticeFallback(text, color) {
+  return [{ text, color }];
+}
+
+function normalizeAnnouncementList(payload) {
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  return [];
+}
+
+function mapAnnouncementsToNoticeItems(list, colors, fallbackText) {
+  const mapped = list
+    .map((item, index) => ({
+      text: String(item?.title || '').trim(),
+      color: colors[index % colors.length],
+      link: item?.link || '',
+    }))
+    .filter((item) => item.text);
+
+  return mapped.length > 0 ? mapped : buildNoticeFallback(fallbackText, colors[0]);
+}
+
+async function apiInfoGapSystemAnnouncements() {
+  return $fetch('/info_gap/announcement/list/systemNotice', {
+    method: 'GET',
+    baseURL: fetchConfig.baseURL,
+    headers: getToolAuthHeaders(),
+  });
+}
+
+async function loadInfoGapSystemNotices() {
+  try {
+    const res = await apiInfoGapSystemAnnouncements();
+    notices.value = mapAnnouncementsToNoticeItems(
+      normalizeAnnouncementList(res),
+      NOTICE_COLORS,
+      '当前暂无工具模块系统通知'
+    );
+  } catch (err) {
+    console.error('load info gap system notices failed', err);
+    notices.value = buildNoticeFallback('当前暂无工具模块系统通知', NOTICE_COLORS[0]);
+  }
+}
+
+async function apiInfoGapUserAnnouncements() {
+  return $fetch('/info_gap/announcement/list/userNotice', {
+    method: 'GET',
+    baseURL: fetchConfig.baseURL,
+    headers: getToolAuthHeaders(),
+  });
+}
+
+async function loadInfoGapDynamicNotices() {
+  try {
+    const res = await apiInfoGapUserAnnouncements();
+    notices2.value = mapAnnouncementsToNoticeItems(
+      normalizeAnnouncementList(res),
+      DYNAMIC_COLORS,
+      '当前暂无工具模块业务公告'
+    );
+  } catch (err) {
+    console.error('load info gap dynamic notices failed', err);
+    notices2.value = buildNoticeFallback('当前暂无工具模块业务公告', DYNAMIC_COLORS[0]);
+  }
+}
+
+function handleToolAnnouncementToast(event) {
+  const title = event?.detail?.title;
+  if (!title) {
+    return;
+  }
+  noticeMessage.info(title, {
+    duration: 4000,
+    closable: true,
+  });
+}
+
 const queryParams = reactive({
   pageNum: 1,
   pageSize: 10,
@@ -464,11 +561,9 @@ const queryParams = reactive({
 
 // 发布弹窗相关状态
 const showModal = ref(false);
-const showCustomTagModal = ref(false);
 const btnLoading = ref(false);
 const isEditMode = ref(false);
 const editingInfoGapId = ref(null);
-const customTagInput = ref('');
 const form = reactive({
   title: '',
   tag: '技术',
@@ -482,14 +577,40 @@ const error = ref(null);
 const total = ref(0);
 const rows = ref([]);
 const activeSearchTagId = ref(null);
+const activeSearchCategory = ref('');
 const isSearchMode = ref(false);
 
 // 发布信息差表格中标签相关内容
 const MAX_TAG_COUNT = 3;
 const selectedTags = ref([]);
 const candidateTags = ref([]);
+const recommendTags = ref([]);
+const candidateTagOptions = computed(() =>
+  candidateTags.value.map((tag) => ({
+    label: tag.name,
+    value: tag.id,
+  }))
+);
+const selectedTagValuesForSelect = computed({
+  get() {
+    return selectedTags.value
+      .map((tag) => (tag.id != null ? tag.id : tag.name))
+      .filter((value) => value != null && value !== '');
+  },
+  set(value) {
+    handleSelectedTagsChange(value);
+  },
+});
 
 const normalizeSearchKeyword = (value) => String(value || '').trim();
+
+const stripInfoGapNoPrefix = (value) => {
+  const text = String(value ?? '').trim();
+  if (!text || text.toLowerCase() === 'null') {
+    return null;
+  }
+  return text.replace(/^info:/i, '');
+};
 
 const loadCandidateTags = async () => {
   try {
@@ -516,6 +637,31 @@ const loadCandidateTags = async () => {
   }
 };
 
+const loadRecommendTags = async () => {
+  try {
+    const { data, error: fetchError } = await useHttpGet(
+      'info-gap-tag-list-recommend',
+      '/info_gap/tag/list/recommend',
+      {
+        watch: false,
+        $: true,
+      }
+    );
+
+    if (fetchError.value) {
+      throw fetchError.value;
+    }
+
+    const list = Array.isArray(data.value) ? data.value : (data.value?.rows || data.value?.data || []);
+    recommendTags.value = list.map((tag) => ({
+      id: Number(tag.id),
+      name: tag.name || tag.tagName || '',
+    })).filter((tag) => tag.id && tag.name);
+  } catch (err) {
+    recommendTags.value = [];
+  }
+};
+
 const findCandidateTagIdByName = (label) => {
   const normalizedLabel = normalizeSearchKeyword(label);
   if (!normalizedLabel) return null;
@@ -525,6 +671,15 @@ const findCandidateTagIdByName = (label) => {
   );
 
   return matchedTag?.id ?? null;
+};
+
+const findCandidateTagByName = (label) => {
+  const normalizedLabel = normalizeSearchKeyword(label);
+  if (!normalizedLabel) return null;
+
+  return candidateTags.value.find(
+    (tag) => normalizeSearchKeyword(tag.name).toLowerCase() === normalizedLabel.toLowerCase()
+  ) || null;
 };
 
 const resolveTagMeta = (item = {}, index) => {
@@ -556,10 +711,13 @@ const buildListRequestConfig = () => {
   const shouldUseSearch = isSearchMode.value && (!!title || activeSearchTagId.value != null);
 
   if (!shouldUseSearch) {
+    const listUrl = queryParams.type === 'myself' || queryParams.type === 'follow'
+      ? '/info_gap/list/user'
+      : '/info_gap/list';
     return {
       method: 'GET',
       key: `info-gap-list-${queryParams.type}-p${queryParams.pageNum}-all`,
-      url: '/info_gap/list',
+      url: listUrl,
       payload: {
         ...queryParams,
         title: undefined,
@@ -569,27 +727,32 @@ const buildListRequestConfig = () => {
 
   return {
     method: 'POST',
-    key: `info-gap-search-${queryParams.type}-p${queryParams.pageNum}-${activeSearchTagId.value ?? 'keyword'}-${encodeURIComponent(title || 'all')}`,
+    key: `info-gap-search-${queryParams.type}-p${queryParams.pageNum}-${activeSearchTagId.value ?? activeSearchCategory.value ?? 'keyword'}-${encodeURIComponent(title || 'all')}`,
     url: '/info_gap/search',
     payload: {
       pageNum: queryParams.pageNum,
       pageSize: queryParams.pageSize,
-      keyword: activeSearchTagId.value != null ? undefined : title,
+      keyword: activeSearchTagId.value != null || activeSearchCategory.value ? undefined : title,
       tagId: activeSearchTagId.value,
-      category: '',
+      category: activeSearchCategory.value,
     },
   };
 };
 
 const isTagSelected = (tag) => {
-  return selectedTags.value.some((t) => t.id === tag.id);
+  return selectedTags.value.some((t) => {
+    if (t.id != null && tag.id != null) {
+      return t.id === tag.id;
+    }
+    return normalizeSearchKeyword(t.name).toLowerCase() === normalizeSearchKeyword(tag.name).toLowerCase();
+  });
 };
 
 const handleTagClick = (tag) => {
   if (isTagSelected(tag)) return;
   if (selectedTags.value.length >= MAX_TAG_COUNT) {
     const { message } = createDiscreteApi(['message']);
-    message.warning(`最多只能选择 ${MAX_TAG_COUNT} 个标签`);
+    message.warning(`最多只能选择 ${MAX_TAG_COUNT} 个标签!!!`);
     return;
   }
   selectedTags.value.push(tag);
@@ -597,45 +760,131 @@ const handleTagClick = (tag) => {
 
 const handleTagClose = (tag, e) => {
   e?.stopPropagation?.(); // 防止 close 触发 click 导致又被加回去
-  selectedTags.value = selectedTags.value.filter((t) => t.id !== tag.id);
+  selectedTags.value = selectedTags.value.filter((t) => {
+    if (t.id != null && tag.id != null) {
+      return t.id !== tag.id;
+    }
+    return normalizeSearchKeyword(t.name).toLowerCase() !== normalizeSearchKeyword(tag.name).toLowerCase();
+  });
 };
 
-const openCustomTagModal = () => {
-  showCustomTagModal.value = true;
+const handleSelectedTagsChange = (value) => {
+  const nextValues = Array.isArray(value) ? value.filter((item) => item != null && item !== '') : [];
+  const limitedValues = nextValues.slice(0, MAX_TAG_COUNT);
+
+  if (nextValues.length > MAX_TAG_COUNT) {
+    const { message } = createDiscreteApi(['message']);
+    message.warning(`最多只能选择 ${MAX_TAG_COUNT} 个标签!!!`);
+  }
+
+  const nextSelectedTags = [];
+
+  limitedValues.forEach((item) => {
+    if (typeof item === 'number') {
+      const matchedTag = candidateTags.value.find((tag) => tag.id === item);
+      if (matchedTag) {
+        nextSelectedTags.push(matchedTag);
+      }
+      return;
+    }
+
+    const normalizedLabel = normalizeSearchKeyword(item);
+    if (!normalizedLabel) {
+      return;
+    }
+
+    const matchedTag = findCandidateTagByName(normalizedLabel);
+    if (matchedTag) {
+      nextSelectedTags.push(matchedTag);
+      return;
+    }
+
+    nextSelectedTags.push({
+      id: null,
+      name: normalizedLabel,
+    });
+  });
+
+  selectedTags.value = nextSelectedTags.filter((tag, index, list) => (
+    list.findIndex((current) =>
+      normalizeSearchKeyword(current.name).toLowerCase() === normalizeSearchKeyword(tag.name).toLowerCase()
+    ) === index
+  ));
 };
 
-const confirmCustomTag = async () => {
-  const tagName = normalizeSearchKeyword(customTagInput.value);
-  const { message } = createDiscreteApi(['message']);
+const filterCandidateTagOption = (pattern, option) => {
+  const keyword = normalizeSearchKeyword(pattern).toLowerCase();
+  if (!keyword) return true;
+  const label = normalizeSearchKeyword(option?.label).toLowerCase();
+  return label.includes(keyword);
+};
 
+const handleCreateTagOption = (inputValue) => {
+  const tagName = normalizeSearchKeyword(inputValue);
   if (!tagName) {
-    message.warning('请输入标签内容');
-    return;
+    return false;
+  }
+  return {
+    label: tagName,
+    value: tagName,
+  };
+};
+
+const addCustomInfoGapTag = async (tagName) => {
+  const normalizedTagName = normalizeSearchKeyword(tagName);
+  if (!normalizedTagName) {
+    return null;
   }
 
   const { error: addTagError } = await useHttpGet(
-    `add-info-gap-tag-${encodeURIComponent(tagName)}`,
-    `/info_gap/tag/add?tagName=${encodeURIComponent(tagName)}`,
+    `add-info-gap-tag-${encodeURIComponent(normalizedTagName)}`,
+    `/info_gap/tag/add?tagName=${encodeURIComponent(normalizedTagName)}`,
     {
       $: true,
     }
   );
 
   if (addTagError.value) {
-    return;
+    throw addTagError.value;
+  }
+  return normalizedTagName;
+};
+
+const resolveSelectedTagIds = async () => {
+  const pendingTagNames = [];
+
+  selectedTags.value.forEach((tag) => {
+    const normalizedTagName = normalizeSearchKeyword(tag?.name);
+    if (normalizedTagName) {
+      pendingTagNames.push(normalizedTagName);
+    }
+  });
+
+  const uniquePendingTagNames = [...new Set(pendingTagNames)];
+  if (uniquePendingTagNames.length > 0) {
+    for (const tagName of uniquePendingTagNames) {
+      await addCustomInfoGapTag(tagName);
+    }
+
+    await loadCandidateTags();
+    await loadRecommendTags();
   }
 
-  await loadCandidateTags();
-  customTagInput.value = '';
-  showCustomTagModal.value = false;
-  message.success('新增标签成功');
+  const resolvedIds = selectedTags.value
+    .map((tag) => {
+      if (tag?.id != null) {
+        return tag.id;
+      }
+      return findCandidateTagIdByName(tag?.name);
+    })
+    .filter((id) => id != null);
+
+  return [...new Set(resolvedIds)];
 };
 
 const resetPublishForm = () => {
   isEditMode.value = false;
   editingInfoGapId.value = null;
-  showCustomTagModal.value = false;
-  customTagInput.value = '';
   Object.assign(form, {
     title: '',
     tag: '技术',
@@ -680,7 +929,7 @@ const loadData = async () => {
       // 统一初始化交互字段，避免模板侧出现 undefined
       rows.value = (data.value.rows || []).map((row) => ({
         ...row,
-        no: row.no ?? null,
+        no: stripInfoGapNoPrefix(row.no),
         // 显式补齐时间字段，兼容后端仅返回 createTime 的场景
         updateTime: row.updateTime || row.createTime || '',
         isVoted: row.isVoted || 0,
@@ -737,6 +986,7 @@ const handleSearch = async () => {
   queryParams.title = normalizeSearchKeyword(queryParams.title);
   isSearchMode.value = !!queryParams.title;
   activeSearchTagId.value = null;
+  activeSearchCategory.value = '';
   await syncToPage(1);
 };
 
@@ -744,6 +994,7 @@ const handleClearSearch = async () => {
   queryParams.title = '';
   isSearchMode.value = false;
   activeSearchTagId.value = null;
+  activeSearchCategory.value = '';
   await syncToPage(1);
 };
 
@@ -751,6 +1002,16 @@ const handleTagSearch = async (tag) => {
   queryParams.title = normalizeSearchKeyword(tag?.label);
   isSearchMode.value = !!queryParams.title;
   activeSearchTagId.value = tag?.id ?? null;
+  activeSearchCategory.value = '';
+  queryParams.type = 'hot';
+  await syncToPage(1);
+};
+
+const handleCategorySearch = async (category) => {
+  queryParams.title = normalizeSearchKeyword(category);
+  isSearchMode.value = !!queryParams.title;
+  activeSearchTagId.value = null;
+  activeSearchCategory.value = queryParams.title;
   queryParams.type = 'hot';
   await syncToPage(1);
 };
@@ -761,6 +1022,8 @@ const getRouteType = () => route.query.type || 'hot';
 const getRouteSearchMode = () => route.query.search === '1';
 const getRouteTitle = () =>
   typeof route.query.title === 'string' ? normalizeSearchKeyword(route.query.title) : '';
+const getRouteCategory = () =>
+  typeof route.query.category === 'string' ? normalizeSearchKeyword(route.query.category) : '';
 const getRouteTagId = () => {
   const raw = route.query.tagId;
   if (raw === undefined || raw === null || raw === '') return null;
@@ -778,12 +1041,14 @@ const syncToPage = async (page) => {
   const nextTitle = queryParams.title;
   const nextSearchMode = isSearchMode.value && !!nextTitle;
   const nextTagId = activeSearchTagId.value;
+  const nextCategory = activeSearchCategory.value;
   const shouldNavigate =
     getRoutePageNum() !== page ||
     getRouteType() !== nextType ||
     getRouteTitle() !== nextTitle ||
     getRouteSearchMode() !== nextSearchMode ||
-    getRouteTagId() !== nextTagId;
+    getRouteTagId() !== nextTagId ||
+    getRouteCategory() !== nextCategory;
 
   if (!shouldNavigate) {
     await loadData();
@@ -803,10 +1068,16 @@ const syncToPage = async (page) => {
     } else {
       delete nextQuery.tagId;
     }
+    if (nextCategory) {
+      nextQuery.category = nextCategory;
+    } else {
+      delete nextQuery.category;
+    }
   } else {
     delete nextQuery.title;
     delete nextQuery.search;
     delete nextQuery.tagId;
+    delete nextQuery.category;
   }
 
   await navigateTo({
@@ -817,21 +1088,20 @@ const syncToPage = async (page) => {
 
 // 监听 URL 页码变化，并把 URL 上的 type/title 同步回查询参数
 watch(
-  () => [route.params.page, route.query.type, route.query.title, route.query.search, route.query.tagId],
+  () => [route.params.page, route.query.type, route.query.title, route.query.search, route.query.tagId, route.query.category],
   async () => {
     if (!hasHydratedInfoGapRoute.value) {
       hasHydratedInfoGapRoute.value = true;
       await loadCandidateTags();
+      await loadRecommendTags();
 
       if (getRouteSearchMode()) {
-        queryParams.type = 'hot';
-        queryParams.title = '';
-        isSearchMode.value = false;
-        activeSearchTagId.value = null;
-        await navigateTo({
-          path: '/info_gap/1',
-          query: { type: 'hot' },
-        }, { replace: true });
+        queryParams.type = getRouteType();
+        queryParams.title = getRouteTitle();
+        isSearchMode.value = !!queryParams.title;
+        activeSearchTagId.value = getRouteTagId();
+        activeSearchCategory.value = getRouteCategory();
+        loadData();
         return;
       }
     }
@@ -841,6 +1111,7 @@ watch(
     queryParams.title = getRouteTitle();
     isSearchMode.value = getRouteSearchMode() && !!queryParams.title;
     activeSearchTagId.value = isSearchMode.value ? getRouteTagId() : null;
+    activeSearchCategory.value = isSearchMode.value ? getRouteCategory() : '';
     loadData();
   },
   { immediate: true }
@@ -866,8 +1137,8 @@ const formatInfoGapStatus = (status) => {
   const statusMap = {
     0: '未审核',
     2: '未审核',
-    4: '发布',
-    6: '下架',
+    4: '已发布',
+    6: '已下架',
   };
   return statusMap[String(status ?? '').trim()] || '未知';
 };
@@ -904,16 +1175,10 @@ const confirmPublish = async () => {
     return message.warning('请填写完整内容');
   }
 
-  console.log("selectedTags =", selectedTags.value);
-
   btnLoading.value = true;
-  const tagIds = selectedTags.value
-    .map((tag) => tag.id)
-    .filter((id) => id != null);
-
-  console.log("tagIds =", tagIds);
 
   try {
+    const tagIds = await resolveSelectedTagIds();
     const requestKey = isEditMode.value && editingInfoGapId.value
       ? `update-info-gap-${editingInfoGapId.value}`
       : 'add-info-gap';
@@ -1121,6 +1386,31 @@ const updateCount = (item, type, delta) => {
 };
 
 // ==================== 9) 页面元信息 ====================
+onMounted(() => {
+  loadInfoGapSystemNotices();
+  loadInfoGapDynamicNotices();
+  if (process.client) {
+    window.addEventListener('tool-announcement-toast', handleToolAnnouncementToast);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (process.client) {
+    window.removeEventListener('tool-announcement-toast', handleToolAnnouncementToast);
+  }
+});
+
+watch(toolUserNoticeRefreshFlag, async (value) => {
+  if (!process.client || !value) {
+    return;
+  }
+  const currentPath = window.location.pathname || '';
+  if (!currentPath.startsWith('/info_gap')) {
+    return;
+  }
+  await loadInfoGapDynamicNotices();
+});
+
 useHead({ title: '信息差 - 开源助手' });
 </script>
 
@@ -1293,6 +1583,30 @@ useHead({ title: '信息差 - 开源助手' });
   font-weight: 400;
 }
 
+.custom-tag-button-wrap {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.tag-select-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.recommend-tag-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recommend-tag-label {
+  font-size: 12px;
+  line-height: 1;
+  color: #999;
+}
+
 .pagination-wrapper {
   margin-top: 20px;
   display: flex;
@@ -1372,6 +1686,14 @@ useHead({ title: '信息差 - 开源助手' });
   line-height: 1.6;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.feed-tag-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
 }
 
 .feed-title {
