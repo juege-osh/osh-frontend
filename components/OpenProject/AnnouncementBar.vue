@@ -1,51 +1,73 @@
 <template>
-  <Transition name="bar-fade">
-    <div v-if="announcements.length > 0" class="announcement-bar">
-      <!-- 左侧标签 -->
-      <span class="bar-label">🆕 新项目</span>
+  <div v-if="announcements.length > 0" class="announcement-bar">
+    <!-- 左侧标签 -->
+    <span class="bar-label">🆕 新项目</span>
 
-      <!-- 滚动文字区域 -->
-      <div class="bar-scroll-wrap">
-        <div class="bar-scroll" :style="{ animationDuration: scrollDuration }">
-          <span
-            v-for="(item, idx) in announcements"
-            :key="item.id"
-            class="bar-item"
-            @click="handleClick(item)"
-          >
-            {{ item.content }}
-            <span v-if="idx < announcements.length - 1" class="bar-sep">·</span>
-          </span>
-          <!-- 复制一份实现无缝滚动 -->
-          <span
-            v-for="(item, idx) in announcements"
-            :key="`dup-${item.id}`"
-            class="bar-item"
-            @click="handleClick(item)"
-          >
-            {{ item.content }}
-            <span v-if="idx < announcements.length - 1" class="bar-sep">·</span>
-          </span>
-        </div>
+    <!-- 滚动文字区域 -->
+    <div class="bar-scroll-wrap">
+      <div class="bar-scroll" :style="{ animationDuration: scrollDuration }">
+        <span
+          v-for="(item, idx) in announcements"
+          :key="item.id"
+          class="bar-item"
+          @click="handleClick(item)"
+        >
+          {{ item.content || item.title }}
+          <span v-if="idx < announcements.length - 1" class="bar-sep">·</span>
+        </span>
+        <!-- 复制一份实现无缝滚动 -->
+        <span
+          v-for="(item, idx) in announcements"
+          :key="`dup-${item.id}`"
+          class="bar-item"
+          @click="handleClick(item)"
+        >
+          {{ item.content || item.title }}
+          <span v-if="idx < announcements.length - 1" class="bar-sep">·</span>
+        </span>
       </div>
-
-      <!-- 关闭按钮 -->
-      <button class="bar-close" @click="dismiss" title="关闭">✕</button>
     </div>
-  </Transition>
+  </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
+import { fetchConfig } from '~/composables/useHttp'
 
 const { projectAnnouncements } = useWebSocket()
 
-// 是否被用户手动关闭
-const dismissed = ref(false)
+// 从 MySQL 加载的公告
+const dbAnnouncements = ref([])
 
-const announcements = computed(() =>
-  dismissed.value ? [] : projectAnnouncements.value
-)
+async function loadAnnouncements() {
+  try {
+    const headers = { appid: fetchConfig.headers.appid }
+    if (process.client) {
+      const token = localStorage.getItem('token') || ''
+      if (token) headers.token = token
+    }
+    const res = await $fetch('/openproject/announcements', {
+      baseURL: fetchConfig.baseURL,
+      headers,
+    })
+    const list = res?.data || res || []
+    dbAnnouncements.value = list.map(item => ({
+      id: item.id,
+      content: item.title,
+      jumpUrl: item.link,
+    }))
+  } catch (e) {
+    dbAnnouncements.value = []
+  }
+}
+
+// WebSocket 推送优先，没有推送时用 MySQL 数据
+const announcements = computed(() => {
+  if (projectAnnouncements.value && projectAnnouncements.value.length > 0) {
+    return projectAnnouncements.value
+  }
+  return dbAnnouncements.value
+})
 
 // 根据条数动态调整滚动速度
 const scrollDuration = computed(() => {
@@ -57,9 +79,9 @@ function handleClick(item) {
   if (item.jumpUrl) navigateTo(item.jumpUrl)
 }
 
-function dismiss() {
-  dismissed.value = true
-}
+onMounted(() => {
+  loadAnnouncements()
+})
 </script>
 
 <style scoped>
@@ -73,16 +95,6 @@ function dismiss() {
   padding: 8px 14px;
   margin-bottom: 16px;
   overflow: hidden;
-}
-
-/* 进出动画 */
-.bar-fade-enter-active, .bar-fade-leave-active {
-  transition: opacity 0.3s ease, max-height 0.3s ease;
-  max-height: 60px;
-}
-.bar-fade-enter-from, .bar-fade-leave-to {
-  opacity: 0;
-  max-height: 0;
 }
 
 .bar-label {
@@ -128,17 +140,4 @@ function dismiss() {
   color: #9ca3af;
   margin-left: 8px;
 }
-
-.bar-close {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  color: #9ca3af;
-  font-size: 13px;
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-  transition: color 0.15s;
-}
-.bar-close:hover { color: #374151; }
 </style>

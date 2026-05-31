@@ -1,7 +1,10 @@
 <template>
   <LoadingGroup :pending="pending" :error="error">
     <main class="tool-detail-page">
-      <button class="back-btn" @click="goBack">返回工具列表</button>
+      <div class="top-action-row">
+        <button class="back-btn" @click="goBack">返回工具列表</button>
+        <button v-if="tool?.id" class="start-use-btn" @click="startUseTool">开始使用本工具</button>
+      </div>
 
       <section v-if="tool" class="detail-hero">
         <div class="info-panel">
@@ -170,8 +173,13 @@
                       :disabled="!!paymentState.paymentNo"
                       @click="selectedChannel = 'wxpay'"
                     >
-                      <span class="channel-name">微信支付</span>
-                      <span class="channel-tip">推荐扫码支付</span>
+                      <span class="channel-brand">
+                        <img :src="wechatPayIcon" alt="微信支付" class="channel-icon">
+                        <span>
+                          <span class="channel-name">微信支付</span>
+                          <span class="channel-tip">推荐扫码支付</span>
+                        </span>
+                      </span>
                     </button>
                     <button
                       type="button"
@@ -180,8 +188,13 @@
                       :disabled="!!paymentState.paymentNo"
                       @click="selectedChannel = 'alipay'"
                     >
-                      <span class="channel-name">支付宝</span>
-                      <span class="channel-tip">支持扫码支付</span>
+                      <span class="channel-brand">
+                        <img :src="alipayPayIcon" alt="支付宝" class="channel-icon">
+                        <span>
+                          <span class="channel-name">支付宝</span>
+                          <span class="channel-tip">支持扫码支付</span>
+                        </span>
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -191,9 +204,21 @@
                   <div v-if="Number(selectedPackage.payType) === 3" class="purchase-summary-row">
                     <span>积分抵扣</span><strong>{{ selectedPackage.pointCost || 0 }} 积分</strong>
                   </div>
+                  <div v-if="paymentState.expireTime && paymentState.payStatus !== '1'" class="purchase-summary-row">
+                    <span>关闭倒计时</span><strong>{{ paymentCountdownText }}</strong>
+                  </div>
                   <div v-if="paymentState.paymentNo" class="purchase-summary-row">
                     <span>支付状态</span><strong>{{ paymentStatusText }}</strong>
                   </div>
+                </div>
+
+                <div class="purchase-qrcode-notice">
+                  <p>1. 支付成功后不支持退款，请确认需求后再支付。</p>
+                  <p>2. 如首次扫码后未完成支付，请重新点击“购买套餐”生成新订单后再支付。</p>
+                </div>
+
+                <div v-if="paymentState.payStatus === '3'" class="purchase-closed-banner">
+                  当前订单已关闭，请重新点击“购买套餐”生成新订单。
                 </div>
 
                 <div v-if="paymentState.qrcodeImage" class="purchase-qrcode-panel">
@@ -233,6 +258,8 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import QRCode from 'qrcode';
+import wechatPayIcon from '~/assets/images/payment/wechat-pay.svg';
+import alipayPayIcon from '~/assets/images/payment/alipay-pay.svg';
 import {
   apiCollectTool,
   apiRemoveCollectTool,
@@ -295,15 +322,31 @@ const selectedChannel = ref('wxpay');
 const purchaseSubmitting = ref(false);
 const cancelPaymentLoading = ref(false);
 const paymentPollTimer = ref(null);
+const paymentCountdownTimer = ref(null);
 const paymentState = ref({
   orderNo: '',
   paymentNo: '',
   qrcode: '',
   qrcodeImage: '',
   payUrl: '',
+  expireTime: '',
+  closeExpireMinutes: null,
+  remainingSeconds: 0,
   payStatus: '',
 });
 const paymentCompleted = computed(() => paymentState.value.payStatus === '1');
+const paymentCountdownText = computed(() => {
+  if (paymentState.value.payStatus === '3') {
+    return '订单已关闭';
+  }
+  const totalSeconds = Number(paymentState.value.remainingSeconds || 0);
+  if (totalSeconds <= 0) {
+    return '--:--';
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+});
 const paymentStatusText = computed(() => {
   const map = {
     '': '待支付',
@@ -316,11 +359,18 @@ const paymentStatusText = computed(() => {
 });
 
 function goBack() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    navigateTo('/tool');
-  }
+  navigateTo('/tool');
+}
+
+function startUseTool() {
+  if (!tool.value?.id) return;
+  navigateTo({
+    path: '/tool',
+    query: {
+      toolId: String(tool.value.id),
+      autoOpen: '1',
+    },
+  });
 }
 
 function handleBuyPackage(item) {
@@ -343,12 +393,16 @@ function resetPaymentState() {
     qrcode: '',
     qrcodeImage: '',
     payUrl: '',
+    expireTime: '',
+    closeExpireMinutes: null,
+    remainingSeconds: 0,
     payStatus: '',
   };
 }
 
 function closePurchaseModal() {
   stopPaymentPolling();
+  stopPaymentCountdown();
   purchaseModalVisible.value = false;
   resetPaymentState();
   selectedPackage.value = null;
@@ -374,12 +428,16 @@ async function submitPurchase() {
       qrcode: data.payment?.qrcode || '',
       qrcodeImage: '',
       payUrl: data.payment?.payUrl || '',
+      expireTime: data.expireTime || '',
+      closeExpireMinutes: data.closeExpireMinutes ?? null,
+      remainingSeconds: 0,
       payStatus: data.payStatus || '0',
     };
     await buildPaymentQrCodeImage();
     if (paymentState.value.payUrl) {
       window.open(paymentState.value.payUrl, '_blank');
     }
+    startPaymentCountdown();
     startPaymentPolling();
     message.success('订单创建成功，请完成支付');
   } catch (e) {
@@ -420,16 +478,64 @@ function stopPaymentPolling() {
   }
 }
 
+function stopPaymentCountdown() {
+  if (paymentCountdownTimer.value) {
+    clearInterval(paymentCountdownTimer.value);
+    paymentCountdownTimer.value = null;
+  }
+}
+
+function syncPaymentRemainingSeconds() {
+  const expireTime = paymentState.value.expireTime;
+  if (!expireTime) {
+    const minutes = Number(paymentState.value.closeExpireMinutes || 0);
+    paymentState.value.remainingSeconds = minutes > 0 ? minutes * 60 : 0;
+    return;
+  }
+  const deadline = new Date(String(expireTime).replace(' ', 'T')).getTime();
+  if (Number.isNaN(deadline)) {
+    const minutes = Number(paymentState.value.closeExpireMinutes || 0);
+    paymentState.value.remainingSeconds = minutes > 0 ? minutes * 60 : 0;
+    return;
+  }
+  paymentState.value.remainingSeconds = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
+}
+
+function markPaymentClosedByTimeout() {
+  paymentState.value.remainingSeconds = 0;
+  paymentState.value.payStatus = '3';
+  stopPaymentPolling();
+  stopPaymentCountdown();
+}
+
+function startPaymentCountdown() {
+  stopPaymentCountdown();
+  syncPaymentRemainingSeconds();
+  if (paymentState.value.remainingSeconds <= 0) {
+    if (paymentState.value.paymentNo && paymentState.value.payStatus !== '1') {
+      markPaymentClosedByTimeout();
+    }
+    return;
+  }
+  paymentCountdownTimer.value = setInterval(() => {
+    syncPaymentRemainingSeconds();
+    if (paymentState.value.remainingSeconds <= 0) {
+      markPaymentClosedByTimeout();
+    }
+  }, 1000);
+}
+
 function startPaymentPolling() {
   stopPaymentPolling();
-  if (!paymentState.value.paymentNo) return;
+  if (!paymentState.value.orderNo) return;
   paymentPollTimer.value = setInterval(async () => {
     try {
-      const res = await apiPayStatus(paymentState.value.paymentNo);
+      const res = await apiPayStatus(paymentState.value.orderNo);
       const data = (res && res.data) || res || {};
       if (data.payStatus === true || String(data.paymentStatus) === '1' || String(data.orderStatus) === '1') {
         paymentState.value.payStatus = '1';
         stopPaymentPolling();
+        stopPaymentCountdown();
         message.success('支付成功，额度已到账');
         await refreshNuxtData(`tool-detail-${route.params.id}`);
         closePurchaseModal();
@@ -438,6 +544,8 @@ function startPaymentPolling() {
       if (String(data.paymentStatus) === '3' || String(data.orderStatus) === '2') {
         paymentState.value.payStatus = '3';
         stopPaymentPolling();
+        stopPaymentCountdown();
+        paymentState.value.remainingSeconds = 0;
       }
     } catch (e) {
       // ignore
@@ -446,12 +554,14 @@ function startPaymentPolling() {
 }
 
 async function handleCancelPayment() {
-  if (!paymentState.value.paymentNo) return;
+  if (!paymentState.value.orderNo) return;
   cancelPaymentLoading.value = true;
   try {
-    await apiCancelToolPurchaseOrder(paymentState.value.paymentNo);
+    await apiCancelToolPurchaseOrder(paymentState.value.orderNo);
     paymentState.value.payStatus = '3';
     stopPaymentPolling();
+    stopPaymentCountdown();
+    paymentState.value.remainingSeconds = 0;
     await refreshNuxtData(`tool-detail-${route.params.id}`);
     message.success('订单已关闭');
     closePurchaseModal();
@@ -496,10 +606,18 @@ useHead(() => ({
 
 onBeforeUnmount(() => {
   stopPaymentPolling();
+  stopPaymentCountdown();
 });
 </script>
 
 <style scoped>
+.top-action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .tool-detail-page {
   max-width: 1180px;
   margin: 0 auto;
@@ -513,9 +631,25 @@ onBeforeUnmount(() => {
   padding: 8px 14px;
   cursor: pointer;
   font-weight: 600;
-  margin-bottom: 16px;
+}
+.start-use-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #18a058;
+  background: #18a058;
+  color: #ffffff !important;
+  border-radius: 8px;
+  padding: 8px 14px;
+  min-height: 40px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
 }
 .back-btn:hover { border-color: #18a058; color: #18a058; }
+.start-use-btn:hover { opacity: 0.92; }
 .detail-hero {
   display: block;
 }
@@ -914,6 +1048,19 @@ h1 {
   background: #f3fff8;
 }
 
+.channel-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.channel-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  object-fit: contain;
+}
+
 .channel-name {
   display: block;
   color: #10213a;
@@ -972,6 +1119,42 @@ h1 {
   margin: 0;
   color: #475569;
   font-size: 13px;
+}
+
+.purchase-qrcode-notice {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #fff7ed;
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.purchase-qrcode-notice p {
+  margin: 0;
+  color: #9a3412;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.purchase-qrcode-notice p + p {
+  margin-top: 4px;
+}
+
+.purchase-closed-banner {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  color: #b91c1c;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.6;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .purchase-modal-actions {
