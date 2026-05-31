@@ -33,6 +33,14 @@
         <span>限购 {{ item.limitPerUser > 0 ? item.limitPerUser + '件' : '不限' }}</span>
       </div>
 
+      <!-- 资源编号 -->
+      <div class="card-no" v-if="item.no">编号：{{ item.no }}</div>
+
+      <!-- 标签 -->
+      <div class="card-tags" v-if="item.tagNames && item.tagNames.length">
+        <span class="card-tag" v-for="tag in item.tagNames" :key="tag">{{ tag }}</span>
+      </div>
+
       <div class="card-divider" />
 
       <!-- 价格区 -->
@@ -68,8 +76,9 @@ const props = defineProps({
 const emit = defineEmits(['click', 'buy', 'toggle'])
 
 // 按钮状态（基于 availableStock 判断是否售罄）
+// 注意：不再用 is_purchased 永久禁用按钮
+// 新版支持累计购买，用户支付成功后只要还有剩余限购额度就可以继续购买
 const btnState = computed(() => {
-  if (props.item.is_purchased) return 'purchased'
   // totalStock=0 表示不限量，availableStock=0 且 totalStock>0 表示售罄
   if (props.item.totalStock > 0 && props.item.availableStock <= 0) return 'soldout'
   return 'active'
@@ -77,17 +86,15 @@ const btnState = computed(() => {
 
 const btnText = computed(() => {
   switch (btnState.value) {
-    case 'purchased': return '去学习'
-    case 'soldout':   return `¥${props.item.originPrice} 原价购买`
-    default:          return '立即抢购'
+    case 'soldout': return `¥${props.item.originPrice} 原价购买`
+    default:        return '立即抢购'
   }
 })
 
 const btnClass = computed(() => ({
-  'btn-active':    btnState.value === 'active',
-  'btn-pending':   btnState.value === 'pending',
-  'btn-soldout':   btnState.value === 'soldout',
-  'btn-purchased': btnState.value === 'purchased',
+  'btn-active':  btnState.value === 'active',
+  'btn-pending': btnState.value === 'pending',
+  'btn-soldout': btnState.value === 'soldout',
 }))
 
 function handleBuy() { emit('buy', props.item) }
@@ -212,6 +219,16 @@ function handleCardClick() {
 }
 .meta-divider { color: #ddd; }
 .card-info { font-size: 11px; color: #999; margin-bottom: 4px; }
+.card-no   { font-size: 11px; color: #bbb; margin-top: 2px; margin-bottom: 2px; }
+.card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; margin-bottom: 2px; }
+.card-tag  {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.1);
+  color: #0369a1;
+  font-size: 10px;
+  font-weight: 600;
+}
 .info-divider { margin: 0 3px; color: #ddd; }
 .card-divider { height: 1px; background: #f5f5f5; margin: 5px 0; }
 
@@ -241,4 +258,82 @@ function handleCardClick() {
 .btn-soldout   { background: #f5f5f5; color: #888; border: 1px solid #e5e5e5; font-size: 11px; }
 .btn-soldout:hover { background: #eee; }
 .btn-purchased { background: #fff8f0; color: #e1251b; border: 1px solid #ffd0cc; }
+</style>
+
+<style>
+/* ===== 商品卡片 · 太空风格 ===== */
+[data-theme="space"] .seckill-card {
+  background: #0d1117 !important;
+  border-color: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .seckill-card:hover {
+  box-shadow: 0 4px 16px rgba(88,166,255,0.12) !important;
+  border-color: #58a6ff !important;
+}
+[data-theme="space"] .seckill-card.selected {
+  border-color: #58a6ff !important;
+  box-shadow: 0 0 0 2px rgba(88,166,255,0.2) !important;
+}
+[data-theme="space"] .card-cover {
+  background: #161b22 !important;
+}
+[data-theme="space"] .card-title {
+  color: #e6edf3 !important;
+}
+[data-theme="space"] .card-meta {
+  color: #484f58 !important;
+}
+[data-theme="space"] .card-no {
+  color: #484f58 !important;
+}
+[data-theme="space"] .card-tag {
+  background: rgba(88, 166, 255, 0.1) !important;
+  color: #58a6ff !important;
+}
+[data-theme="space"] .meta-divider {
+  color: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .card-divider {
+  background: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .price-original {
+  color: #484f58 !important;
+}
+[data-theme="space"] .price-seckill {
+  color: #79c0ff !important;
+}
+[data-theme="space"] .btn-active {
+  background: linear-gradient(135deg, #1d4ed8, #0ea5e9) !important;
+}
+[data-theme="space"] .btn-active:hover {
+  background: linear-gradient(135deg, #1e40af, #0284c7) !important;
+}
+[data-theme="space"] .btn-pending {
+  background: #161b22 !important;
+  color: #484f58 !important;
+}
+[data-theme="space"] .btn-soldout {
+  background: #161b22 !important;
+  color: #484f58 !important;
+  border-color: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .btn-soldout:hover {
+  background: #1c2128 !important;
+}
+[data-theme="space"] .btn-purchased {
+  background: #0d1f3c !important;
+  color: #58a6ff !important;
+  border-color: rgba(88,166,255,0.25) !important;
+}
+[data-theme="space"] .checkbox {
+  background: #161b22 !important;
+  border-color: rgba(48,54,61,0.8) !important;
+}
+[data-theme="space"] .checkbox:hover {
+  border-color: #58a6ff !important;
+}
+[data-theme="space"] .checkbox.checked {
+  background: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
+}
 </style>

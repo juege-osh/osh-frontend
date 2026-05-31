@@ -13,6 +13,13 @@
 
     <div class="card-cover">
       <img :src="item.cover || 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'" />
+      <span
+        v-if="showAuditStatus"
+        class="audit-status-badge"
+        :class="`audit-status-${auditStatusTone}`"
+      >
+        {{ auditStatusText }}
+      </span>
       <!-- 收藏按钮 -->
       <div class="fav-btn" @click.stop="handleFavorite">
         <n-icon size="18" :color="item.isFavorite ? '#d03050' : 'rgba(255,255,255,0.85)'">
@@ -67,6 +74,37 @@ const props = defineProps({
   selected: { type: Boolean, default: false },
 });
 const emit = defineEmits(['click', 'favorite', 'select']);
+
+const { permissionList } = usePermission();
+
+const COURSE_STATUS_TEXT_MAP = {
+  2: '审核中',
+  4: '审核通过',
+  6: '审核未通过',
+};
+
+const canManageCourse = computed(() => {
+  const perms = permissionList.value || [];
+  return perms.includes('course:create')
+    || perms.includes('course:update')
+    || perms.includes('course:delete');
+});
+
+const courseStatusCode = computed(() => Number(props.item?.status));
+
+const showAuditStatus = computed(() =>
+  canManageCourse.value && courseStatusCode.value !== 4 && COURSE_STATUS_TEXT_MAP[courseStatusCode.value]
+);
+
+const auditStatusText = computed(() =>
+  COURSE_STATUS_TEXT_MAP[courseStatusCode.value] || `状态${props.item?.status ?? '-'}`
+);
+
+const auditStatusTone = computed(() => {
+  if (courseStatusCode.value === 6) return 'reject';
+  if (courseStatusCode.value === 2) return 'pending';
+  return 'default';
+});
 
 const displayTags = computed(() => {
   const text = props.item?.tagNamesText;
@@ -138,6 +176,35 @@ const handleCardClick = () => {
   overflow: hidden;
 }
 .card-cover img { width: 100%; height: 100%; object-fit: cover; }
+.audit-status-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.2px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+.audit-status-pending {
+  color: #ad6800;
+  background: rgba(255, 247, 230, 0.92);
+  border: 1px solid rgba(250, 173, 20, 0.55);
+}
+.audit-status-reject {
+  color: #a8071a;
+  background: rgba(255, 241, 240, 0.92);
+  border: 1px solid rgba(255, 77, 79, 0.45);
+}
+.audit-status-default {
+  color: #434343;
+  background: rgba(245, 245, 245, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
 .fav-btn {
   position: absolute; top: 8px; right: 8px;
   width: 28px; height: 28px;

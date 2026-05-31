@@ -94,10 +94,10 @@ export function useCourseDetailApi(id) {
 // 注意：如果你的上传接口不带 /pc 前缀，可以用 replace 删掉它
 export const UPLOAD_ACTION_URL = fetchConfig.baseURL + '/upload';
 
-// 2. 精品推荐 (使用 search 接口带参数模拟)
+// 2. 精品推荐 (GET /pc/homepage/course/hot)
 export function useHotCourseListApi() {
-  return useHttpGet('HotCourseList', '/course/search', {
-    query: { isHot: 1, pageSize: 4 },
+  return useHttpGet('HotCourseList', '/homepage/course/hot', {
+    query: { limit: 4 },
   });
 }
 
@@ -362,6 +362,15 @@ export async function apiDeleteSection(sectionId, courseId) {
 }
 export async function apiGetCourseDetail(courseId) {
   return $fetch(`/course/detail/${courseId}`, {
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+  });
+}
+
+/** 全量同步课程到 ES（供审核页等读取最新待审数据） */
+export async function apiSyncCoursesToEs() {
+  return $fetch('/course/esSync/all', {
+    method: 'POST',
     baseURL: fetchConfig.baseURL,
     headers: getAuthHeaders(),
   });

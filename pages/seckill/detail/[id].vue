@@ -259,37 +259,45 @@ async function handleBuy() {
   }
 
   const seckillNo = doRes?.data?.seckillNo
-  if (!seckillNo) {
+  const orderNo   = doRes?.data?.orderNo
+  const doStatus  = doRes?.data?.status
+  // needPay=false 表示无需支付（如免费商品），直接跳转成功页
+  const needPay   = doRes?.data?.needPay !== false
+
+  // status=-1 表示后台 Kafka 正在处理，属于正常状态，直接进轮询
+  // 只有既没有单号、又不是处理中状态，才判定为真正的失败
+  if (doStatus !== -1 && !seckillNo && !orderNo) {
     message.error(doRes?.msg || '秒杀失败，请重试')
     loading.value = false
     return
   }
 
-  // Step 2：轮询秒杀结果（等待 Kafka 消费完成）
-  // 文档建议：每2秒轮询，最多15次（约30秒）
+  // Step 2：后台处理中（status=-1）或已有结果，统一进入轮询
   loadingText.value = '正在处理...'
-  startPolling(seckillNo)
+  startPolling(seckillNo || orderNo, needPay)
 }
 
-function startPolling(seckillNo) {
+function startPolling(seckillNo, needPay = true) {
   let count = 0
+  const MAX_POLLS = 30        // 每1秒轮询一次，最多30次 = 30秒超时
+  // 建单正常耗时阈值：超过此次数后收到 null 视为"订单不存在/已超时"
+  // 而不是"建单中"。Kafka 消费通常在 3~5 秒内完成，这里给 8 秒余量
+  const NULL_TIMEOUT_COUNT = 8
   polling.value = setInterval(async () => {
     count++
-    // 最多15次，约30秒
-    if (count > 15) {
+    if (count > MAX_POLLS) {
       clearInterval(polling.value)
       loading.value = false
-      message.warning('处理时间较长，请稍后在订单中心查看结果')
+      message.error('建单超时，请刷新页面查看结果')
       return
     }
 
     let result
     try {
-      // 改用接口14（按 seckillNo 查），直接锁定本次订单，不会查到旧订单
-      result = await seckillFetch(`/seckill/user/order/status/${seckillNo}`)
+      result = await seckillFetch(`/seckill/user/order/result/${activityId}/${itemId}`)
     } catch (e) {
       const msg = e?.data?.msg || ''
-      // Kafka 还在处理，继续轮询
+      // 后台还在处理，继续轮询
       if (msg.includes('暂未查到') || msg.includes('尚未查到') || msg.includes('请稍后')) {
         return
       }
@@ -299,27 +307,67 @@ function startPolling(seckillNo) {
       return
     }
 
-    // code=200 但 data 为 null，继续轮询
-    if (!result?.data) return
+    // status=-1：后台 Kafka 仍在处理，继续等待
+    if (result?.data?.status === -1) return
+
+    // data 为 null 的两种情况：
+    //   1. 建单中（Redis key 还没写入）：count 较小时继续等待
+    //   2. 订单已超时/不存在（Redis key 过期 + DB 兜底查不到）：count 超过阈值后停止
+    // 用轮询计数区分：建单通常 3~5 秒完成，超过 NULL_TIMEOUT_COUNT 次还是 null
+    // 说明不是建单中，而是订单已超时或根本不存在，主动提示用户
+    if (!result?.data) {
+      if (count >= NULL_TIMEOUT_COUNT) {
+        clearInterval(polling.value)
+        loading.value = false
+        message.warning('订单已超时或不存在，请重新抢购')
+        return
+      }
+      // 还在阈值内，继续等待
+      return
+    }
 
     const orderStatus = result.data.status
 
-    if (orderStatus === -1) {
-      // 处理中，继续轮询
-      return
-    } else if (orderStatus === 0) {
-      // 待支付：跳转结果页
+    if (orderStatus === 0) {
       clearInterval(polling.value)
+
+      // status=0 时 orderNo 才有值，不能用 seckillNo 兜底
+      // seckillNo 是秒杀尝试号，orderNo 才是支付单号
+      let resOrderNo = result.data.orderNo || ''
+      let resQrcode  = result.data.qrcode  || ''
+      let resPayUrl  = result.data.payUrl   || ''
+
+      // orderNo 或二维码缺失时，用 orderNo 调发起支付接口补拿
+      // 注意：此处只用 resOrderNo，不能用 seckillNo 替代
+      if (!resOrderNo || (!resQrcode && !resPayUrl)) {
+        try {
+          const payRes = await seckillFetch(
+            `/seckill/user/order/pay/${encodeURIComponent(resOrderNo)}`,
+            { method: 'POST' }
+          )
+          resOrderNo = resOrderNo || payRes?.data?.orderNo || payRes?.data?.out_trade_no || ''
+          resQrcode  = payRes?.data?.qrcode  || payRes?.data?.payurl  || resQrcode
+          resPayUrl  = payRes?.data?.payUrl  || payRes?.data?.pay_url || resQrcode
+        } catch (e) {
+          console.warn('[seckill] 发起支付接口失败', e)
+        }
+      }
+
       loading.value = false
+      // 过滤掉 null 字符串，避免 URL 里出现 orderNo=null
+      const safeEncode = v => encodeURIComponent((v && v !== 'null') ? v : '')
       navigateTo(
         `/seckill/result?status=success` +
-        `&seckillNo=${encodeURIComponent(seckillNo)}` +
-        `&title=${encodeURIComponent(result.data.goodsTitle || goods.value?.title || '')}` +
-        `&cover=${encodeURIComponent(result.data.goodsCover || '')}` +
+        `&seckillNo=${safeEncode(seckillNo)}` +
+        `&orderNo=${safeEncode(resOrderNo)}` +
+        `&qrcode=${safeEncode(resQrcode)}` +
+        `&payUrl=${safeEncode(resPayUrl)}` +
+        `&title=${safeEncode(result.data.goodsTitle || goods.value?.title || '')}` +
+        `&cover=${safeEncode(result.data.goodsCover || '')}` +
         `&price=${result.data.seckillPrice ?? goods.value?.seckillPrice}` +
         `&totalAmount=${result.data.totalAmount ?? result.data.seckillPrice ?? goods.value?.seckillPrice}` +
         `&originPrice=${result.data.originPrice ?? goods.value?.originPrice}` +
-        `&payExpireTime=${encodeURIComponent(result.data.payExpireTime || '')}`
+        `&payExpireTime=${safeEncode(result.data.payExpireTime || '')}`
       )
     } else if (orderStatus === 1) {
       // 已支付（极少数情况）
@@ -335,7 +383,7 @@ function startPolling(seckillNo) {
       message.warning(statusMsg[orderStatus] || '秒杀失败')
       navigateTo('/seckill/result?status=fail')
     }
-  }, 2000) // 文档建议每2秒轮询一次
+  }, 1000) // 每1秒轮询一次
 }
 
 onUnmounted(() => {

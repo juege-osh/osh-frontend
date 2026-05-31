@@ -38,6 +38,14 @@ export async function apiToolTags() {
   });
 }
 
+export async function apiRecommendToolTags() {
+  return $fetch('/tool/tags/recommend', {
+    method: 'GET',
+    baseURL,
+    headers: getToolAuthHeaders(),
+  });
+}
+
 export async function apiToolDetail(id) {
   return $fetch(`/tool/detail/${id}`, {
     method: 'GET',
@@ -169,20 +177,20 @@ export async function apiCreateToolPurchaseOrder(body) {
   });
 }
 
-export async function apiCancelToolPurchaseOrder(paymentNo) {
+export async function apiCancelToolPurchaseOrder(orderNo) {
   return $fetch('/tool/purchase/cancel', {
     method: 'POST',
     baseURL,
     headers: getToolAuthHeaders(),
-    body: { paymentNo },
+    body: { orderNo },
   });
 }
 
-export async function apiPayStatus(outTradeNo) {
+export async function apiPayStatus(orderNo) {
   return $fetch('/pay/status', {
     method: 'GET',
     baseURL,
     headers: getToolAuthHeaders(),
-    params: { outTradeNo },
+    params: { orderNo },
   });
 }

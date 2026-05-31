@@ -1,54 +1,43 @@
 <template>
   <div class="filter-bar">
     <div class="filter-left">
+      <!-- 标签多选 -->
       <n-select
-        v-model:value="modelValue.tags"
+        v-model:value="modelValue.tagNames"
         multiple
         filterable
         placeholder="选择标签筛选"
         :options="tagOptions"
-        style="width: 200px"
+        style="width: 220px"
         clearable
-        :max-tag-count="1"
-      />
-
-      <n-select
-        v-model:value="modelValue.sortType"
-        :options="resourceOptions"
-        style="width: 160px"
+        :max-tag-count="2"
         @update:value="handleSearch"
       />
 
+      <!-- 我的收藏 -->
       <button
         class="follow-btn"
-        :class="{ active: modelValue.isFollowing, disabled: !loggedIn }"
-        :disabled="!loggedIn"
+        :class="{ active: modelValue.isFollowing }"
         @click="toggleFollowing"
       >
         <span class="heart-icon">{{ modelValue.isFollowing ? '♥' : '♡' }}</span>
         我收藏的
       </button>
 
+      <!-- 关键字搜索 -->
       <div class="search-wrap">
         <span class="search-icon">🔍</span>
         <input
-          v-model="modelValue.keyword"
+          v-model="modelValue.websiteName"
           class="search-input"
-          placeholder="搜索工具关键字..."
+          placeholder="搜索网站名称..."
           @keyup.enter="handleSearch"
         />
-        <span v-if="modelValue.keyword" class="search-clear" @click="modelValue.keyword = ''; handleSearch()">✕</span>
-      </div>
-
-      <div class="search-wrap no-num">
-        <span class="search-icon">🔢</span>
-        <input
-          v-model="modelValue.no"
-          class="search-input"
-          placeholder="工具编号..."
-          @keyup.enter="handleSearch"
-        />
-        <span v-if="modelValue.no" class="search-clear" @click="modelValue.no = ''; handleSearch()">✕</span>
+        <span
+          v-if="modelValue.websiteName"
+          class="search-clear"
+          @click="modelValue.websiteName = ''; handleSearch()"
+        >✕</span>
       </div>
 
       <button class="btn-query" @click="handleSearch">
@@ -63,40 +52,23 @@
 </template>
 
 <script setup>
-import { NSelect } from 'naive-ui';
-import { computed } from 'vue';
+import { NSelect } from 'naive-ui'
 
 const props = defineProps({
   modelValue: { type: Object, default: () => ({}) },
   tagOptions: { type: Array, default: () => [] },
-});
-const emit = defineEmits(['update:modelValue', 'search']);
-const user = useUser();
-const loggedIn = computed(() => !!user.value);
-
-const resourceOptions = [
-  { label: '全部', value: 'all' },
-  { label: '免费', value: 'FREE' },
-  { label: '付费', value: 'CASH_ONLY' },
-  { label: 'VIP', value: 'VIP' },
-  { label: '小班专属', value: 'SMALL_CLASS' },
-  { label: '内部', value: 'INTERNAL' },
-];
+})
+const emit = defineEmits(['update:modelValue', 'search'])
 
 const toggleFollowing = () => {
-  if (!loggedIn.value) {
-    return;
-  }
-  props.modelValue.isFollowing = !props.modelValue.isFollowing;
-  handleSearch();
-};
+  props.modelValue.isFollowing = !props.modelValue.isFollowing
+  handleSearch()
+}
 
 const handleSearch = () => {
-  props.modelValue.resourceType = props.modelValue.sortType === 'all' ? null : props.modelValue.sortType;
-  props.modelValue.collectionFlag = props.modelValue.isFollowing ? 1 : null;
-  emit('update:modelValue', props.modelValue);
-  emit('search');
-};
+  emit('update:modelValue', props.modelValue)
+  emit('search')
+}
 </script>
 
 <style scoped>
@@ -120,6 +92,7 @@ const handleSearch = () => {
   gap: 10px;
   flex: 1;
   min-width: 0;
+  flex-wrap: wrap;
 }
 .follow-btn {
   display: flex;
@@ -142,18 +115,6 @@ const handleSearch = () => {
   color: #18a058;
   font-weight: 500;
 }
-.follow-btn.disabled,
-.follow-btn:disabled {
-  background: #f5f7fa;
-  border-color: #e5e7eb;
-  color: #b0b7c3;
-  cursor: not-allowed;
-}
-.follow-btn.disabled:hover,
-.follow-btn:disabled:hover {
-  border-color: #e5e7eb;
-  color: #b0b7c3;
-}
 .heart-icon { font-size: 14px; }
 .search-wrap {
   display: flex;
@@ -166,7 +127,7 @@ const handleSearch = () => {
   gap: 6px;
   transition: border-color 0.2s, box-shadow 0.2s;
   flex: 1;
-  min-width: 220px;
+  min-width: 200px;
 }
 .search-wrap:focus-within {
   border-color: #18a058;
@@ -186,7 +147,6 @@ const handleSearch = () => {
 .search-input::placeholder { color: #aaa; }
 .search-clear { font-size: 12px; color: #bbb; cursor: pointer; }
 .search-clear:hover { color: #666; }
-.no-num .search-input { width: 110px; }
 .btn-query {
   background: #18a058;
   color: #fff;
@@ -208,11 +168,7 @@ const handleSearch = () => {
   margin-left: auto;
   flex-shrink: 0;
 }
-
 @media (max-width: 980px) {
-  .filter-left {
-    flex-wrap: wrap;
-  }
   .filter-actions {
     width: 100%;
     justify-content: flex-start;

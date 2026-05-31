@@ -74,3 +74,22 @@ const progress = computed(() =>
   font-weight: 500;
 }
 </style>
+
+<style>
+/* ===== 名额进度条 · 太空风格 ===== */
+[data-theme="space"] .quota-track {
+  background: #161b22 !important;
+}
+[data-theme="space"] .quota-fill {
+  background: linear-gradient(90deg, #1d4ed8, #0ea5e9) !important;
+}
+[data-theme="space"] .quota-fill.fill-hot {
+  background: linear-gradient(90deg, #1d4ed8, #0ea5e9) !important;
+}
+[data-theme="space"] .quota-text {
+  color: #58a6ff !important;
+}
+[data-theme="space"] .quota-text.text-hot {
+  color: #79c0ff !important;
+}
+</style>
