@@ -170,11 +170,11 @@ export function apiGetPendingConfirmCount() {
  * 获取反馈分类列表
  */
 export function apiGetFeedbackCategories() {
-  return assistantFetch('/public/feedback/category/list')
+  return assistantFetch('/feedback/category/list')
 }
 
 export function apiGetFeedbackTags(params = {}) {
-  return assistantFetch('/public/feedback/tag/list', { query: params })
+  return assistantFetch('/feedback/tag/list', { query: params })
 }
 
 export function apiCreateFeedbackTag(payload) {
@@ -188,7 +188,7 @@ export function apiCreateFeedbackTag(payload) {
  * 分页查询反馈列表
  */
 export function apiPageFeedback(params) {
-  return assistantFetch('/public/feedback/page', {
+  return assistantFetch('/feedback/page', {
     method: 'POST',
     body: params,
   })
@@ -198,7 +198,7 @@ export function apiPageFeedback(params) {
  * 拉取反馈公告。
  */
 export function apiGetFeedbackAnnouncements(limit = 10) {
-  return assistantFetch('/public/feedback/announcement/list', {
+  return assistantFetch('/feedback/announcement/list', {
     query: { limit },
   })
 }
@@ -207,25 +207,25 @@ export function apiGetFeedbackAnnouncements(limit = 10) {
  * 获取反馈详情
  */
 export function apiGetFeedbackDetail(id) {
-  return assistantFetch(`/public/feedback/detail/${id}`)
+  return assistantFetch(`/feedback/detail/${id}`)
 }
 
 export function apiGetFeedbackStatusSummary(id) {
-  return assistantFetch(`/public/feedback/status-summary/${id}`)
+  return assistantFetch(`/feedback/status-summary/${id}`)
 }
 
 /**
  * 获取反馈处理记录列表
  */
 export function apiGetFeedbackProcessRecords(feedbackId) {
-  return assistantFetch(`/public/feedback/${feedbackId}/process-record/list`)
+  return assistantFetch(`/feedback/${feedbackId}/process-record/list`)
 }
 
 /**
  * 获取反馈评论列表
  */
 export function apiGetFeedbackComments(feedbackId, pageNum = 1, pageSize = 20) {
-  return assistantFetch(`/public/feedback/${feedbackId}/comment/list`, {
+  return assistantFetch(`/feedback/${feedbackId}/comment/list`, {
     params: { pageNum, pageSize },
   })
 }
