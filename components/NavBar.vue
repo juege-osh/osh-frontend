@@ -248,16 +248,18 @@ onMounted(() => {
     }
   }
 
-  // 用户管理：仅 level >= 4 可见
-  let isAdmin = false
-  try {
-    const roleStr = localStorage.getItem('__user_role__')
-    if (roleStr) {
-      const role = JSON.parse(roleStr)
-      isAdmin = parseInt(role.level || '0') >= 4
-    }
-  } catch {}
-  if (!isAdmin) {
+  // 用户管理：仅已登录的创始人（level >= 6）可见
+  let isFounder = false
+  if (user.value) {
+    try {
+      const roleStr = localStorage.getItem('__user_role__')
+      if (roleStr) {
+        const role = JSON.parse(roleStr)
+        isFounder = parseInt(role.level || '0') >= 6
+      }
+    } catch {}
+  }
+  if (!isFounder) {
     const adminMenuIndex = menus.value.findIndex(item => item.path === '/admin/users')
     if (adminMenuIndex !== -1) {
       menus.value.splice(adminMenuIndex, 1)
