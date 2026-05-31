@@ -28,14 +28,18 @@ export function useLogoutApi() {
 }
 
 // 获取邮箱uniqueId
-export function useGetCaptchaApi(email, username, password, repassword) {
+export function useGetCaptchaApi(email, username, password, repassword, inviteCode) {
+    const body = {
+        email,
+        username,
+        password,
+        repassword
+    }
+    if (inviteCode) {
+        body.inviteCode = inviteCode
+    }
     return useHttpPost("GetCaptcha", "/user/register/submit", {
-        body: {
-            email,
-            username,
-            password,
-            repassword
-        }
+        body
     })
 }
 
@@ -72,6 +76,20 @@ export function useOrderListApi(page, status) {
     }
     return useHttpGet("OrderList", url, {
         lazy: true
+    })
+}
+
+// 获取我的邀请码
+export function useMyInviteCodeApi() {
+    return useHttpGet("MyInviteCode", `/user/invitation/code`, {
+        $: true
+    })
+}
+
+// 获取我邀请的人列表
+export function useMyInviteeListApi() {
+    return useHttpGet("MyInviteeList", `/user/invitation/list`, {
+        $: true
     })
 }
 

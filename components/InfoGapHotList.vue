@@ -43,7 +43,11 @@
             </div>
 
             <div class="slide-tag-row">
-              <span class="slide-category">[{{ item.tag || '未分类' }}]</span>
+              <button
+                type="button"
+                class="slide-category slide-category-button"
+                @click.stop="handleCategorySearch(item.tag)"
+              >[{{ item.tag || '未分类' }}]</button>
               <div v-if="item.searchTags.length" class="slide-search-tags">
                 <button
                   v-for="tag in item.searchTags"
@@ -68,6 +72,7 @@
                 <span>收藏 {{ item.collectCount || 0 }}</span>
               </div>
               <div class="slide-meta-row">
+                <span>{{ item.no ?? 'null' }}</span>
                 <span>{{ item.nickname || '匿名用户' }}</span>
                 <span>{{ formatTime(item.updateTime || item.createTime) }}</span>
               </div>
@@ -99,7 +104,11 @@
             </div>
 
             <div class="slide-tag-row">
-              <span class="slide-category">[{{ item.tag || '未分类' }}]</span>
+              <button
+                type="button"
+                class="slide-category slide-category-button"
+                @click.stop="handleCategorySearch(item.tag)"
+              >[{{ item.tag || '未分类' }}]</button>
               <div v-if="item.searchTags.length" class="slide-search-tags">
                 <button
                   v-for="tag in item.searchTags"
@@ -124,6 +133,7 @@
                 <span>收藏 {{ item.collectCount || 0 }}</span>
               </div>
               <div class="slide-meta-row">
+                <span>{{ item.no ?? 'null' }}</span>
                 <span>{{ item.nickname || '匿名用户' }}</span>
                 <span>{{ formatTime(item.updateTime || item.createTime) }}</span>
               </div>
@@ -157,6 +167,14 @@ let lastFrameTime = 0;
 const normalizeText = (value) => {
   const text = String(value ?? "").trim();
   return text.toLowerCase() === "null" ? "" : text;
+};
+
+const stripInfoGapNoPrefix = (value) => {
+  const text = String(value ?? "").trim();
+  if (!text || text.toLowerCase() === "null") {
+    return null;
+  }
+  return text.replace(/^info:/i, "");
 };
 
 const normalizeTagId = (value) => {
@@ -254,13 +272,40 @@ const handleTagSearch = (tag) => {
   });
 };
 
+const handleCategorySearch = (category) => {
+  const label = normalizeText(category);
+  if (!label) return;
+
+  navigateTo({
+    path: "/info_gap/1",
+    query: {
+      type: "hot",
+      title: label,
+      search: "1",
+      category: label,
+    },
+  });
+};
+
 const toggleContent = async (item, index) => {
   const key = getItemKey(item, index);
-  expandedMap.value = {
-    ...expandedMap.value,
-    [key]: !expandedMap.value[key],
-  };
-  await measureScroll();
+
+  if (expandedMap.value[key]) {
+    expandedMap.value = {
+      ...expandedMap.value,
+      [key]: false,
+    };
+    await measureScroll();
+    return;
+  }
+
+  useHasAuth(async () => {
+    expandedMap.value = {
+      ...expandedMap.value,
+      [key]: true,
+    };
+    await measureScroll();
+  });
 };
 
 const stopAutoScroll = () => {
@@ -388,6 +433,7 @@ const loadHotInfoGapList = async () => {
     expandedMap.value = {};
     items.value = rows.map((item) => ({
       ...item,
+      no: stripInfoGapNoPrefix(item.no),
       searchTags: buildSearchTags(item),
     }));
   } catch (err) {
@@ -553,6 +599,14 @@ await loadHotInfoGapList();
   color: #0b7285;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.slide-category-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
 }
 
 .slide-search-tags {
